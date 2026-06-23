@@ -23,7 +23,7 @@ import os
 # 确保项目根目录在 Python 路径中
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from game.engine import GameEngine
+from game.engine import GameEngine, TurnResult
 from game.data_loader import load_game_data
 from game.constants import FACTIONS
 from game.random import GameRandom
@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--mode",
-        choices=["ai-vs-ai", "human-vs-ai", "replay"],
+        choices=["ai-vs-ai", "human-vs-ai", "replay", "gui"],
         default="ai-vs-ai",
         help="运行模式",
     )
@@ -173,6 +173,60 @@ def run_ai_vs_ai(
     print("=" * 60)
 
 
+def run_gui_mode(
+    seed: int = 42, max_turns: int = 24,
+    use_llm: bool = False, model: str = "deepseek-v4-flash",
+    api_key: str = "",
+) -> None:
+    """运行GUI模式
+
+    Args:
+        seed: 随机种子
+        max_turns: 最大回合数
+        use_llm: 是否使用LLM玩家
+        model: LLM模型名称
+        api_key: API密钥
+    """
+    engine = GameEngine(seed=seed)
+    engine.max_turns = max_turns
+    data = load_game_data()
+    engine.init_game(data)
+
+    # 创建玩家
+    players = {}
+    for faction in FACTIONS:
+        if use_llm and faction == "wei":
+            llm_client = LLMClient(
+                provider="deepseek", model=model, api_key=api_key,
+            )
+            players[faction] = LLMPlayer(faction=faction, llm_client=llm_client)
+        else:
+            players[faction] = CLIPlayer(
+                faction=faction,
+                rng=GameRandom(seed + hash(faction) % 10000),
+            )
+
+    from renderer.game_renderer import GameRenderer
+    renderer = GameRenderer(engine, title="LLM三国志 - 三国策略对战")
+    renderer.run(players=players, auto_run=True)
+    """执行一个回合
+
+    Args:
+        engine: 游戏引擎
+        players: 玩家字典
+    """
+    for faction in FACTIONS:
+        obs = engine.get_observation(faction)
+        player = players.get(faction)
+        if player:
+            commands = player.get_commands(obs)
+            for cmd in commands:
+                engine.execute_command(cmd)
+
+    result = engine.process_turn()
+    logger.info("第%d回合完成: %s", result.get("turn"), result)
+
+
 def main() -> None:
     """主入口"""
     args = parse_args()
@@ -185,6 +239,9 @@ def main() -> None:
             seed=args.seed, max_turns=args.max_turns,
             use_llm=args.llm, model=args.model, api_key=api_key,
         )
+    elif args.mode == "gui":
+        run_gui_mode(seed=args.seed, max_turns=args.max_turns,
+                     use_llm=args.llm, model=args.model, api_key=api_key)
     elif args.mode == "human-vs-ai":
         print("人机对战模式尚在开发中...")
     elif args.mode == "replay":
