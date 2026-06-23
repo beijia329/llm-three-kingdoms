@@ -149,7 +149,7 @@ class Army(BaseModel):
     second_general_id: Optional[str] = Field(None, description="副将ID")
 
     # 兵力
-    soldiers: int = Field(gt=0, description="士兵数量")
+    soldiers: int = Field(ge=0, description="士兵数量")
     casualties: int = Field(default=0, description="累计伤亡")
 
     # 补给
