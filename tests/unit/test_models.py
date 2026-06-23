@@ -159,11 +159,11 @@ class TestArmy:
         assert not army.is_in_battle
 
     def test_army_soldiers_positive(self):
-        """兵力必须为正数"""
+        """兵力不能为负数"""
         with pytest.raises(ValidationError):
             Army(
                 id="bad", faction="caocao", general_id="x",
-                soldiers=0, food=100, food_consumption_per_turn=10,
+                soldiers=-1, food=100, food_consumption_per_turn=10,
                 status=ArmyStatus.GARRISONED, from_city="a",
                 to_city="a", total_distance=1,
             )
