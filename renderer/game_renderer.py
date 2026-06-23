@@ -75,6 +75,10 @@ class GameRenderer:
 	self._ui_panel = None
 	self._hex_map_renderer = None
 
+	# 相机
+	from renderer.camera import Camera
+	self.camera = Camera(x=0, y=0, zoom=1.0)
+
 	# 加载中国边界数据
 	self._china_boundaries: Optional[dict] = None
 	self._load_china_boundaries()
@@ -163,12 +167,19 @@ def map_renderer(self):
             # 清屏
             self.screen.fill(COLOR_BG)
 
-            # 渲染地图
-            self.map_renderer.render(
-                self.screen,
-                selected_city_id=self.selected_city_id,
-                auto_advance=self.auto_advance,
-            )
+            # 渲染地图（传入相机参数）
+            if self._hex_map_renderer is not None:
+                self._hex_map_renderer.render(
+                    self.screen,
+                    camera_offset=(self.camera.x, self.camera.y),
+                    camera_zoom=self.camera.zoom,
+                )
+            else:
+                self.map_renderer.render(
+                    self.screen,
+                    selected_city_id=self.selected_city_id,
+                    auto_advance=self.auto_advance,
+                )
 
             # 渲染UI面板
             self.ui_panel.render(
@@ -208,6 +219,10 @@ def map_renderer(self):
         """
         if event.type == pygame.QUIT:
             self.running = False
+
+        # 相机处理（优先）
+        elif self.camera.handle_event(event):
+            pass
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:

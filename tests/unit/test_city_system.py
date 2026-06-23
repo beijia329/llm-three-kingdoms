@@ -158,10 +158,10 @@ class TestRecruit:
     def test_recruit_partial_when_limited(self):
         """资源有限时征兵部分成功"""
         cs = CitySystem()
-        city = _make_city(level=2, gold=10, food=5000, garrison=500)
+        city = _make_city(level=2, gold=5, food=5000, garrison=500)
 
         result = cs.recruit(city, troops=1000)
-        # 只有10金币，最多招5人（10/2=5）
+        # 只有5金币，最多招5人（5/1=5）
         assert result.success is True
         assert result.troops_recruited == 5
         assert city.gold == 0  # 花光了

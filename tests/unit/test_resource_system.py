@@ -191,8 +191,8 @@ class TestFoodConsumption:
         city = _make_test_city(level=3, population=30000, morale=70, garrison=2000)
 
         consumption = rs.calculate_food_consumption(city)
-        # 2000 * 0.1 = 200
-        assert consumption == 200
+        # 2000 * 0.05 = 100
+        assert consumption == 100
 
     def test_no_garrison_no_consumption(self):
         """无守军时无消耗"""

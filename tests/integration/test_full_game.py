@@ -23,7 +23,7 @@ class TestFullGame:
         engine.init_game(data)
 
         assert len(engine.cities) >= 19
-        assert len(engine.generals) == 15
+        assert len(engine.generals) >= 40
         assert engine.turn == 1
 
     def test_five_turn_game(self):

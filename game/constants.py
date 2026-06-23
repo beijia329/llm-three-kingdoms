@@ -174,20 +174,20 @@ MAX_POPULATION_GROWTH_RATE: float = 0.05
 # 军事系统参数
 # ============================================================
 
-RECRUIT_COST_GOLD: int = 2
-"""每个士兵征兵消耗金钱"""
+RECRUIT_COST_GOLD: int = 1
+"""每个士兵征兵消耗金钱（降低以加速扩军）"""
 
-RECRUIT_COST_FOOD: int = 3
+RECRUIT_COST_FOOD: int = 2
 """每个士兵征兵消耗粮草"""
 
-GARRISON_FOOD_COST_PER_SOLDIER: float = 0.1
-"""每个守军每回合消耗粮草"""
+GARRISON_FOOD_COST_PER_SOLDIER: float = 0.05
+"""每个守军每回合消耗粮草（降低）"""
 
-ARMY_FOOD_COST_PER_SOLDIER: float = 0.2
+ARMY_FOOD_COST_PER_SOLDIER: float = 0.15
 """每个出征士兵每回合消耗粮草"""
 
-ARMY_MARCH_SPEED: int = 1
-"""每回合行军距离（城市数）"""
+ARMY_MARCH_SPEED: int = 2
+"""每回合行军基础速度（六角格模式下为移动力预算）"""
 
 # ============================================================
 # 战斗系统参数

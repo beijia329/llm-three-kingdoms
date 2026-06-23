@@ -171,7 +171,7 @@ class HexMapRenderer:
         camera_offset: tuple = (0, 0),
         camera_zoom: float = 1.0,
     ) -> None:
-        """渲染所有地块
+        """渲染所有地块 + 省界线
 
         Args:
             surface: Pygame Surface 对象
@@ -184,8 +184,70 @@ class HexMapRenderer:
         for tile in self.hex_map.iter_tiles():
             self._draw_hex(surface, tile, camera_offset, camera_zoom)
 
+        # 势力边界
+        self._draw_faction_borders(surface, camera_offset, camera_zoom)
+
         # 叠加省界线
         self._draw_boundaries(surface, camera_offset, camera_zoom)
+
+    def _draw_faction_borders(
+        self,
+        surface: object,
+        camera_offset: tuple = (0, 0),
+        camera_zoom: float = 1.0,
+    ) -> None:
+        """绘制势力边界——在异势力邻格之间的边画粗线
+
+        Args:
+            surface: Pygame Surface
+            camera_offset: 相机偏移
+            camera_zoom: 缩放倍率
+        """
+        if pygame is None:
+            return
+
+        faction_colors_hex = {
+            "han": "#FFD700", "zhangjiao": "#FFFF00", "dongzhuo": "#8B0000",
+            "yuanshao": "#FF6600", "caocao": "#0055A4", "liubei": "#00AA55",
+            "sunjian": "#CC0000", "liubiao": "#8B4513", "liuyan": "#9370DB",
+            "gongsunzan": "#CCCCCC", "mateng": "#4B0082", "yuanshu": "#FF1493",
+        }
+
+        for tile in self.hex_map.iter_tiles():
+            if tile.faction is None:
+                continue
+            neighbors = self.hex_map.get_neighbors(tile.coord)
+            for nb in neighbors:
+                if nb.faction is None or nb.faction == tile.faction:
+                    continue
+                # 只画一次（按坐标排序避免重复）
+                if tile.coord.to_tuple() > nb.coord.to_tuple():
+                    continue
+                # 计算共享边的两个端点
+                x1, y1 = axial_to_pixel(tile.coord, self.hex_size * camera_zoom)
+                x2, y2 = axial_to_pixel(nb.coord, self.hex_size * camera_zoom)
+                mx = (x1 + x2) / 2 + camera_offset[0]
+                my = (y1 + y2) / 2 + camera_offset[1]
+                # 边方向（垂直平分线）
+                dx = (x2 - x1)
+                dy = (y2 - y1)
+                length = (dx * dx + dy * dy) ** 0.5
+                if length < 1:
+                    continue
+                nx = -dy / length * self.hex_size * 0.5
+                ny = dx / length * self.hex_size * 0.5
+                # 用势力颜色画边界线
+                color_hex = faction_colors_hex.get(tile.faction, "#888888")
+                color = self._hex_to_rgb(color_hex)
+                try:
+                    pygame.draw.line(
+                        surface, color,
+                        (mx + nx, my + ny),
+                        (mx - nx, my - ny),
+                        2,
+                    )
+                except Exception:
+                    pass
 
     def _draw_hex(
         self,
