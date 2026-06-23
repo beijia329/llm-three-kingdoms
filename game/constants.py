@@ -186,16 +186,16 @@ GARRISON_FOOD_COST_PER_SOLDIER: float = 0.05
 ARMY_FOOD_COST_PER_SOLDIER: float = 0.15
 """每个出征士兵每回合消耗粮草"""
 
-ARMY_MARCH_SPEED: int = 2
-"""每回合行军基础速度（六角格模式下为移动力预算）"""
+ARMY_MARCH_SPEED: int = 4
+"""每回合行军基础速度"""
 
 # ============================================================
 # 战斗系统参数
 # ============================================================
 
 # --- 围城参数 ---
-WALL_DAMAGE_BASE: int = 200
-"""围城每回合对城墙的基础伤害（提高以加速攻城）"""
+WALL_DAMAGE_BASE: int = 400
+"""围城每回合对城墙的基础伤害"""
 
 WALL_DAMAGE_FORCE_MULTIPLIER_CAP: float = 4.0
 """兵力系数上限（攻击方兵力/守军）"""
