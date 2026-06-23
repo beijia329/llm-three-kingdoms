@@ -52,7 +52,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42, help="随机种子")
     parser.add_argument("--file", type=str, help="回放文件路径")
     parser.add_argument("--max-turns", type=int, default=24, help="最大回合数")
-    parser.add_argument("--start-year", type=int, default=190, help="起始年份（无限模式）")
+    parser.add_argument("--start-year", type=int, default=184, help="起始年份（默认184年黄巾起义）")
+    parser.add_argument("--faction", type=str, default="", help="人类玩家势力（human-vs-ai模式）")
     parser.add_argument("--llm", action="store_true", help="使用LLM玩家（默认使用CLI AI）")
     parser.add_argument("--model", type=str, default="deepseek-v4-flash", help="LLM模型名称")
     parser.add_argument("--api-key", type=str, default="", help="API密钥（默认从环境变量读取）")
@@ -164,9 +165,10 @@ def run_ai_vs_ai(
 
 
 def run_gui_mode(
-    seed: int = 42, max_turns: int = 24,
+    seed: int = 42, max_turns: int = 192,
     use_llm: bool = False, model: str = "deepseek-v4-flash",
     api_key: str = "",
+    human_faction: str = "",
 ) -> None:
     """运行GUI模式
 
@@ -176,11 +178,23 @@ def run_gui_mode(
         use_llm: 是否使用LLM玩家
         model: LLM模型名称
         api_key: API密钥
+        human_faction: 人类玩家势力（空则全AI）
     """
     engine = GameEngine(seed=seed)
     engine.max_turns = max_turns
     data = load_game_data()
     engine.init_game(data)
+
+    # 显示可用势力
+    print("=" * 50)
+    print("  184年 黄巾之乱 — 12方诸侯")
+    print("=" * 50)
+    for f, name in FACTIONS.items():
+        cities_n = sum(1 for c in engine.cities.values() if c.faction == f)
+        if cities_n > 0:
+            marker = " ◀ 玩家" if f == human_faction else ""
+            print(f"  [{f:12s}] {name:6s} — {cities_n}城{marker}")
+    print()
 
     # 创建玩家
     players = {}
@@ -194,8 +208,13 @@ def run_gui_mode(
         for faction in FACTIONS:
             players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
 
+    if human_faction and human_faction in FACTIONS:
+        title = f"LLM三国志 — 扮演{FACTIONS[human_faction]}"
+    else:
+        title = "LLM三国志 — 184年黄巾之乱"
+    
     from renderer.game_renderer import GameRenderer
-    renderer = GameRenderer(engine, title="LLM三国志 - 三国策略对战")
+    renderer = GameRenderer(engine, title=title)
     renderer.run(players=players, auto_run=True)
 
 
@@ -259,7 +278,8 @@ def main() -> None:
         )
     elif args.mode == "gui":
         run_gui_mode(seed=args.seed, max_turns=args.max_turns,
-                     use_llm=args.llm, model=args.model, api_key=api_key)
+                     use_llm=args.llm, model=args.model, api_key=api_key,
+                     human_faction=args.faction)
     elif args.mode == "infinite":
         run_infinite_mode(
             seed=args.seed,
