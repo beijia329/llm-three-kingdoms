@@ -148,12 +148,6 @@ class GameRenderer:
                     camera_offset=(self.camera.x, self.camera.y),
                     camera_zoom=self.camera.zoom,
                 )
-            else:
-                self.map_renderer.render(
-                    self.screen,
-                    selected_city_id=self.selected_city_id,
-                    auto_advance=self.auto_advance,
-                )
 
             self.ui_panel.render(self.screen, selected_city_id=self.selected_city_id)
 
