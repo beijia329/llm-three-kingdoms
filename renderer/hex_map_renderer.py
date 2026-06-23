@@ -206,12 +206,7 @@ class HexMapRenderer:
         if pygame is None:
             return
 
-        faction_colors_hex = {
-            "han": "#FFD700", "zhangjiao": "#FFFF00", "dongzhuo": "#8B0000",
-            "yuanshao": "#FF6600", "caocao": "#0055A4", "liubei": "#00AA55",
-            "sunjian": "#CC0000", "liubiao": "#8B4513", "liuyan": "#9370DB",
-            "gongsunzan": "#CCCCCC", "mateng": "#4B0082", "yuanshu": "#FF1493",
-        }
+        from game.constants import FACTION_COLORS
 
         for tile in self.hex_map.iter_tiles():
             if tile.faction is None:
@@ -237,7 +232,7 @@ class HexMapRenderer:
                 nx = -dy / length * self.hex_size * 0.5
                 ny = dx / length * self.hex_size * 0.5
                 # 用势力颜色画边界线
-                color_hex = faction_colors_hex.get(tile.faction, "#888888")
+                color_hex = FACTION_COLORS.get(tile.faction, "#888888")
                 color = self._hex_to_rgb(color_hex)
                 try:
                     pygame.draw.line(

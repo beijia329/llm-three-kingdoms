@@ -67,7 +67,7 @@ def _init_cjk_font():
 
 
 def draw_text(surf, text, x, y, color=COLOR_TEXT, font=None, center=False):
-    """绘制文字"""
+    """绘制文字，返回渲染后的Surface"""
     f = font or FONT_CJK
     try:
         s = f.render(str(text), True, color)
@@ -75,9 +75,9 @@ def draw_text(surf, text, x, y, color=COLOR_TEXT, font=None, center=False):
             surf.blit(s, (x - s.get_width() // 2, y))
         else:
             surf.blit(s, (x, y))
-        return s.get_height()
+        return s
     except Exception:
-        return 0
+        return None
 
 
 class GameRenderer:
@@ -227,8 +227,8 @@ class GameRenderer:
         y = MAP_H - 28
         x = 10
         for _, txt, color in recent[:3]:
-            w = draw_text(self.screen, f"▸ {txt}", x, y, color, FONT_CJK_SM)
-            x += w * 8 + 10
+            s = draw_text(self.screen, f"▸ {txt}", x, y, color, FONT_CJK_SM)
+            x += (s.get_width() if s else 0) + 10
             if x > MAP_W - 100:
                 break
 

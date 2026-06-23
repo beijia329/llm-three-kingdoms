@@ -133,9 +133,8 @@ class CitySystem:
         effect_value = 0
 
         if develop_type == "economy":
-            # 增加基础金钱产出（通过提升城市登记或记录额外产出）
-            # 由于 City 模型没有单独的 development_level 字段，
-            # 我们通过修改城市数据来记录发展效果
+            # 经济发展：消耗金钱投资，短期回馈金币
+            city.gold += ECONOMY_GOLD_BONUS
             effect_value = ECONOMY_GOLD_BONUS
 
         elif develop_type == "military":

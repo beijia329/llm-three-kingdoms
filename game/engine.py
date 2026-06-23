@@ -31,7 +31,7 @@ from game.constants import (
     MAX_TURNS,
     NUM_FACTIONS,
     FACTIONS,
-    OVERTIME_EXTRA_SOLDIERS,
+    ARMY_FOOD_COST_PER_SOLDIER,
 )
 from game.event_bus import EventBus
 from game.models import (
@@ -401,7 +401,7 @@ class GameEngine:
             general_id=cmd.general,
             soldiers=cmd.troops,
             food=cmd.troops * 3,  # 自带3回合粮草
-            food_consumption_per_turn=int(cmd.troops * 0.2),
+            food_consumption_per_turn=int(cmd.troops * ARMY_FOOD_COST_PER_SOLDIER),
             morale=80,
             status=ArmyStatus.MARCHING,
             from_city=cmd.from_city,
@@ -603,10 +603,10 @@ class GameEngine:
                 continue
             if self.hex_map is not None:
                 self._army_movement.process_movement(
-                    army, hex_map=self.hex_map, season=season
+                    army, hex_map=self.hex_map, season=season, cities=self.cities
                 )
             else:
-                self._army_movement.process_movement(army)
+                self._army_movement.process_movement(army, cities=self.cities)
             result["armies_moved"] += 1
 
         # 3. 将领忠诚度衰减

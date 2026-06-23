@@ -103,8 +103,11 @@ class Camera:
                 return True
 
             # 中键拖拽平移
-            if event.type == pygame.MOUSEMOTION and event.buttons[1]:
-                self.move(-event.rel[0], -event.rel[1])
+            if event.type == pygame.MOUSEMOTION:
+                pressed = pygame.mouse.get_pressed()
+                if pressed[1]:  # 中键
+                    self.move(-event.rel[0], -event.rel[1])
+                    return True
                 return True
 
             # 键盘平移
@@ -119,9 +122,11 @@ class Camera:
                 elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
                     self.move(0, -step)
                 elif event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:
-                    self.zoom_at(1.1, 400, 300)
+                    mx, my = pygame.mouse.get_pos()
+                    self.zoom_at(1.1, mx, my)
                 elif event.key == pygame.K_MINUS:
-                    self.zoom_at(0.9, 400, 300)
+                    mx, my = pygame.mouse.get_pos()
+                    self.zoom_at(0.9, mx, my)
                 else:
                     return False
                 return True

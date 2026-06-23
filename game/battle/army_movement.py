@@ -103,6 +103,7 @@ class ArmyMovementSystem:
         army: Army,
         hex_map: Optional[object] = None,
         season: str = "spring",
+        cities: Optional[dict] = None,
     ) -> MovementResult:
         """处理一回合的军队移动
 
@@ -155,13 +156,13 @@ class ArmyMovementSystem:
             if hex_map is not None and army.path_hexes:
                 if army.path_index >= len(army.path_hexes) - 1:
                     army.progress = 1.0
-                    arrival_result = self._handle_arrival(army)
+                    arrival_result = self._handle_arrival(army, cities)
                     result.arrived = arrival_result["arrived"]
                     result.arrival_type = arrival_result["type"]
                     result.status_changed = arrival_result["status_changed"]
             elif army.progress >= 1.0:
                 army.progress = 1.0
-                arrival_result = self._handle_arrival(army)
+                arrival_result = self._handle_arrival(army, cities)
                 result.arrived = arrival_result["arrived"]
                 result.arrival_type = arrival_result["type"]
                 result.status_changed = arrival_result["status_changed"]
@@ -293,30 +294,32 @@ class ArmyMovementSystem:
     # 到达处理
     # ============================================================
 
-    def _handle_arrival(self, army: Army) -> dict:
+    def _handle_arrival(self, army: Army, cities: dict = None) -> dict:
         """处理军队到达目的地
 
         根据目标城市归属决定：
-        - 友方城市：入城增援（军队变为驻守状态）
-        - 敌方城市：开始围城（军队变为围城状态）
+        - 友方城市：入城增援
+        - 敌方/中立城市：开始围城
+        - 同城：驻守
 
         Args:
             army: 军队对象
+            cities: 城市字典 {id: City}，用于判断城市归属
 
         Returns:
             包含 arrived 和 type 的字典
         """
-        # 简化处理：根据 from/to 城市所属势力判断
-        # 如果是同一势力（通过 faction 判断），视为增援
-        # 否则视为围城
-        # 注意：这里简化处理，实际应该在 GameEngine 层面根据城市归属判断
-
         if army.from_city == army.to_city:
-            # 同一城市，直接驻守
             army.status = ArmyStatus.GARRISONED
             return {"arrived": True, "type": "garrison", "status_changed": True}
 
-        # 默认：到达敌方城市开始围城
+        # 判断目标城市归属
+        if cities and army.to_city in cities:
+            target_city = cities[army.to_city]
+            if target_city.faction == army.faction:
+                army.status = ArmyStatus.GARRISONED
+                return {"arrived": True, "type": "reinforce", "status_changed": True}
+
         army.status = ArmyStatus.BESIEGING
         return {"arrived": True, "type": "besiege", "status_changed": True}
 
