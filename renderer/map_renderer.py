@@ -104,7 +104,8 @@ class MapRenderer:
 
         if self.engine.game_over:
             if self.engine.winner:
-                winner_name = "魏" if self.engine.winner == "wei" else "蜀" if self.engine.winner == "shu" else "吴"
+                from game.constants import FACTIONS
+                winner_name = FACTIONS.get(self.engine.winner, self.engine.winner)
                 turn_text = f"🏆 {winner_name} 获胜！共{self.engine.turn}回合"
             else:
                 turn_text = "⚖️ 平局！"
