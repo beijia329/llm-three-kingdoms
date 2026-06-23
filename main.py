@@ -137,12 +137,15 @@ def run_ai_vs_ai(
 
         # 处理回合
         turn_result = engine.process_turn()
-        print(f"  → 回合结束: "
-              f"🏙️{sum(1 for c in engine.cities.values() if c.faction=='wei')}魏 "
-              f"{sum(1 for c in engine.cities.values() if c.faction=='shu')}蜀 "
-              f"{sum(1 for c in engine.cities.values() if c.faction=='wu')}吴 "
-              f"⚔️{turn_result['battles_fought']}场战斗"
-        )
+        # 显示各势力城市数
+        faction_counts = {}
+        for c in engine.cities.values():
+            if c.faction != "neutral":
+                faction_counts[c.faction] = faction_counts.get(c.faction, 0) + 1
+        summary_parts = []
+        for f, cnt in sorted(faction_counts.items(), key=lambda x: -x[1])[:5]:
+            summary_parts.append(f"{FACTIONS.get(f,f)}{cnt}")
+        print(f"  → 回合结束: {' '.join(summary_parts)} ⚔️{turn_result['battles_fought']}场战斗")
 
         if engine.game_over:
             break

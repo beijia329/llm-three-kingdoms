@@ -784,7 +784,7 @@ class GameEngine:
             city_counts[city.faction] = city_counts.get(city.faction, 0) + 1
 
         # 检查是否只剩一个势力（其他全灭）
-        active_factions = [f for f, c in city_counts.items() if c > 0]
+        active_factions = [f for f, c in city_counts.items() if c > 0 and f != "neutral"]
         if len(active_factions) == 1:
             self.game_over = True
             self.winner = active_factions[0]
