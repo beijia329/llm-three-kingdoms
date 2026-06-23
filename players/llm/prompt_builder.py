@@ -37,7 +37,25 @@ class PromptBuilder:
         faction_name = FACTIONS.get(faction, faction)
         max_turns = MAX_TURNS
 
+        # 加载性格背景
+        personality_hint = ""
+        try:
+            from game.personality import FACTION_PERSONALITY
+            fp = FACTION_PERSONALITY.get(faction, {})
+            style = fp.get("style", "balanced")
+            style_hints = {
+                "aggressive": "你性格激进，信奉先发制人，偏好主动进攻。",
+                "cautious": "你性格谨慎，重视防守和内政，不轻易出兵。",
+                "diplomatic": "你善于外交斡旋，通过结盟和离间削弱对手。",
+                "ambitious": "你野心勃勃，不择手段追求霸权，忠诚对你只是工具。",
+            }
+            personality_hint = style_hints.get(style, "")
+        except ImportError:
+            pass
+
         return f"""你是【{faction_name}】的领主，你的目标是统一中原，称霸天下。
+
+{personality_hint}
 
 这是一场策略游戏比赛，你需要：
 - 发展经济，扩充军备

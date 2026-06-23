@@ -284,14 +284,80 @@ class HexMapRenderer:
         self,
         surface: object,
         cities: dict,
+        font: object = None,
         camera_offset: tuple = (0, 0),
         camera_zoom: float = 1.0,
     ) -> None:
-        """渲染城市标记
+        """渲染城市标记（圆点 + 名称 + 兵力条）
 
         Args:
             surface: Pygame Surface
             cities: 城市字典 {id: City}
+            font: Pygame 字体（用于城市名）
+            camera_offset: 相机偏移
+            camera_zoom: 缩放
+        """
+        if pygame is None:
+            return
+
+        from game.constants import FACTION_COLORS, FACTIONS
+
+        for city in cities.values():
+            x, y = axial_to_pixel(city.position, self.hex_size * camera_zoom)
+            x += camera_offset[0]
+            y += camera_offset[1]
+            ix, iy = int(x), int(y)
+
+            hex_color = FACTION_COLORS.get(city.faction, "#888888")
+            color = self._hex_to_rgb(hex_color)
+
+            # 城市等级 → 圆点大小
+            radius = int((4 + city.level * 1.5) * camera_zoom)
+            radius = max(3, radius)
+
+            # 被围困时闪烁
+            if city.is_besieged:
+                import time
+                if int(time.time() * 4) % 2 == 0:
+                    color = (255, 80, 80)
+
+            pygame.draw.circle(surface, color, (ix, iy), radius)
+            pygame.draw.circle(surface, (255, 255, 255), (ix, iy), radius, 1)
+
+            # 城市名（缩放 > 0.5 时显示）
+            if camera_zoom > 0.5 and font:
+                name_text = city.name
+                try:
+                    txt = font.render(name_text, True, (255, 255, 255))
+                    surface.blit(txt, (ix - txt.get_width() // 2, iy - radius - 14))
+                except Exception:
+                    pass
+
+            # 兵力条
+            if city.garrison > 0 and camera_zoom > 0.4:
+                max_g = city.level * 1000
+                bar_w = int(20 * camera_zoom)
+                bar_h = max(2, int(3 * camera_zoom))
+                bar_x = ix - bar_w // 2
+                bar_y = iy + radius + 2
+                ratio = min(1.0, city.garrison / max_g)
+                pygame.draw.rect(surface, (60, 60, 60), (bar_x, bar_y, bar_w, bar_h))
+                pygame.draw.rect(surface, (0, 200, 100), (bar_x, bar_y, int(bar_w * ratio), bar_h))
+
+    def render_armies(
+        self,
+        surface: object,
+        armies: dict,
+        cities: dict,
+        camera_offset: tuple = (0, 0),
+        camera_zoom: float = 1.0,
+    ) -> None:
+        """渲染军队标记（三角箭头 + 士气条）
+
+        Args:
+            surface: Pygame Surface
+            armies: 军队字典 {id: Army}
+            cities: 城市字典（用于方向判断）
             camera_offset: 相机偏移
             camera_zoom: 缩放
         """
@@ -299,16 +365,60 @@ class HexMapRenderer:
             return
 
         from game.constants import FACTION_COLORS
+        from game.models import ArmyStatus
 
-        for city in cities.values():
-            x, y = axial_to_pixel(city.position, self.hex_size * camera_zoom)
-            x += camera_offset[0]
-            y += camera_offset[1]
-            hex_color = FACTION_COLORS.get(city.faction, "#888888")
+        for army in armies.values():
+            if army.soldiers <= 0:
+                continue
+
+            # 确定军队位置
+            if army.current_hex is not None:
+                hx, hy = axial_to_pixel(army.current_hex, self.hex_size * camera_zoom)
+            elif army.to_city in cities:
+                tc = cities[army.to_city]
+                hx, hy = axial_to_pixel(tc.position, self.hex_size * camera_zoom)
+            else:
+                continue
+
+            hx += camera_offset[0]
+            hy += camera_offset[1]
+
+            hex_color = FACTION_COLORS.get(army.faction, "#888888")
             color = self._hex_to_rgb(hex_color)
-            radius = int(8 * camera_zoom)
-            pygame.draw.circle(surface, color, (int(x), int(y)), max(radius, 3))
-            pygame.draw.circle(surface, (255, 255, 255), (int(x), int(y)), max(radius, 3), 1)
+            size = int(6 * camera_zoom)
+
+            # 三角箭头
+            import math
+            points = []
+            for i in range(3):
+                angle = math.pi * 2 / 3 * i - math.pi / 2
+                px = hx + size * math.cos(angle)
+                py = hy + size * math.sin(angle)
+                points.append((px, py))
+            try:
+                pygame.draw.polygon(surface, color, points)
+            except Exception:
+                pass
+
+            # 兵力数字
+            if camera_zoom > 0.4:
+                try:
+                    font_s = pygame.font.Font(None, 10)
+                    txt = font_s.render(str(army.soldiers), True, (255, 255, 255))
+                    surface.blit(txt, (hx - txt.get_width() // 2, hy - size - 10))
+                except Exception:
+                    pass
+
+            # 士气条
+            if camera_zoom > 0.35:
+                bar_w = int(16 * camera_zoom)
+                bar_h = max(1, int(2 * camera_zoom))
+                bar_x = int(hx) - bar_w // 2
+                bar_y = int(hy) + size + 1
+                ratio = army.morale / 100
+                pygame.draw.rect(surface, (60, 60, 60), (bar_x, bar_y, bar_w, bar_h))
+                morale_color = (0, 200, 100) if ratio > 0.5 else (200, 150, 0) if ratio > 0.2 else (200, 50, 50)
+                pygame.draw.rect(surface, morale_color, (bar_x, bar_y, int(bar_w * ratio), bar_h))
 
     @staticmethod
     def _hex_points(x: float, y: float, size: float) -> list:

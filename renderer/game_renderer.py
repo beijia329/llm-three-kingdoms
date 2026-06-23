@@ -174,6 +174,18 @@ def map_renderer(self):
                     camera_offset=(self.camera.x, self.camera.y),
                     camera_zoom=self.camera.zoom,
                 )
+                # 渲染城市和军队
+                self._hex_map_renderer.render_cities(
+                    self.screen, self.engine.cities,
+                    font=self.font_small,
+                    camera_offset=(self.camera.x, self.camera.y),
+                    camera_zoom=self.camera.zoom,
+                )
+                self._hex_map_renderer.render_armies(
+                    self.screen, self.engine.armies, self.engine.cities,
+                    camera_offset=(self.camera.x, self.camera.y),
+                    camera_zoom=self.camera.zoom,
+                )
             else:
                 self.map_renderer.render(
                     self.screen,

@@ -1,7 +1,9 @@
 """CLI 自动玩家（用于测试/AI对战）
 
-提供自动化的命令生成逻辑，用于测试游戏引擎。
-策略优先级：进攻 > 征兵 > 发展
+策略权重受势力性格（personality.FACTION_PERSONALITY）影响：
+- aggression 高 → 降进攻门槛，多出兵
+- diplomacy 高 → 优先外交，少进攻
+- expand 高 → 多发展经济
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from game.models import (
     DevelopCommand,
     RecruitCommand,
     AttackCommand,
+    MessageCommand,
     City,
     GameObservation,
     General,
@@ -22,33 +25,60 @@ from players.base_player import BasePlayer
 
 
 class CLIPlayer(BasePlayer):
-    """CLI 自动玩家"""
+    """CLI 自动玩家——决策受性格参数驱动"""
 
     def __init__(self, faction: str, rng: GameRandom) -> None:
         super().__init__(faction)
         self._rng = rng
+        self._msg_sent = False
+
+        try:
+            from game.personality import FACTION_PERSONALITY
+            fp = FACTION_PERSONALITY.get(faction, {})
+            self._aggression = fp.get("aggression", 0.5)
+            self._diplomacy = fp.get("diplomacy", 0.3)
+            self._expand = fp.get("expand", 0.2)
+        except ImportError:
+            self._aggression = 0.5
+            self._diplomacy = 0.3
+            self._expand = 0.2
 
     def get_commands(self, observation: GameObservation) -> List[Command]:
         commands: List[Command] = []
         turn = observation.turn
 
-        # 敌方城市ID集合
         enemy_ids: Set[str] = {c.id for c in observation.known_cities}
+        enemy_factions = list({c.faction for c in observation.known_cities if c.faction != self.faction})
 
-        # 第一遍：军事行动（进攻 > 征兵）
+        # 外交（diplomacy > 0.4 的势力更倾向外交）
+        if self._diplomacy > 0.4 and not self._msg_sent and enemy_factions:
+            target = self._rng.choice(enemy_factions)
+            messages = ["提议结盟共抗强敌", "互不侵犯如何？", "你我合兵一处，天下可定"]
+            commands.append(MessageCommand(
+                faction=self.faction, turn=turn,
+                to=target, content=self._rng.choice(messages),
+            ))
+            self._msg_sent = True
+
+        # 性格驱动的阈值
+        attack_garrison = int(2000 - self._aggression * 1000)
+        attack_gold = int(800 - self._aggression * 600)
+        recruit_gold = int(600 - self._aggression * 300)
+
         for city in observation.own_cities:
             border = any(nid in enemy_ids for nid in city.neighbors)
-
             if not border:
-                continue  # 内陆城市，军事先放放
+                continue
 
-            # 边境城市：优先进攻
-            if city.garrison >= 1500 and observation.own_generals:
+            # 进攻
+            if (city.garrison >= attack_garrison
+                    and city.gold >= attack_gold
+                    and observation.own_generals
+                    and self._rng.random() < self._aggression):
                 target = self._find_attack_target(city, enemy_ids, observation)
                 if target:
-                    troops = min(city.garrison - 200, 2000)
+                    troops = min(city.garrison - 200, int(2000 * max(0.3, self._aggression)))
                     if troops >= 300:
-                        # 找在该城市的将领
                         gen = self._find_general_in_city(city.id, observation)
                         if gen:
                             commands.append(AttackCommand(
@@ -56,21 +86,23 @@ class CLIPlayer(BasePlayer):
                                 from_city=city.id, to_city=target,
                                 troops=troops, general=gen.id,
                             ))
-                            continue  # 已有进攻，该城市够了
+                            continue
 
-            # 边境城市：补兵
-            if city.gold >= 500 and city.garrison < 3000:
-                troops = min(1000, city.gold // 2)
+            # 征兵
+            if city.gold >= recruit_gold and city.garrison < 3000:
+                troops = min(1000, city.gold // 1)
                 commands.append(RecruitCommand(
                     faction=self.faction, turn=turn,
                     city=city.id, troops=troops,
                 ))
 
-        # 第二遍：发展（填满剩余命令槽）
+        # 发展（expand 高→更多发展命令）
+        max_cmds = int(4 + self._expand * 4)
         for city in observation.own_cities:
-            if len(commands) >= 4:
+            if len(commands) >= max_cmds:
                 break
-            if city.gold >= 400:
+            dev_gold = int(500 - self._expand * 200)
+            if city.gold >= dev_gold:
                 dev_types = ["economy", "military", "culture"]
                 dev_type = dev_types[(turn + len(commands)) % 3]
                 commands.append(DevelopCommand(
@@ -78,43 +110,17 @@ class CLIPlayer(BasePlayer):
                     city=city.id, develop_type=dev_type,
                 ))
 
-        return commands[:4]  # 最多4个命令
+        return commands[:8]
 
     @staticmethod
-    def _find_general_in_city(
-        city_id: str, observation: GameObservation
-    ) -> Optional[General]:
-        """查找在指定城市的己方将领
-
-        Args:
-            city_id: 城市ID
-            observation: 游戏观察
-
-        Returns:
-            将领对象，未找到返回 None
-        """
-        for g in observation.own_generals:
+    def _find_general_in_city(city_id: str, obs: GameObservation) -> Optional[General]:
+        for g in obs.own_generals:
             if g.location == city_id:
                 return g
-        # 找不到时返回第一个将领（可能失败，但尽力而为）
-        return observation.own_generals[0] if observation.own_generals else None
+        return obs.own_generals[0] if obs.own_generals else None
 
     @staticmethod
-    def _find_attack_target(
-        city: City,
-        enemy_ids: Set[str],
-        observation: GameObservation,
-    ) -> str:
-        """查找进攻目标
-
-        Args:
-            city: 进攻方城市
-            enemy_ids: 敌方城市ID集合
-            observation: 游戏观察
-
-        Returns:
-            目标城市ID，无可攻击目标返回空字符串
-        """
+    def _find_attack_target(city: City, enemy_ids: Set[str], obs: GameObservation) -> str:
         for nid in city.neighbors:
             if nid in enemy_ids:
                 return nid
