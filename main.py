@@ -45,13 +45,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--mode",
-        choices=["ai-vs-ai", "human-vs-ai", "replay", "gui"],
+        choices=["ai-vs-ai", "human-vs-ai", "replay", "gui", "infinite"],
         default="ai-vs-ai",
         help="运行模式",
     )
     parser.add_argument("--seed", type=int, default=42, help="随机种子")
     parser.add_argument("--file", type=str, help="回放文件路径")
     parser.add_argument("--max-turns", type=int, default=24, help="最大回合数")
+    parser.add_argument("--start-year", type=int, default=190, help="起始年份（无限模式）")
     parser.add_argument("--llm", action="store_true", help="使用LLM玩家（默认使用CLI AI）")
     parser.add_argument("--model", type=str, default="deepseek-v4-flash", help="LLM模型名称")
     parser.add_argument("--api-key", type=str, default="", help="API密钥（默认从环境变量读取）")
@@ -209,22 +210,56 @@ def run_gui_mode(
     from renderer.game_renderer import GameRenderer
     renderer = GameRenderer(engine, title="LLM三国志 - 三国策略对战")
     renderer.run(players=players, auto_run=True)
-    """执行一个回合
+
+
+def run_infinite_mode(
+    seed: int = 42,
+    use_llm: bool = False,
+    model: str = "deepseek-v4-flash",
+    api_key: str = "",
+    start_year: int = 190,
+) -> None:
+    """运行无限模式
 
     Args:
-        engine: 游戏引擎
-        players: 玩家字典
+        seed: 随机种子
+        use_llm: 是否使用LLM玩家
+        model: LLM模型名称
+        api_key: API密钥
+        start_year: 起始年份
     """
-    for faction in FACTIONS:
-        obs = engine.get_observation(faction)
-        player = players.get(faction)
-        if player:
-            commands = player.get_commands(obs)
-            for cmd in commands:
-                engine.execute_command(cmd)
+    from game.game_mode import GameMode
 
-    result = engine.process_turn()
-    logger.info("第%d回合完成: %s", result.get("turn"), result)
+    engine = GameEngine(seed=seed)
+    engine.game_mode = GameMode.INFINITE
+    engine.max_turns = 9999
+    engine.start_year = start_year
+
+    data = load_game_data()
+    if not data["cities"]:
+        logger.error("无法加载游戏数据")
+        sys.exit(1)
+    engine.init_game(data)
+
+    # 创建玩家
+    players = {}
+    if use_llm:
+        llm_client = LLMClient(provider="deepseek", model=model, api_key=api_key)
+        players["wei"] = LLMPlayer(faction="wei", llm_client=llm_client)
+        for f in ["shu", "wu"]:
+            players[f] = CLIPlayer(
+                faction=f, rng=GameRandom(seed + hash(f) % 10000),
+            )
+    else:
+        for faction in FACTIONS:
+            players[faction] = CLIPlayer(
+                faction=faction,
+                rng=GameRandom(seed + hash(faction) % 10000),
+            )
+
+    from renderer.game_renderer import GameRenderer
+    renderer = GameRenderer(engine, title="LLM三国志 - 无限模式")
+    renderer.run(players=players, auto_run=True)
 
 
 def main() -> None:
@@ -242,6 +277,12 @@ def main() -> None:
     elif args.mode == "gui":
         run_gui_mode(seed=args.seed, max_turns=args.max_turns,
                      use_llm=args.llm, model=args.model, api_key=api_key)
+    elif args.mode == "infinite":
+        run_infinite_mode(
+            seed=args.seed,
+            use_llm=args.llm, model=args.model, api_key=api_key,
+            start_year=args.start_year,
+        )
     elif args.mode == "human-vs-ai":
         print("人机对战模式尚在开发中...")
     elif args.mode == "replay":
