@@ -123,6 +123,14 @@ class GameEngine:
         self.game_over: bool = False
         self.winner: Optional[str] = None
 
+        # 模式与时间
+        from game.game_mode import GameMode
+        from game.season import Season
+        self.game_mode: GameMode = GameMode.STANDARD
+        self.season: Season = Season.SPRING
+        self.year: int = 1
+        self.start_year: int = 190  # 东汉末年
+
         # 游戏数据
         self.cities: Dict[str, City] = {}
         self.armies: Dict[str, Army] = {}
@@ -548,6 +556,11 @@ class GameEngine:
             "winner": None,
         }
 
+        # 更新季节和年份
+        from game.season import Season
+        self.season = Season.from_turn(self.turn)
+        self.year = self.start_year + (self.turn - 1) // 12
+
         # 1. 资源产出
         for city in self.cities.values():
             if self.hex_map is not None:
@@ -736,10 +749,14 @@ class GameEngine:
     def _check_victory(self) -> None:
         """检查游戏是否结束
 
-        规则：
+        标准模式：
         - 24回合到达 → 城市最多者胜
-        - 某势力无城市 → 该势力出局（其他势力继续）
+        - 某势力无城市 → 该势力出局（其他继续）
         - 只剩一个势力 → 该势力胜
+
+        无限模式：
+        - 只剩一个势力 → 统一全国胜利
+        - 无回合上限，不因 turn 结束
         """
         if self.game_over:
             return
@@ -754,6 +771,11 @@ class GameEngine:
         if len(active_factions) == 1:
             self.game_over = True
             self.winner = active_factions[0]
+            return
+
+        # 无限模式：只通过统一全国结束
+        from game.game_mode import GameMode
+        if self.game_mode == GameMode.INFINITE:
             return
 
         # 检查是否到达最大回合
