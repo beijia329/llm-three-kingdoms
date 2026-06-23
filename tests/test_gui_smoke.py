@@ -116,7 +116,7 @@ def test_game_runs_one_turn():
     }
 
     # 跑一回合
-    gr._run_turn(players)
+    gr._execute_player_turns(players)
     assert engine.turn >= 1
 
 

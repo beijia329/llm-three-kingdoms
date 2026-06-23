@@ -106,11 +106,13 @@ class GameRenderer:
         self.running = False
         self._players: Optional[dict] = None
         self._turn_counter = 0
-        self.turn_delay = 45
-        self.auto_advance = True
+        self.turn_delay = 90          # 自动模式下帧数间隔
+        self.auto_advance = False     # 默认手动推进
+        self.turn_pending = False     # 等待玩家点"下一回合"
         self.selected_city_id: Optional[str] = None
         self.selected_faction: Optional[str] = None
-        self.panel_tab = "factions"  # factions / city / generals / log
+        self.panel_tab = "factions"
+        self._turn_just_executed = False  # 刚执行回合，显示摘要
 
         # 事件日志
         self._events: list = []
@@ -134,7 +136,7 @@ class GameRenderer:
     # ============================================================
     # 主循环
     # ============================================================
-    def run(self, players: dict = None, auto_run: bool = True):
+    def run(self, players: dict = None, auto_run: bool = False):
         self.running = True
         self._players = players
         self.auto_advance = auto_run
@@ -143,11 +145,15 @@ class GameRenderer:
             for event in pygame.event.get():
                 self._handle_event(event)
 
+            # 自动模式：计时器触发回合
             if self.auto_advance and not self.engine.game_over and players:
                 self._turn_counter += 1
                 if self._turn_counter >= self.turn_delay:
                     self._turn_counter = 0
-                    self._run_turn(players)
+                    self._execute_player_turns(players)
+                    self._turn_just_executed = True
+                    if not self.auto_advance:  # 手动模式：执行后暂停
+                        self.turn_pending = False
 
             # ——— 渲染 ———
             self.screen.fill(COLOR_BG)
@@ -162,6 +168,10 @@ class GameRenderer:
 
             # 顶部覆盖栏
             self._draw_top_bar()
+
+            # "下一回合"按钮（手动模式 + 未结束）
+            if not self.auto_advance and not self.engine.game_over:
+                self._draw_next_turn_button()
 
             # 底部事件
             self._draw_event_ticker()
@@ -207,7 +217,10 @@ class GameRenderer:
                 draw_text(self.screen, "平局", MAP_W // 2, 6, COLOR_DIM, FONT_CJK_LG, center=True)
 
         # 操作提示
-        hint = "WASD平移 | 滚轮缩放 | 空格推回合 | A自动 | Tab切换面板 | ESC退出"
+        if self.auto_advance:
+            hint = "自动模式 | A切换手动"
+        else:
+            hint = f"点击右下角[下一回合] 或按[空格键] | A自动"
         draw_text(self.screen, hint, MAP_W - 10, 26, COLOR_DIM, FONT_CJK_SM)
 
     # ============================================================
@@ -215,7 +228,7 @@ class GameRenderer:
     # ============================================================
     def _draw_event_ticker(self):
         now = time.time()
-        recent = [(t, txt, c) for t, txt, c in self._events if now - t < 8]
+        recent = [(t, txt, c) for t, txt, c in self._events if now - t < 12]
 
         if not recent:
             return
@@ -347,11 +360,14 @@ class GameRenderer:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.running = False
-            elif event.key == pygame.K_SPACE and self._players:
-                self._run_turn(self._players)
+            elif event.key == pygame.K_SPACE:
+                if self.engine.game_over:
+                    self.add_event("游戏已结束，关闭窗口或按ESC退出", COLOR_DIM)
+                elif self._players:
+                    self._execute_player_turns(self._players)
             elif event.key == pygame.K_a:
                 self.auto_advance = not self.auto_advance
-                self.add_event(f"自动推进: {'开' if self.auto_advance else '关'}", COLOR_DIM)
+                self.add_event(f"自动推进: {'开' if self.auto_advance else '关（手动）'}", COLOR_DIM)
             elif event.key == pygame.K_TAB:
                 tabs = ["factions", "log", "city", "generals"]
                 i = tabs.index(self.panel_tab)
@@ -397,27 +413,61 @@ class GameRenderer:
                     self.panel_tab = ["factions", "log", "city", "generals"][i]
                     return
 
-    # ============================================================
-    # 回合执行
-    # ============================================================
-    def _run_turn(self, players: dict):
+    def _draw_next_turn_button(self):
+        """绘制'下一回合'按钮（右下角）"""
+        btn_w, btn_h = 140, 36
+        btn_x = MAP_W - btn_w - 15
+        btn_y = MAP_H - btn_h - 45
+
+        # 半透明背景
+        overlay = pygame.Surface((btn_w + 8, btn_h + 8), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        self.screen.blit(overlay, (btn_x - 4, btn_y - 4))
+
+        # 按钮框
+        color = COLOR_GOLD if not self.engine.game_over else COLOR_DIM
+        pygame.draw.rect(self.screen, color, (btn_x, btn_y, btn_w, btn_h), 2, border_radius=6)
+
+        # 文字
+        label = "下一回合" if not self.engine.game_over else "游戏结束"
+        draw_text(self.screen, label, btn_x + btn_w // 2, btn_y + 8, color, FONT_CJK_LG, center=True)
+        draw_text(self.screen, "[ 空格键 ]", btn_x + btn_w // 2, btn_y + 24, COLOR_DIM, FONT_CJK_SM, center=True)
+
+    def _execute_player_turns(self, players: dict):
+        """执行所有玩家的命令和引擎回合处理"""
+        if self.engine.game_over:
+            return
+
+        # 清除旧事件（短暂保留最近几个）
+        self._events = [(t, txt, c) for t, txt, c in self._events if time.time() - t < 60]
+
         for faction in FACTIONS:
             obs = self.engine.get_observation(faction)
             player = players.get(faction)
             if player:
                 for cmd in player.get_commands(obs):
                     result = self.engine.execute_command(cmd)
-                    if result.success and cmd.type in ("attack", "recruit", "message"):
-                        self.add_event(f"{FACTIONS.get(faction, faction)}: {result.description}", COLOR_TEXT)
+                    if result.success:
+                        fname = FACTIONS.get(faction, faction)
+                        if cmd.type == "attack":
+                            self.add_event(f"⚔️ {fname} 从 {cmd.from_city} 出兵 {cmd.troops} → {cmd.to_city}", COLOR_RED)
+                        elif cmd.type == "message":
+                            self.add_event(f"✉️ {fname} → {FACTIONS.get(cmd.to, cmd.to)}: {str(cmd.content)[:30]}", COLOR_BLUE)
+                        elif cmd.type == "recruit":
+                            self.add_event(f"🔧 {fname} {cmd.city} 征兵 {cmd.troops}", COLOR_GREEN)
 
         result = self.engine.process_turn()
         turn = result.get("turn", 0)
         battles = result.get("battles_fought", 0)
+
         if battles > 0:
-            self.add_event(f"第{turn}回合: ⚔️ {battles}场战斗", COLOR_RED)
+            self.add_event(f"⚔️ 第{turn}回合: {battles}场战斗", COLOR_RED)
 
         # 建国检测
         ks = getattr(self.engine, '_kingdom_system', None)
         if ks:
             for f, k in ks.get_all_kingdoms().items():
                 self.add_event(f"🏰 {FACTIONS.get(f,f)} 称{k['type']}！国号【{k['name']}】", COLOR_GOLD)
+
+        self._turn_just_executed = True
+        logger.info("第%d回合完成 (战斗:%d)", turn, battles)
