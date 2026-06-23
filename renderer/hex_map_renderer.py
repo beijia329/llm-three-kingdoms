@@ -13,7 +13,7 @@ import os
 import time
 from typing import Optional
 
-from game.hex_grid import HexCoord, axial_to_pixel
+from game.hex_grid import axial_to_pixel
 from game.tile import TerrainType
 
 # Pygame is only imported for type hints — actual import happens at render time
