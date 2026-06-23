@@ -216,7 +216,7 @@ def run_infinite_mode(
     use_llm: bool = False,
     model: str = "deepseek-v4-flash",
     api_key: str = "",
-    start_year: int = 190,
+    start_year: int = 184,
 ) -> None:
     """运行无限模式
 
