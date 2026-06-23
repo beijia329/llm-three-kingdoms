@@ -10,6 +10,7 @@ from game.systems.city_system import (
     CityUpdateResult,
 )
 from game.constants import CITY_LEVELS
+from game.hex_grid import HexCoord
 
 
 class TestDevelopCity:
@@ -242,5 +243,5 @@ def _make_city(
         population=population,
         morale=morale,
         garrison=garrison,
-        position=(0, 0),
+        position=HexCoord(0, 0),
     )

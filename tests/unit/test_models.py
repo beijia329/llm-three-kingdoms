@@ -3,6 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
+from game.hex_grid import HexCoord
 from game.models import (
     Faction,
     City,
@@ -64,7 +65,7 @@ class TestCity:
             population=30000,
             morale=70,
             garrison=2000,
-            position=(100, 200),
+            position=HexCoord(100, 200),
         )
         assert city.id == "chengdu"
         assert city.name == "成都"
@@ -86,7 +87,7 @@ class TestCity:
             population=5000,
             morale=70,
             garrison=500,
-            position=(0, 0),
+            position=HexCoord(0, 0),
         )
         assert city.generals == []
         assert city.neighbors == []
@@ -99,7 +100,7 @@ class TestCity:
             City(
                 id="bad", name="坏城", faction="wei", level=0,
                 wall_hp=500, wall_max_hp=500, gold=200, food=300,
-                population=5000, morale=70, garrison=500, position=(0, 0),
+                population=5000, morale=70, garrison=500, position=HexCoord(0, 0),
             )
 
     def test_city_morale_range(self):
@@ -108,7 +109,7 @@ class TestCity:
             City(
                 id="bad", name="坏城", faction="wei", level=1,
                 wall_hp=500, wall_max_hp=500, gold=200, food=300,
-                population=5000, morale=150, garrison=500, position=(0, 0),
+                population=5000, morale=150, garrison=500, position=HexCoord(0, 0),
             )
 
     def test_city_negative_resources(self):
@@ -117,7 +118,7 @@ class TestCity:
             City(
                 id="bad", name="坏城", faction="wei", level=1,
                 wall_hp=500, wall_max_hp=500, gold=-1, food=300,
-                population=5000, morale=70, garrison=500, position=(0, 0),
+                population=5000, morale=70, garrison=500, position=HexCoord(0, 0),
             )
 
 
@@ -325,7 +326,7 @@ class TestGameObservation:
             id="chengdu", name="成都", faction="shu", level=3,
             wall_hp=2000, wall_max_hp=2000, gold=800, food=1000,
             population=30000, morale=70, garrison=2000,
-            position=(100, 200),
+            position=HexCoord(100, 200),
         )
         obs = GameObservation(
             faction="shu",

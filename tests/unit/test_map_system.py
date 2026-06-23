@@ -4,6 +4,7 @@ import pytest
 
 from game.models import City
 from game.systems.map_system import MapSystem
+from game.hex_grid import HexCoord
 
 
 class TestMapSystem:
@@ -22,7 +23,7 @@ class TestMapSystem:
             id="chengdu", name="成都", faction="shu", level=3,
             wall_hp=2000, wall_max_hp=2000, gold=800, food=1000,
             population=30000, morale=70, garrison=2000,
-            position=(100, 200), neighbors=["hanzhong"],
+            position=HexCoord(100, 200), neighbors=["hanzhong"],
         )
         ms.add_city(city)
         assert ms.get_city_count() == 1
@@ -37,15 +38,15 @@ class TestMapSystem:
             City(id="a", name="A", faction="wei", level=1,
                  wall_hp=500, wall_max_hp=500, gold=200, food=300,
                  population=5000, morale=70, garrison=500,
-                 position=(0, 0), neighbors=["b"]),
+                 position=HexCoord(0, 0), neighbors=["b"]),
             City(id="b", name="B", faction="wei", level=1,
                  wall_hp=500, wall_max_hp=500, gold=200, food=300,
                  population=5000, morale=70, garrison=500,
-                 position=(100, 0), neighbors=["a", "c"]),
+                 position=HexCoord(100, 0), neighbors=["a", "c"]),
             City(id="c", name="C", faction="shu", level=1,
                  wall_hp=500, wall_max_hp=500, gold=200, food=300,
                  population=5000, morale=70, garrison=500,
-                 position=(200, 0), neighbors=["b"]),
+                 position=HexCoord(200, 0), neighbors=["b"]),
         ]
         for c in cities:
             ms.add_city(c)
@@ -270,7 +271,7 @@ def _make_city(city_id: str, faction: str, neighbors: list) -> City:
         population=5000,
         morale=70,
         garrison=500,
-        position=(0, 0),
+        position=HexCoord(0, 0),
         neighbors=neighbors,
     )
 

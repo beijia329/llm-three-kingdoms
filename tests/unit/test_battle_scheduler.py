@@ -13,6 +13,7 @@ from game.systems.map_system import MapSystem
 from game.battle.battle_scheduler import BattleScheduler
 from game.random import GameRandom
 from game.constants import CITY_LEVELS
+from game.hex_grid import HexCoord
 
 
 class TestBattleDetection:
@@ -222,7 +223,7 @@ def _make_city(
         population=30000,
         morale=70,
         garrison=garrison,
-        position=(0, 0),
+        position=HexCoord(0, 0),
         neighbors=[],
     )
 

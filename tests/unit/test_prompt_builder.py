@@ -2,6 +2,7 @@
 
 from game.models import City, Army, General, GameObservation, CityInfo, DiplomacyMessage
 from game.constants import CITY_LEVELS
+from game.hex_grid import HexCoord
 from players.llm.prompt_builder import PromptBuilder
 
 
@@ -66,7 +67,7 @@ def _make_test_observation() -> GameObservation:
         id="chengdu", name="成都", faction="shu", level=3,
         wall_hp=lc["wall_hp"], wall_max_hp=lc["wall_hp"],
         gold=1200, food=3500, population=30000, morale=72, garrison=3000,
-        position=(0, 0), neighbors=["hanzhong"],
+        position=HexCoord(0, 0), neighbors=["hanzhong"],
         generals=["zhugeliang", "zhaoyun"],
     )
     general = General(

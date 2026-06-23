@@ -347,7 +347,7 @@ def _make_game_data() -> dict:
                 "wall_hp": 2000, "wall_max_hp": 2000,
                 "gold": 1000, "food": 1000, "population": 30000,
                 "morale": 70, "garrison": 2000,
-                "position": [0, 0], "neighbors": ["city_shu_1"],
+                "position": {"q": 0, "r": 0}, "neighbors": ["city_shu_1"],
                 "generals": ["general_wei_1"],
             },
             {
@@ -355,7 +355,7 @@ def _make_game_data() -> dict:
                 "wall_hp": 2000, "wall_max_hp": 2000,
                 "gold": 1000, "food": 1000, "population": 30000,
                 "morale": 70, "garrison": 2000,
-                "position": [100, 0], "neighbors": ["city_wei_1", "city_wu_1"],
+                "position": {"q": 100, "r": 0}, "neighbors": ["city_wei_1", "city_wu_1"],
                 "generals": ["general_shu_1"],
             },
             {
@@ -363,7 +363,7 @@ def _make_game_data() -> dict:
                 "wall_hp": 2000, "wall_max_hp": 2000,
                 "gold": 1000, "food": 1000, "population": 30000,
                 "morale": 70, "garrison": 2000,
-                "position": [200, 0], "neighbors": ["city_shu_1"],
+                "position": {"q": 200, "r": 0}, "neighbors": ["city_shu_1"],
                 "generals": ["general_wu_1"],
             },
         ],

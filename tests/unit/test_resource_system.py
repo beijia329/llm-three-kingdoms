@@ -3,6 +3,7 @@
 import pytest
 
 from game.models import City
+from game.hex_grid import HexCoord
 from game.systems.resource_system import ResourceSystem
 from game.constants import (
     GOLD_PER_POPULATION,
@@ -256,5 +257,5 @@ def _make_test_city(
         population=population,
         morale=morale,
         garrison=garrison,
-        position=(0, 0),
+        position=HexCoord(0, 0),
     )

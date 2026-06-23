@@ -10,6 +10,7 @@ from game.systems.diplomacy_system import (
     RumorResult,
 )
 from game.constants import CITY_LEVELS
+from game.hex_grid import HexCoord
 
 
 class TestSendMessage:
@@ -271,7 +272,7 @@ def _make_city(id: str = "chengdu", morale: int = 70) -> City:
         population=5000,
         morale=morale,
         garrison=500,
-        position=(0, 0),
+        position=HexCoord(0, 0),
     )
 
 

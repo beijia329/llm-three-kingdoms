@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
+from game.hex_grid import HexCoord
+
 
 # ============================================================
 # 基础枚举
@@ -92,7 +94,7 @@ class City(BaseModel):
     generals: List[str] = Field(default_factory=list, description="驻守将领ID列表")
 
     # 地图
-    position: tuple = Field(description="地图坐标 (x, y)")
+    position: HexCoord = Field(description="六角格坐标")
     neighbors: List[str] = Field(default_factory=list, description="相邻城市ID列表")
 
     # 状态
