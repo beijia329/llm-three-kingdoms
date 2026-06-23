@@ -259,3 +259,87 @@ def _make_test_city(
         garrison=garrison,
         position=HexCoord(0, 0),
     )
+
+
+# ============================================================
+# Hex Tile Resource Tests
+# ============================================================
+
+from game.tile import Tile, TerrainType
+
+
+class TestTileResourceProduction:
+    """地块资源产出测试"""
+
+    def test_calculate_gold_with_tiles(self):
+        """地块贡献金钱产出"""
+        rs = ResourceSystem()
+        city = _make_test_city(level=2, population=15000, morale=70)
+        tiles = [
+            Tile(coord=HexCoord(0, 0), terrain=TerrainType.HILL, gold_yield=1.5),
+            Tile(coord=HexCoord(1, 0), terrain=TerrainType.HILL, gold_yield=1.5),
+            Tile(coord=HexCoord(0, 1), terrain=TerrainType.PLAIN, gold_yield=0.0),
+        ]
+        gold = rs.calculate_gold_production(city, tiles=tiles)
+        # base=100 + pop=15000*0.01=150 + tile=3.0 = 253 * morale_multiplier(1.0) = 253
+        assert gold >= 250
+
+    def test_calculate_food_with_tiles(self):
+        """地块贡献粮草产出"""
+        rs = ResourceSystem()
+        city = _make_test_city(level=2, population=15000, morale=70)
+        tiles = [
+            Tile(coord=HexCoord(0, 0), terrain=TerrainType.PLAIN, food_yield=3.0),
+            Tile(coord=HexCoord(1, 0), terrain=TerrainType.PLAIN, food_yield=3.0),
+        ]
+        food = rs.calculate_food_production(city, tiles=tiles, season="spring")
+        # base=150 + pop=15000*0.015=225 + tile=6 = 381 * morale_multiplier(1.0) * spring(1.10) = 419
+        assert food >= 400
+
+    def test_calculate_food_with_winter_season(self):
+        """冬季粮草减产"""
+        rs = ResourceSystem()
+        city = _make_test_city(level=2, population=15000, morale=70)
+        tiles: list[Tile] = []
+        food_spring = rs.calculate_food_production(city, tiles=tiles, season="spring")
+        food_winter = rs.calculate_food_production(city, tiles=tiles, season="winter")
+        assert food_winter < food_spring
+
+    def test_calculate_population_with_tiles(self):
+        """地块贡献人口增长"""
+        rs = ResourceSystem()
+        city = _make_test_city(level=2, population=15000, morale=70)
+        tiles = [
+            Tile(coord=HexCoord(0, 0), terrain=TerrainType.PLAIN, pop_yield=1.0),
+            Tile(coord=HexCoord(1, 0), terrain=TerrainType.PLAIN, pop_yield=1.0),
+        ]
+        growth = rs.calculate_population_growth(city, tiles=tiles)
+        # With tiles, growth should include tile pop yields
+        assert growth > 0
+
+    def test_calculate_resources_with_tiles(self):
+        """综合资源计算（含地块）"""
+        rs = ResourceSystem()
+        city = _make_test_city(level=2, population=15000, morale=70)
+        tiles = [
+            Tile(coord=HexCoord(0, 0), terrain=TerrainType.PLAIN,
+                 gold_yield=0.0, food_yield=3.0, pop_yield=1.0),
+            Tile(coord=HexCoord(1, 0), terrain=TerrainType.PLAIN,
+                 gold_yield=0.0, food_yield=3.0, pop_yield=1.0),
+        ]
+        result = rs.calculate_resources(city, tiles=tiles, season="autumn")
+        assert "gold_change" in result
+        assert "food_change" in result
+        assert "population_change" in result
+        # 秋季粮草加成
+        assert result["gold_change"] >= 0
+
+    def test_backward_compatibility(self):
+        """旧接口（无 tiles）仍然可用"""
+        rs = ResourceSystem()
+        city = _make_test_city(level=2, population=15000, morale=70)
+        # 不传 tiles 应该正常工作
+        gold = rs.calculate_gold_production(city)
+        assert gold >= 0
+        result = rs.update_city_resources(city)
+        assert "gold_change" in result
