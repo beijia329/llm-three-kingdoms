@@ -121,19 +121,36 @@ class UIPanel:
             surface: 目标表面
         """
         y = PANEL_Y
-        turn_text = f"第 {self.engine.turn}/{self.engine.max_turns} 回合"
-        self._draw_text(surface, turn_text, (PANEL_X, y), COLOR_HEADER, self.font_header)
+
+        # 季节与年份
+        if hasattr(self.engine, 'season') and hasattr(self.engine, 'year'):
+            season_names = {"spring": "春", "summer": "夏", "autumn": "秋", "winter": "冬"}
+            season_cn = season_names.get(
+                self.engine.season.value if hasattr(self.engine.season, 'value')
+                else str(self.engine.season), ""
+            )
+            year_text = f"{self.engine.year}年"
+            self._draw_text(surface, year_text, (PANEL_X, y), COLOR_SUBTEXT, self.font_small)
+        else:
+            season_cn = ""
+
+        # 回合数
+        if hasattr(self.engine, 'game_mode') and str(self.engine.game_mode) == "infinite":
+            turn_text = f"第 {self.engine.turn} 回合 {season_cn}"
+        else:
+            turn_text = f"第 {self.engine.turn}/{self.engine.max_turns} 回合 {season_cn}"
+        self._draw_text(surface, turn_text.strip(), (PANEL_X, y + 16), COLOR_HEADER, self.font_header)
 
         if self.engine.game_over:
             if self.engine.winner:
                 winner_name = FACTIONS.get(self.engine.winner, self.engine.winner)
                 self._draw_text(
                     surface, f"🏆 {winner_name} 胜利!",
-                    (PANEL_X, y + 24), (255, 215, 0), self.font_medium,
+                    (PANEL_X, y + 40), (255, 215, 0), self.font_medium,
                 )
             else:
                 self._draw_text(
-                    surface, "平局!", (PANEL_X, y + 24),
+                    surface, "平局!", (PANEL_X, y + 40),
                     (200, 200, 100), self.font_medium,
                 )
 
