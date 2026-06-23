@@ -138,6 +138,10 @@ class GameEngine:
         self._battle_scheduler: BattleScheduler = BattleScheduler(rng=self.rng)
         self._battle_resolver: BattleResolver = BattleResolver(rng=self.rng)
 
+        # Hex Map (loaded in init_game)
+        self.hex_map: Optional[Any] = None
+        self._influence_system: Optional[Any] = None
+
         # 事件总线
         self.events: EventBus = EventBus()
 
@@ -181,6 +185,68 @@ class GameEngine:
             "游戏初始化完成: %d 城市, %d 将领, %d 势力",
             len(self.cities), len(self.generals), NUM_FACTIONS,
         )
+
+        # 4. 加载 HexMap（如果地图数据可用）
+        self._init_hex_map(data)
+
+    def _init_hex_map(self, data: Dict[str, Any]) -> None:
+        """初始化六角格地图"""
+        try:
+            from game.data_loader import load_hex_map_data
+            from game.hex_map import HexMap
+            from game.hex_grid import HexCoord
+            from game.tile import Tile, TerrainType
+            from game.influence_system import InfluenceSystem
+
+            hex_data = load_hex_map_data()
+            self.hex_map = HexMap(
+                width=hex_data["width"],
+                height=hex_data["height"],
+            )
+            for t in hex_data.get("terrain", []):
+                self.hex_map.add_tile(Tile(
+                    coord=HexCoord(t["q"], t["r"]),
+                    terrain=TerrainType(t["terrain"]),
+                    elevation=t.get("elevation", 0),
+                    gold_yield=t.get("gold_yield", 0),
+                    food_yield=t.get("food_yield", 0),
+                    pop_yield=t.get("pop_yield", 0),
+                ))
+
+            # 绑定城市位置到 HexMap
+            for city_id, pos in hex_data.get("city_positions", {}).items():
+                if city_id in self.cities:
+                    self.cities[city_id].position = HexCoord(pos["q"], pos["r"])
+
+            # 初始化地块归属和产出
+            self._initialize_territories()
+
+            # 初始化影响力系统
+            self._influence_system = InfluenceSystem()
+
+            logger.info("HexMap 加载完成: %d 格", len(list(self.hex_map.iter_tiles())))
+        except Exception as e:
+            logger.warning("HexMap 加载失败: %s，使用降级模式", e)
+            self.hex_map = None
+            self._influence_system = None
+
+    def _initialize_territories(self) -> None:
+        """初始化城市控制区地块的归属和产出"""
+        if self.hex_map is None:
+            return
+        from game.constants import TERRAIN_YIELDS
+
+        for city in self.cities.values():
+            territory = self._city_system.get_city_territory(city, self.hex_map)
+            for coord in territory:
+                tile = self.hex_map.get_tile(coord)
+                if tile is not None:
+                    tile.owner_city_id = city.id
+                    tile.faction = city.faction
+                    yields = TERRAIN_YIELDS.get(tile.terrain.value, {})
+                    tile.gold_yield = yields.get("gold", 0)
+                    tile.food_yield = yields.get("food", 0)
+                    tile.pop_yield = yields.get("pop", 0)
 
     # ============================================================
     # 命令执行
@@ -300,6 +366,19 @@ class GameEngine:
             return CommandResult(success=False, command_type="attack",
                                  description=f"无法到达 {cmd.to_city}")
 
+        # 计算六角格路径（如果 HexMap 可用）
+        hex_path: list = []
+        if self.hex_map is not None:
+            from game.hex_grid import HexCoord
+            from_city_pos = self.cities[cmd.from_city].position
+            to_city_pos = self.cities[cmd.to_city].position
+            hex_path = self.hex_map.find_path(from_city_pos, to_city_pos)
+            if not hex_path:
+                return CommandResult(success=False, command_type="attack",
+                                     description=f"无法从 {cmd.from_city} 行军到 {cmd.to_city}（无可行路径）")
+
+        hex_distance_val = max(1, len(hex_path) - 1) if hex_path else distance
+
         # 创建军队
         self._army_counter += 1
         army = Army(
@@ -314,7 +393,10 @@ class GameEngine:
             from_city=cmd.from_city,
             to_city=cmd.to_city,
             progress=0.0,
-            total_distance=distance,
+            total_distance=distance if not hex_path else hex_distance_val,
+            current_hex=hex_path[0] if hex_path else None,
+            path_hexes=hex_path if hex_path else [],
+            path_index=0,
         )
         self.armies[army.id] = army
 
@@ -468,16 +550,44 @@ class GameEngine:
 
         # 1. 资源产出
         for city in self.cities.values():
-            self._city_system.update_city(city)
+            if self.hex_map is not None:
+                # 使用地块产出计算
+                territory = self._city_system.get_city_territory(city, self.hex_map)
+                tiles = [self.hex_map.get_tile(c) for c in territory]
+                tiles = [t for t in tiles if t is not None]
+                resource_result = self._resource_system.calculate_resources(
+                    city, tiles=tiles, season=getattr(self, 'season', 'spring')
+                )
+                city.gold += resource_result["gold_change"]
+                city.food += resource_result["food_change"]
+                city.population += resource_result["population_change"]
+                # 确保资源不为负
+                city.gold = max(0, city.gold)
+                city.food = max(0, city.food)
+                city.population = max(0, city.population)
+            else:
+                self._city_system.update_city(city)
             result["cities_updated"] += 1
 
+        # 影响力扩散
+        if self._influence_system is not None and self.hex_map is not None:
+            self._influence_system.spread_influence(
+                list(self.cities.values()), self.hex_map
+            )
+
         # 2. 行军推进（所有非驻守军队）
+        season = getattr(self, 'season', 'spring')
         for army in list(self.armies.values()):
             if army.soldiers <= 0:
                 # 全灭的军队清理
                 del self.armies[army.id]
                 continue
-            self._army_movement.process_movement(army)
+            if self.hex_map is not None:
+                self._army_movement.process_movement(
+                    army, hex_map=self.hex_map, season=season
+                )
+            else:
+                self._army_movement.process_movement(army)
             result["armies_moved"] += 1
 
         # 3. 将领忠诚度衰减

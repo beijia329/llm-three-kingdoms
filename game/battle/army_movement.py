@@ -3,10 +3,11 @@
 管理军队在地图上的移动、粮草消耗、断粮惩罚和到达处理。
 
 核心逻辑：
-1. 每回合向前推进 1/total_distance 的进度
-2. 每回合消耗粮草（soldiers × 0.2）
-3. 断粮后每回合士气-10，士气低于20%开始溃散（每回合-10%兵力）
-4. 到达目的地后：友方城市→入城增援，敌方城市→开始围城
+1. 传统模式：每回合向前推进 1/total_distance 的进度
+2. Hex模式：沿六角格路径推进，考虑地形消耗和季节影响
+3. 每回合消耗粮草（soldiers × 0.2）
+4. 断粮后每回合士气-10，士气低于20%开始溃散（每回合-10%兵力）
+5. 到达目的地后：友方城市→入城增援，敌方城市→开始围城
 
 参考设计文档：docs/design/battle-system.md 第二章
 """
@@ -14,12 +15,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Optional
 
 from game.constants import (
     ARMY_FOOD_COST_PER_SOLDIER,
     MORALE_LOSS_NO_FOOD,
     MORALE_BREAK_THRESHOLD,
     ROUT_LOSS_RATE,
+    SEASON_MOVEMENT_FACTOR,
 )
 from game.models import Army, ArmyStatus
 
@@ -95,13 +98,24 @@ class ArmyMovementSystem:
     # 主处理入口
     # ============================================================
 
-    def process_movement(self, army: Army) -> MovementResult:
+    def process_movement(
+        self,
+        army: Army,
+        hex_map: Optional[object] = None,
+        season: str = "spring",
+    ) -> MovementResult:
         """处理一回合的军队移动
 
         包含：进度推进、粮草消耗、断粮判定、溃散判定、到达判定。
 
+        支持两种模式：
+        - 传统模式（无 hex_map）：按 progress 0→1 推进
+        - Hex 模式（有 hex_map）：沿 path_hexes 按地形消耗推进
+
         Args:
             army: 要处理的军队对象（会被修改）
+            hex_map: 六角格地图（可选，启用 Hex 模式）
+            season: 当前季节（默认 spring）
 
         Returns:
             本回合行军处理结果
@@ -116,23 +130,16 @@ class ArmyMovementSystem:
         ):
             return result
 
-        # 1. 推进进度（仅行军和撤退）
-        if army.status == ArmyStatus.MARCHING and army.total_distance > 0:
-            progress_step = 1.0 / army.total_distance
-            old_progress = army.progress
-            army.progress = min(1.0, army.progress + progress_step)
-            result.progress_made = army.progress - old_progress
-        elif army.status == ArmyStatus.RETREATING:
-            # 撤退中的军队以双倍速度返回
-            progress_step = 2.0 / max(army.total_distance, 1)
-            old_progress = army.progress
-            army.progress = min(1.0, army.progress + progress_step)
-            result.progress_made = army.progress - old_progress
+        # 使用 Hex 模式还是传统模式
+        if hex_map is not None and army.path_hexes:
+            self._process_hex_movement(army, hex_map, season, result)
+        else:
+            self._process_legacy_movement(army, result)
 
         # 2. 消耗粮草
         result.food_consumed = self._consume_food(army)
 
-        # 3. 断粮判定：如果粮草为0（不管是已耗尽还是一开始就为0）
+        # 3. 断粮判定
         if army.food <= 0:
             result.starvation = True
             self._apply_starvation(army)
@@ -143,15 +150,78 @@ class ArmyMovementSystem:
             result.routing = soldiers_lost > 0
             result.soldiers_lost_to_rout = soldiers_lost
 
-        # 5. 到达判定（仅行军中军队）
-        if army.status == ArmyStatus.MARCHING and army.progress >= 1.0:
-            army.progress = 1.0
-            arrival_result = self._handle_arrival(army)
-            result.arrived = arrival_result["arrived"]
-            result.arrival_type = arrival_result["type"]
-            result.status_changed = arrival_result["status_changed"]
+        # 5. 到达判定
+        if army.status == ArmyStatus.MARCHING:
+            if hex_map is not None and army.path_hexes:
+                if army.path_index >= len(army.path_hexes) - 1:
+                    army.progress = 1.0
+                    arrival_result = self._handle_arrival(army)
+                    result.arrived = arrival_result["arrived"]
+                    result.arrival_type = arrival_result["type"]
+                    result.status_changed = arrival_result["status_changed"]
+            elif army.progress >= 1.0:
+                army.progress = 1.0
+                arrival_result = self._handle_arrival(army)
+                result.arrived = arrival_result["arrived"]
+                result.arrival_type = arrival_result["type"]
+                result.status_changed = arrival_result["status_changed"]
 
         return result
+
+    def _process_legacy_movement(
+        self, army: Army, result: MovementResult
+    ) -> None:
+        """传统模式：基于 progress 的行军"""
+        if army.status == ArmyStatus.MARCHING and army.total_distance > 0:
+            progress_step = 1.0 / army.total_distance
+            old_progress = army.progress
+            army.progress = min(1.0, army.progress + progress_step)
+            result.progress_made = army.progress - old_progress
+        elif army.status == ArmyStatus.RETREATING:
+            progress_step = 2.0 / max(army.total_distance, 1)
+            old_progress = army.progress
+            army.progress = min(1.0, army.progress + progress_step)
+            result.progress_made = army.progress - old_progress
+
+    def _process_hex_movement(
+        self,
+        army: Army,
+        hex_map: object,
+        season: str,
+        result: MovementResult,
+    ) -> None:
+        """Hex 模式：沿六角格路径推进"""
+        from game.hex_map import HexMap
+
+        if army.status not in (ArmyStatus.MARCHING, ArmyStatus.RETREATING):
+            return
+
+        # 移动力预算
+        base_speed = 2.0 if army.status == ArmyStatus.RETREATING else 1.0
+        season_factor = SEASON_MOVEMENT_FACTOR.get(season, 1.0)
+        movement_budget = base_speed * season_factor
+
+        old_index = army.path_index
+
+        # 沿路径推进
+        while movement_budget > 0 and army.path_index < len(army.path_hexes) - 1:
+            next_hex = army.path_hexes[army.path_index + 1]
+            tile = hex_map.get_tile(next_hex)
+            if tile is None:
+                break
+            cost = HexMap.terrain_move_cost(tile.terrain)
+            if cost == float("inf"):
+                break
+            if movement_budget < cost:
+                break
+            movement_budget -= cost
+            army.path_index += 1
+            army.current_hex = next_hex
+
+        total_steps = max(1, len(army.path_hexes) - 1)
+        if total_steps > 0:
+            army.progress = army.path_index / total_steps
+            result.progress_made = (army.path_index - old_index) / total_steps
 
     # ============================================================
     # 粮草消耗
