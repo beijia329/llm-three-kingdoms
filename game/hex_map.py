@@ -86,15 +86,8 @@ class HexMap:
         Returns:
             移动消耗值（inf 表示不可通行）
         """
-        costs: Dict[TerrainType, float] = {
-            TerrainType.PLAIN: 1.0,
-            TerrainType.FOREST: 1.5,
-            TerrainType.HILL: 2.0,
-            TerrainType.RIVER: 2.0,
-            TerrainType.DESERT: 1.5,
-            TerrainType.MOUNTAIN: float("inf"),
-        }
-        return costs.get(terrain, 1.0)
+        from game.constants import TERRAIN_MOVE_COST
+        return TERRAIN_MOVE_COST.get(terrain.value, 1.0)
 
     def find_path(
         self,
