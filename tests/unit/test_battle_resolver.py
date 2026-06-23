@@ -54,8 +54,6 @@ class TestSiegeDamage:
         damage = resolver.calculate_wall_damage(ctx)
         # base=400, force_mult=1.5, command=0.8 → 400*1.5*0.8=480
         assert damage == pytest.approx(480, abs=1)
-        # = 100 * 1.5 * 0.8 = 120
-        assert damage == pytest.approx(120, abs=1)
 
     def test_no_garrison_max_damage(self):
         """无守军时攻城伤害最大化"""
@@ -441,6 +439,8 @@ def _make_siege_context(
         defender_initial_soldiers=defender_soldiers,
         defender_avg_morale=defender_morale,
         defender_avg_command=defender_command,
+        wall_hp=wall_hp,
+        wall_max_hp=wall_hp,
         battle_type=BattleType.SIEGE,
         battle_phase=BattlePhase.SIEGE,
         round_count=0,
