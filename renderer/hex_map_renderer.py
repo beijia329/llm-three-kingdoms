@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import time
 from typing import Optional
 
 from game.hex_grid import HexCoord, axial_to_pixel
@@ -42,8 +43,7 @@ class HexMapRenderer:
         self.hex_map = hex_map
         self.hex_size = hex_size
         self.colors = self._load_colors()
-        self._boundaries: list = []  # 省界数据（屏幕坐标缓存）
-        self._bounds = {"min_lon": 95.0, "max_lon": 125.0, "min_lat": 22.0, "max_lat": 45.0}
+        self._boundaries: list = []  # 省界数据
 
     def _load_colors(self) -> dict:
         """加载地形颜色配置"""
@@ -229,8 +229,8 @@ class HexMapRenderer:
                 length = (dx * dx + dy * dy) ** 0.5
                 if length < 1:
                     continue
-                nx = -dy / length * self.hex_size * 0.5
-                ny = dx / length * self.hex_size * 0.5
+                nx = -dy / length * self.hex_size * camera_zoom * 0.5
+                ny = dx / length * self.hex_size * camera_zoom * 0.5
                 # 用势力颜色画边界线
                 color_hex = FACTION_COLORS.get(tile.faction, "#888888")
                 color = self._hex_to_rgb(color_hex)
@@ -312,7 +312,6 @@ class HexMapRenderer:
 
             # 被围困时闪烁
             if city.is_besieged:
-                import time
                 if int(time.time() * 4) % 2 == 0:
                     color = (255, 80, 80)
 

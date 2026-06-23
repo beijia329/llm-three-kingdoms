@@ -39,6 +39,18 @@ class MapRenderer:
         self.font_city = pygame.font.Font(None, 14)
         self.font_banner = pygame.font.Font(None, 20)
 
+        # 尝试加载 CJK 字体
+        for name in ["PingFang SC", "STHeiti", "Noto Sans CJK SC", "SimSun"]:
+            try:
+                test = pygame.font.SysFont(name, 14)
+                if test.render("测", True, (255, 255, 255)).get_width() > 10:
+                    self.font = pygame.font.SysFont(name, 12)
+                    self.font_city = pygame.font.SysFont(name, 14)
+                    self.font_banner = pygame.font.SysFont(name, 20)
+                    break
+            except Exception:
+                continue
+
         # 城市位置缓存
         self._city_positions: Dict[str, Tuple[int, int]] = {}
         self._update_city_positions()

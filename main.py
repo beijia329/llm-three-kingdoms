@@ -103,14 +103,9 @@ def run_ai_vs_ai(
     print(f"\n初始状态: {len(engine.cities)} 城市, {len(engine.generals)} 将领")
     print(f"势力分布:")
     for f_name, f_label in FACTIONS.items():
-        count = engine.map.get_faction_cities(f_name)
-        print(f"  {f_label}: {len(count)} 城")
-
-    print(f"\n初始状态: {len(engine.cities)} 城市, {len(engine.generals)} 将领")
-    print(f"势力分布:")
-    for f_name, f_label in FACTIONS.items():
-        count = engine.map.get_faction_cities(f_name)
-        print(f"  {f_label}: {len(count)} 城")
+        count = sum(1 for c in engine.cities.values() if c.faction == f_name)
+        if count > 0:
+            print(f"  {f_label}: {count} 城")
 
     print("\n--- 战斗开始 ---\n")
 

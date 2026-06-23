@@ -63,10 +63,6 @@ class UIPanel:
 
         # 状态
         self.active_tab = "info"  # info / city / log
-        self.scroll_offset = 0
-
-        # 缓存的日志
-        self._cached_logs: List[str] = []
 
     # ============================================================
     # 主渲染入口
