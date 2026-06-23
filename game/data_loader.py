@@ -56,3 +56,18 @@ def load_game_data(data_dir: str = DATA_DIR) -> Dict[str, Any]:
         "generals": generals,
         "map_topology": map_topology,
     }
+
+
+def load_hex_map_data(path: str = "") -> Dict[str, Any]:
+    """加载六角格地图数据
+
+    Args:
+        path: 地图数据文件路径，为空时使用默认路径 data/hex_map.json
+
+    Returns:
+        包含 width, height, terrain, rivers, city_positions 等的字典
+    """
+    if not path:
+        path = os.path.join(DATA_DIR, "hex_map.json")
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
