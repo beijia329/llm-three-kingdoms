@@ -9,34 +9,32 @@ class TestSeason:
 
     def test_season_from_turn_spring(self):
         assert Season.from_turn(1) == Season.SPRING
-        assert Season.from_turn(3) == Season.SPRING
-        assert Season.from_turn(13) == Season.SPRING
+        assert Season.from_turn(5) == Season.SPRING
+        assert Season.from_turn(9) == Season.SPRING
 
     def test_season_from_turn_summer(self):
-        assert Season.from_turn(4) == Season.SUMMER
+        assert Season.from_turn(2) == Season.SUMMER
         assert Season.from_turn(6) == Season.SUMMER
-        assert Season.from_turn(16) == Season.SUMMER
+        assert Season.from_turn(10) == Season.SUMMER
 
     def test_season_from_turn_autumn(self):
+        assert Season.from_turn(3) == Season.AUTUMN
         assert Season.from_turn(7) == Season.AUTUMN
-        assert Season.from_turn(9) == Season.AUTUMN
-        assert Season.from_turn(19) == Season.AUTUMN
+        assert Season.from_turn(11) == Season.AUTUMN
 
     def test_season_from_turn_winter(self):
-        assert Season.from_turn(10) == Season.WINTER
+        assert Season.from_turn(4) == Season.WINTER
+        assert Season.from_turn(8) == Season.WINTER
         assert Season.from_turn(12) == Season.WINTER
-        assert Season.from_turn(24) == Season.WINTER
 
     def test_season_full_cycle(self):
-        """完整年份循环"""
+        """完整年份循环（每 4 回合 = 1 年）"""
         assert Season.from_turn(1) == Season.SPRING
-        assert Season.from_turn(2) == Season.SPRING
-        assert Season.from_turn(3) == Season.SPRING
-        assert Season.from_turn(4) == Season.SUMMER
-        assert Season.from_turn(7) == Season.AUTUMN
-        assert Season.from_turn(10) == Season.WINTER
-        assert Season.from_turn(12) == Season.WINTER
-        assert Season.from_turn(13) == Season.SPRING  # 第二年春
+        assert Season.from_turn(2) == Season.SUMMER
+        assert Season.from_turn(3) == Season.AUTUMN
+        assert Season.from_turn(4) == Season.WINTER
+        assert Season.from_turn(5) == Season.SPRING  # 第二年春
+        assert Season.from_turn(8) == Season.WINTER  # 第二年冬
 
     def test_season_names_zh(self):
         names = Season.season_names_zh()

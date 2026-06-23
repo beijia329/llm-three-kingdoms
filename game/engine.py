@@ -129,7 +129,7 @@ class GameEngine:
         self.game_mode: GameMode = GameMode.STANDARD
         self.season: Season = Season.SPRING
         self.year: int = 1
-        self.start_year: int = 190  # 东汉末年
+        self.start_year: int = 184  # 黄巾起义
 
         # 游戏数据
         self.cities: Dict[str, City] = {}
@@ -556,10 +556,10 @@ class GameEngine:
             "winner": None,
         }
 
-        # 更新季节和年份
+        # 更新季节和年份（每 4 回合 = 1 年）
         from game.season import Season
         self.season = Season.from_turn(self.turn)
-        self.year = self.start_year + (self.turn - 1) // 12
+        self.year = self.start_year + (self.turn - 1) // 4
 
         # 1. 资源产出
         for city in self.cities.values():

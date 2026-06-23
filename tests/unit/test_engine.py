@@ -21,7 +21,7 @@ class TestEngineInit:
         """默认初始化"""
         engine = GameEngine(seed=42)
         assert engine.turn == 1
-        assert engine.max_turns == 24
+        assert engine.max_turns == 192
         assert engine.game_over is False
         assert engine.winner is None
         assert engine.rng is not None

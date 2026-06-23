@@ -331,7 +331,7 @@ class TestGameObservation:
         obs = GameObservation(
             faction="shu",
             turn=5,
-            max_turns=24,
+            max_turns=192,
             own_cities=[city],
             own_armies=[],
             own_generals=[],

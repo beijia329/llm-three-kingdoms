@@ -14,7 +14,7 @@ class TestPromptBuilder:
         prompt = PromptBuilder.build_system_prompt("wei")
         assert "魏国" in prompt
         assert "发展经济" in prompt
-        assert "24回合" in prompt
+        assert "192回合" in prompt
 
     def test_system_prompt_different_faction(self):
         """不同势力的Prompt"""
@@ -42,7 +42,7 @@ class TestPromptBuilder:
         obs = _make_test_observation()
         state = PromptBuilder.build_state_prompt(obs)
         assert "成都" in state
-        assert "第5/24回合" in state
+        assert "第5/192回合" in state
 
     def test_build_full_prompt(self):
         """构建完整Prompt"""
@@ -78,7 +78,7 @@ def _make_test_observation() -> GameObservation:
     return GameObservation(
         faction="shu",
         turn=5,
-        max_turns=24,
+        max_turns=192,
         own_cities=[city],
         own_armies=[],
         own_generals=[general],

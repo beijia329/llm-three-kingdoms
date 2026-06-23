@@ -25,7 +25,7 @@ class TestGameConstants:
 
     def test_game_rules(self):
         """测试基本游戏规则"""
-        assert MAX_TURNS == 24
+        assert MAX_TURNS == 192
         assert NUM_FACTIONS == 3
         assert STARTING_CITIES_PER_FACTION == 5
 
