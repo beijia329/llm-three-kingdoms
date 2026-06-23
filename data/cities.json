@@ -56,7 +56,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 78,
+      "q": 77,
       "r": 34
     },
     "neighbors": [
@@ -166,7 +166,7 @@
     "garrison": 1500,
     "position": {
       "q": 42,
-      "r": 50
+      "r": 49
     },
     "neighbors": [
       "chengdu",
