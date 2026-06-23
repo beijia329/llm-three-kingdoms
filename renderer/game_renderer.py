@@ -70,61 +70,61 @@ class GameRenderer:
 
         pygame.display.set_caption(title)
 
-	# 子渲染器（懒加载）
-	self._map_renderer = None
-	self._ui_panel = None
-	self._hex_map_renderer = None
+    # 子渲染器（懒加载）
+    self._map_renderer = None
+    self._ui_panel = None
+    self._hex_map_renderer = None
 
-	# 相机
-	from renderer.camera import Camera
-	self.camera = Camera(x=0, y=0, zoom=1.0)
+    # 相机
+    from renderer.camera import Camera
+    self.camera = Camera(x=0, y=0, zoom=1.0)
 
-	# 加载中国边界数据
-	self._china_boundaries: Optional[dict] = None
-	self._load_china_boundaries()
+    # 加载中国边界数据
+    self._china_boundaries: Optional[dict] = None
+    self._load_china_boundaries()
 
-	# 状态
+    # 状态
         self.running = False
         self.selected_city_id: Optional[str] = None
         self.selected_faction: Optional[str] = None
         self.auto_advance: bool = False
         self.turn_delay: int = 60  # 自动推进的帧数延迟
         self._turn_counter: int = 0
-	self._players: Optional[dict] = None  # 玩家字典（用于SPACE/A键触发回合）
+    self._players: Optional[dict] = None  # 玩家字典（用于SPACE/A键触发回合）
 
 def _load_china_boundaries(self) -> None:
-	"""加载中国行政区划边界数据"""
-	try:
-		from game.data_loader import load_china_geojson
-		self._china_boundaries = load_china_geojson()
-		logger.info("中国边界数据加载完成: %d 个省",
-		            len(self._china_boundaries.get("features", [])))
-	except Exception as e:
-		logger.warning("中国边界数据加载失败: %s", e)
-		self._china_boundaries = None
+    """加载中国行政区划边界数据"""
+    try:
+        from game.data_loader import load_china_geojson
+        self._china_boundaries = load_china_geojson()
+        logger.info("中国边界数据加载完成: %d 个省",
+                    len(self._china_boundaries.get("features", [])))
+    except Exception as e:
+        logger.warning("中国边界数据加载失败: %s", e)
+        self._china_boundaries = None
 
 @property
 def map_renderer(self):
-	"""地图渲染器（懒加载，优先 HexMapRenderer）"""
-	if self._map_renderer is None:
-		# 尝试使用 HexMapRenderer
-		if getattr(self.engine, 'hex_map', None) is not None:
-			try:
-				from renderer.hex_map_renderer import HexMapRenderer
-				self._hex_map_renderer = HexMapRenderer(self.engine.hex_map)
-				if self._china_boundaries:
-					self._hex_map_renderer.set_boundaries(self._china_boundaries)
-				self._map_renderer = self._hex_map_renderer
-				logger.info("使用 HexMapRenderer（六角格 + 中国边界）")
-				return self._map_renderer
-			except Exception as e:
-				logger.warning("HexMapRenderer 失败: %s", e)
+    """地图渲染器（懒加载，优先 HexMapRenderer）"""
+    if self._map_renderer is None:
+        # 尝试使用 HexMapRenderer
+        if getattr(self.engine, 'hex_map', None) is not None:
+            try:
+                from renderer.hex_map_renderer import HexMapRenderer
+                self._hex_map_renderer = HexMapRenderer(self.engine.hex_map)
+                if self._china_boundaries:
+                    self._hex_map_renderer.set_boundaries(self._china_boundaries)
+                self._map_renderer = self._hex_map_renderer
+                logger.info("使用 HexMapRenderer（六角格 + 中国边界）")
+                return self._map_renderer
+            except Exception as e:
+                logger.warning("HexMapRenderer 失败: %s", e)
 
-		# 回退到旧 MapRenderer
-		from renderer.map_renderer import MapRenderer
-		self._map_renderer = MapRenderer(self.engine)
-		logger.info("使用 MapRenderer（旧版）")
-	return self._map_renderer
+        # 回退到旧 MapRenderer
+        from renderer.map_renderer import MapRenderer
+        self._map_renderer = MapRenderer(self.engine)
+        logger.info("使用 MapRenderer（旧版）")
+    return self._map_renderer
 
     @property
     def ui_panel(self):
