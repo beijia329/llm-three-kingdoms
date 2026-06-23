@@ -193,12 +193,13 @@ class ArmyMovementSystem:
     ) -> None:
         """Hex 模式：沿六角格路径推进"""
         from game.hex_map import HexMap
+        from game.constants import ARMY_MARCH_SPEED
 
         if army.status not in (ArmyStatus.MARCHING, ArmyStatus.RETREATING):
             return
 
         # 移动力预算
-        base_speed = 2.0 if army.status == ArmyStatus.RETREATING else 1.0
+        base_speed = float(ARMY_MARCH_SPEED * 2) if army.status == ArmyStatus.RETREATING else float(ARMY_MARCH_SPEED)
         season_factor = SEASON_MOVEMENT_FACTOR.get(season, 1.0)
         movement_budget = base_speed * season_factor
 

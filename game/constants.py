@@ -194,11 +194,11 @@ ARMY_MARCH_SPEED: int = 2
 # ============================================================
 
 # --- 围城参数 ---
-WALL_DAMAGE_BASE: int = 100
-"""围城每回合对城墙的基础伤害"""
+WALL_DAMAGE_BASE: int = 200
+"""围城每回合对城墙的基础伤害（提高以加速攻城）"""
 
-WALL_DAMAGE_FORCE_MULTIPLIER_CAP: float = 3.0
-"""兵力系数上限（攻击方兵力/守军，最高3倍）"""
+WALL_DAMAGE_FORCE_MULTIPLIER_CAP: float = 4.0
+"""兵力系数上限（攻击方兵力/守军）"""
 
 COMMAND_ATTACK_BONUS_RATE: float = 0.01
 """每点统帅增加1%攻击力"""

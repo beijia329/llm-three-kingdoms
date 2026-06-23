@@ -47,11 +47,14 @@ class CLIPlayer(BasePlayer):
         commands: List[Command] = []
         turn = observation.turn
 
+        # 每回合重置外交标志
+        self._msg_sent = False
+
         enemy_ids: Set[str] = {c.id for c in observation.known_cities}
         enemy_factions = list({c.faction for c in observation.known_cities if c.faction != self.faction})
 
-        # 外交（diplomacy > 0.4 的势力更倾向外交）
-        if self._diplomacy > 0.4 and not self._msg_sent and enemy_factions:
+        # 外交（diplomacy > 0.3 的势力倾向外交, 每3回合发一次）
+        if self._diplomacy > 0.3 and not self._msg_sent and enemy_factions and turn % 3 == 0:
             target = self._rng.choice(enemy_factions)
             messages = ["提议结盟共抗强敌", "互不侵犯如何？", "你我合兵一处，天下可定"]
             commands.append(MessageCommand(
@@ -60,31 +63,31 @@ class CLIPlayer(BasePlayer):
             ))
             self._msg_sent = True
 
-        # 性格驱动的阈值
-        attack_garrison = int(2000 - self._aggression * 1000)
-        attack_gold = int(800 - self._aggression * 600)
-        recruit_gold = int(600 - self._aggression * 300)
+        # 性格驱动的阈值（大幅降低以鼓励进攻）
+        attack_garrison = int(1200 - self._aggression * 800)   # 激进:400兵就进攻
+        attack_gold = int(400 - self._aggression * 300)         # 激进:100金就够
+        recruit_gold = int(300 - self._aggression * 150)        # 激进:150金就征兵
 
         for city in observation.own_cities:
             border = any(nid in enemy_ids for nid in city.neighbors)
             if not border:
                 continue
 
-            # 进攻
+            # 进攻（只要有兵就将领不必须）
             if (city.garrison >= attack_garrison
                     and city.gold >= attack_gold
-                    and observation.own_generals
-                    and self._rng.random() < self._aggression):
+                    and self._rng.random() < self._aggression * 1.3):
                 target = self._find_attack_target(city, enemy_ids, observation)
                 if target:
-                    troops = min(city.garrison - 200, int(2000 * max(0.3, self._aggression)))
-                    if troops >= 300:
+                    troops = min(city.garrison - 100, int(3000 * max(0.4, self._aggression)))
+                    if troops >= 200:
                         gen = self._find_general_in_city(city.id, observation)
-                        if gen:
+                        general_id = gen.id if gen else (observation.own_generals[0].id if observation.own_generals else "")
+                        if general_id:
                             commands.append(AttackCommand(
                                 faction=self.faction, turn=turn,
                                 from_city=city.id, to_city=target,
-                                troops=troops, general=gen.id,
+                                troops=troops, general=general_id,
                             ))
                             continue
 

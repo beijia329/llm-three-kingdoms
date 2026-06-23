@@ -30,9 +30,9 @@ class TestSiegeDamage:
             attacker_command=70,
         )
         damage = resolver.calculate_wall_damage(ctx)
-        # base=100, force_mult=min(3000/2000, 3)=1.5, command=1+(70-50)/100=1.2
-        # = 100 * 1.5 * 1.2 = 180
-        assert damage == pytest.approx(180, abs=1)
+        # base=200, force_mult=min(3000/2000, 4)=1.5, command=1+(70-50)/100=1.2
+        # = 200 * 1.5 * 1.2 = 360
+        assert damage == pytest.approx(360, abs=1)
 
     def test_wall_damage_max_multiplier(self):
         """兵力系数上限为3"""
@@ -42,9 +42,9 @@ class TestSiegeDamage:
             attacker_command=50,
         )
         damage = resolver.calculate_wall_damage(ctx)
-        # base=100, force_mult=min(10, 3)=3, command=1.0
-        # = 100 * 3 * 1.0 = 300
-        assert damage == pytest.approx(300, abs=1)
+        # base=200, force_mult=min(10, 4)=4, command=1.0
+        # = 200 * 4 * 1.0 = 800
+        assert damage == pytest.approx(800, abs=1)
 
     def test_wall_damage_low_command(self):
         """低统帅降低伤害"""
@@ -54,7 +54,9 @@ class TestSiegeDamage:
             attacker_command=30,
         )
         damage = resolver.calculate_wall_damage(ctx)
-        # base=100, force_mult=1.5, command=1+(30-50)/100=0.8
+        # base=200, force_mult=1.5, command=1+(30-50)/100=0.8
+        # = 200 * 1.5 * 0.8 = 240
+        assert damage == pytest.approx(240, abs=1)
         # = 100 * 1.5 * 0.8 = 120
         assert damage == pytest.approx(120, abs=1)
 
