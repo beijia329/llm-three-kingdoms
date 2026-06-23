@@ -1,19 +1,324 @@
 [
-  {"id": "xuchang", "name": "许昌", "faction": "wei", "level": 5, "wall_hp": 5000, "wall_max_hp": 5000, "gold": 2500, "food": 2500, "population": 100000, "morale": 75, "garrison": 5000, "position": [400, 200], "neighbors": ["luoyang", "chenliu"]},
-  {"id": "luoyang", "name": "洛阳", "faction": "wei", "level": 4, "wall_hp": 3500, "wall_max_hp": 3500, "gold": 1500, "food": 1800, "population": 60000, "morale": 70, "garrison": 3500, "position": [300, 100], "neighbors": ["xuchang", "yecheng", "changan"]},
-  {"id": "yecheng", "name": "邺城", "faction": "wei", "level": 3, "wall_hp": 2000, "wall_max_hp": 2000, "gold": 800, "food": 1000, "population": 30000, "morale": 70, "garrison": 2000, "position": [250, 50], "neighbors": ["luoyang"]},
-  {"id": "chenliu", "name": "陈留", "faction": "wei", "level": 2, "wall_hp": 1000, "wall_max_hp": 1000, "gold": 400, "food": 600, "population": 15000, "morale": 70, "garrison": 1000, "position": [450, 250], "neighbors": ["xuchang", "he_fei"]},
-  {"id": "changan", "name": "长安", "faction": "wei", "level": 3, "wall_hp": 2000, "wall_max_hp": 2000, "gold": 800, "food": 1000, "population": 30000, "morale": 65, "garrison": 2000, "position": [200, 150], "neighbors": ["luoyang", "hanzhong", "tianshui"]},
-
-  {"id": "chengdu", "name": "成都", "faction": "shu", "level": 5, "wall_hp": 5000, "wall_max_hp": 5000, "gold": 2500, "food": 2500, "population": 100000, "morale": 80, "garrison": 5000, "position": [150, 400], "neighbors": ["hanzhong", "jian_ge", "bai_di"]},
-  {"id": "hanzhong", "name": "汉中", "faction": "shu", "level": 3, "wall_hp": 2000, "wall_max_hp": 2000, "gold": 800, "food": 1000, "population": 30000, "morale": 75, "garrison": 2000, "position": [200, 300], "neighbors": ["chengdu", "changan", "tianshui"]},
-  {"id": "jian_ge", "name": "剑阁", "faction": "shu", "level": 2, "wall_hp": 1000, "wall_max_hp": 1000, "gold": 400, "food": 600, "population": 15000, "morale": 75, "garrison": 1500, "position": [100, 350], "neighbors": ["chengdu", "bai_di"]},
-  {"id": "bai_di", "name": "白帝", "faction": "shu", "level": 2, "wall_hp": 1000, "wall_max_hp": 1000, "gold": 400, "food": 600, "population": 15000, "morale": 70, "garrison": 1000, "position": [100, 450], "neighbors": ["chengdu", "jian_ge", "jiangling"]},
-  {"id": "tianshui", "name": "天水", "faction": "shu", "level": 2, "wall_hp": 1000, "wall_max_hp": 1000, "gold": 400, "food": 600, "population": 15000, "morale": 65, "garrison": 1000, "position": [150, 250], "neighbors": ["changan", "hanzhong"]},
-
-  {"id": "jianye", "name": "建业", "faction": "wu", "level": 5, "wall_hp": 5000, "wall_max_hp": 5000, "gold": 2500, "food": 2500, "population": 100000, "morale": 75, "garrison": 5000, "position": [600, 300], "neighbors": ["chai_sang", "he_fei", "wu_jun"]},
-  {"id": "chai_sang", "name": "柴桑", "faction": "wu", "level": 3, "wall_hp": 2000, "wall_max_hp": 2000, "gold": 800, "food": 1000, "population": 30000, "morale": 70, "garrison": 2000, "position": [500, 400], "neighbors": ["jianye", "jiangling", "he_fei"]},
-  {"id": "jiangling", "name": "江陵", "faction": "wu", "level": 3, "wall_hp": 2000, "wall_max_hp": 2000, "gold": 800, "food": 1000, "population": 30000, "morale": 70, "garrison": 2000, "position": [400, 450], "neighbors": ["chai_sang", "bai_di"]},
-  {"id": "he_fei", "name": "合肥", "faction": "wu", "level": 2, "wall_hp": 1000, "wall_max_hp": 1000, "gold": 400, "food": 600, "population": 15000, "morale": 65, "garrison": 1500, "position": [550, 250], "neighbors": ["jianye", "chai_sang", "chenliu"]},
-  {"id": "wu_jun", "name": "吴郡", "faction": "wu", "level": 2, "wall_hp": 1000, "wall_max_hp": 1000, "gold": 400, "food": 600, "population": 15000, "morale": 70, "garrison": 1000, "position": [650, 400], "neighbors": ["jianye", "chai_sang"]}
+  {
+    "id": "xuchang",
+    "name": "许昌",
+    "faction": "wei",
+    "level": 5,
+    "wall_hp": 5000,
+    "wall_max_hp": 5000,
+    "gold": 2500,
+    "food": 2500,
+    "population": 100000,
+    "morale": 75,
+    "garrison": 5000,
+    "position": {
+      "q": 65,
+      "r": 38
+    },
+    "neighbors": [
+      "luoyang",
+      "chenliu"
+    ]
+  },
+  {
+    "id": "luoyang",
+    "name": "洛阳",
+    "faction": "wei",
+    "level": 4,
+    "wall_hp": 3500,
+    "wall_max_hp": 3500,
+    "gold": 1500,
+    "food": 1800,
+    "population": 60000,
+    "morale": 70,
+    "garrison": 3500,
+    "position": {
+      "q": 58,
+      "r": 35
+    },
+    "neighbors": [
+      "xuchang",
+      "yecheng",
+      "changan"
+    ]
+  },
+  {
+    "id": "yecheng",
+    "name": "邺城",
+    "faction": "wei",
+    "level": 3,
+    "wall_hp": 2000,
+    "wall_max_hp": 2000,
+    "gold": 800,
+    "food": 1000,
+    "population": 30000,
+    "morale": 70,
+    "garrison": 2000,
+    "position": {
+      "q": 66,
+      "r": 28
+    },
+    "neighbors": [
+      "luoyang"
+    ]
+  },
+  {
+    "id": "chenliu",
+    "name": "陈留",
+    "faction": "wei",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 68,
+      "r": 34
+    },
+    "neighbors": [
+      "xuchang",
+      "he_fei"
+    ]
+  },
+  {
+    "id": "changan",
+    "name": "长安",
+    "faction": "wei",
+    "level": 3,
+    "wall_hp": 2000,
+    "wall_max_hp": 2000,
+    "gold": 800,
+    "food": 1000,
+    "population": 30000,
+    "morale": 65,
+    "garrison": 2000,
+    "position": {
+      "q": 44,
+      "r": 36
+    },
+    "neighbors": [
+      "luoyang",
+      "hanzhong",
+      "tianshui"
+    ]
+  },
+  {
+    "id": "chengdu",
+    "name": "成都",
+    "faction": "shu",
+    "level": 5,
+    "wall_hp": 5000,
+    "wall_max_hp": 5000,
+    "gold": 2500,
+    "food": 2500,
+    "population": 100000,
+    "morale": 80,
+    "garrison": 5000,
+    "position": {
+      "q": 27,
+      "r": 50
+    },
+    "neighbors": [
+      "hanzhong",
+      "jian_ge",
+      "bai_di"
+    ]
+  },
+  {
+    "id": "hanzhong",
+    "name": "汉中",
+    "faction": "shu",
+    "level": 3,
+    "wall_hp": 2000,
+    "wall_max_hp": 2000,
+    "gold": 800,
+    "food": 1000,
+    "population": 30000,
+    "morale": 75,
+    "garrison": 2000,
+    "position": {
+      "q": 38,
+      "r": 44
+    },
+    "neighbors": [
+      "chengdu",
+      "changan",
+      "tianshui"
+    ]
+  },
+  {
+    "id": "jian_ge",
+    "name": "剑阁",
+    "faction": "shu",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 75,
+    "garrison": 1500,
+    "position": {
+      "q": 30,
+      "r": 48
+    },
+    "neighbors": [
+      "chengdu",
+      "bai_di"
+    ]
+  },
+  {
+    "id": "bai_di",
+    "name": "白帝",
+    "faction": "shu",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 45,
+      "r": 46
+    },
+    "neighbors": [
+      "chengdu",
+      "jian_ge",
+      "jiangling"
+    ]
+  },
+  {
+    "id": "tianshui",
+    "name": "天水",
+    "faction": "shu",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 65,
+    "garrison": 1000,
+    "position": {
+      "q": 35,
+      "r": 38
+    },
+    "neighbors": [
+      "changan",
+      "hanzhong"
+    ]
+  },
+  {
+    "id": "jianye",
+    "name": "建业",
+    "faction": "wu",
+    "level": 5,
+    "wall_hp": 5000,
+    "wall_max_hp": 5000,
+    "gold": 2500,
+    "food": 2500,
+    "population": 100000,
+    "morale": 75,
+    "garrison": 5000,
+    "position": {
+      "q": 88,
+      "r": 42
+    },
+    "neighbors": [
+      "chai_sang",
+      "he_fei",
+      "wu_jun"
+    ]
+  },
+  {
+    "id": "chai_sang",
+    "name": "柴桑",
+    "faction": "wu",
+    "level": 3,
+    "wall_hp": 2000,
+    "wall_max_hp": 2000,
+    "gold": 800,
+    "food": 1000,
+    "population": 30000,
+    "morale": 70,
+    "garrison": 2000,
+    "position": {
+      "q": 82,
+      "r": 48
+    },
+    "neighbors": [
+      "jianye",
+      "jiangling",
+      "he_fei"
+    ]
+  },
+  {
+    "id": "jiangling",
+    "name": "江陵",
+    "faction": "wu",
+    "level": 3,
+    "wall_hp": 2000,
+    "wall_max_hp": 2000,
+    "gold": 800,
+    "food": 1000,
+    "population": 30000,
+    "morale": 70,
+    "garrison": 2000,
+    "position": {
+      "q": 65,
+      "r": 47
+    },
+    "neighbors": [
+      "chai_sang",
+      "bai_di"
+    ]
+  },
+  {
+    "id": "he_fei",
+    "name": "合肥",
+    "faction": "wu",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 65,
+    "garrison": 1500,
+    "position": {
+      "q": 80,
+      "r": 38
+    },
+    "neighbors": [
+      "jianye",
+      "chai_sang",
+      "chenliu"
+    ]
+  },
+  {
+    "id": "wu_jun",
+    "name": "吴郡",
+    "faction": "wu",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 92,
+      "r": 44
+    },
+    "neighbors": [
+      "jianye",
+      "chai_sang"
+    ]
+  }
 ]

@@ -1,0 +1,9 @@
+{
+  "plain": {"fill": "#7cb342", "border": "#558b2f"},
+  "forest": {"fill": "#33691e", "border": "#1b5e20"},
+  "hill": {"fill": "#a1887f", "border": "#6d4c41"},
+  "mountain": {"fill": "#757575", "border": "#424242"},
+  "river": {"fill": "#4fc3f7", "border": "#0288d1"},
+  "desert": {"fill": "#e6c075", "border": "#c19a4b"},
+  "fog": {"fill": "#1a1a2e", "border": "#2a2a3e"}
+}
