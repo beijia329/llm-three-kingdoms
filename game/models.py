@@ -227,6 +227,9 @@ class General(BaseModel):
     is_injured: bool = Field(default=False, description="是否受伤")
     injured_turns_remaining: int = Field(default=0, description="受伤剩余回合")
 
+    # 性格
+    personality: str = Field(default="balanced", description="性格类型")
+
 
 # ============================================================
 # 命令模型
