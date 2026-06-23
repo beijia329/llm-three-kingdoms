@@ -13,9 +13,12 @@ from typing import Optional
 
 from game.constants import (
     CITY_LEVELS,
+    CITY_TERRITORY_RADIUS,
     RECRUIT_COST_GOLD,
     RECRUIT_COST_FOOD,
 )
+from game.hex_grid import HexCoord, hex_distance
+from game.hex_map import HexMap
 from game.models import City
 from game.systems.resource_system import ResourceSystem
 
@@ -301,6 +304,34 @@ class CitySystem:
             population_change=resource_result["population_change"],
             morale_change=morale_change,
         )
+
+    # ============================================================
+    # 城市控制区（Hex Grid）
+    # ============================================================
+
+    @staticmethod
+    def get_city_territory(city: City, hex_map: HexMap) -> set[HexCoord]:
+        """获取城市控制区坐标集合
+
+        根据城市等级和位置计算在六角格地图上的控制范围。
+
+        Args:
+            city: 城市对象
+            hex_map: 六角格地图
+
+        Returns:
+            控制区内的 HexCoord 集合
+        """
+        radius = CITY_TERRITORY_RADIUS.get(city.level, 1)
+        center = city.position
+        territory: set[HexCoord] = set()
+        for dq in range(-radius, radius + 1):
+            for dr in range(-radius, radius + 1):
+                coord = HexCoord(center.q + dq, center.r + dr)
+                if hex_distance(center, coord) <= radius:
+                    if hex_map.get_tile(coord) is not None:
+                        territory.add(coord)
+        return territory
 
     @staticmethod
     def _calculate_morale_change(city: City) -> int:

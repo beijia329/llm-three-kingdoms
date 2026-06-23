@@ -228,13 +228,14 @@ def _make_city(
     population: int = 5000,
     morale: int = 70,
     garrison: int = 500,
+    faction: str = "wei",
 ) -> City:
     """创建测试用城市"""
     lc = CITY_LEVELS[level]
     return City(
         id="test_city",
         name="测试城",
-        faction="wei",
+        faction=faction,
         level=level,
         wall_hp=lc["wall_hp"],
         wall_max_hp=lc["wall_hp"],
@@ -245,3 +246,108 @@ def _make_city(
         garrison=garrison,
         position=HexCoord(0, 0),
     )
+
+
+# ============================================================
+# Hex Territory Tests
+# ============================================================
+
+from game.hex_map import HexMap
+from game.tile import Tile, TerrainType
+
+
+class TestCityTerritory:
+    """城市控制区测试"""
+
+    def test_territory_level_1(self):
+        """1 级城市控制区半径=1，共 7 格"""
+        from game.systems.city_system import CitySystem
+
+        city = City(
+            id="test", name="测试", faction="wei", level=1,
+            wall_hp=500, wall_max_hp=500, gold=200, food=300,
+            population=5000, morale=70, garrison=500,
+            position=HexCoord(5, 5),
+        )
+        hm = _make_small_hex_map(10, 10)
+
+        system = CitySystem()
+        territory = system.get_city_territory(city, hm)
+        # 半径 1: 中心 + 6 邻居 = 7
+        assert len(territory) == 7
+        assert HexCoord(5, 5) in territory
+
+    def test_territory_level_2(self):
+        """2 级城市控制区半径=2"""
+        from game.systems.city_system import CitySystem
+
+        city = City(
+            id="test", name="测试", faction="wei", level=2,
+            wall_hp=1000, wall_max_hp=1000, gold=400, food=600,
+            population=15000, morale=70, garrison=1000,
+            position=HexCoord(5, 5),
+        )
+        hm = _make_small_hex_map(10, 10)
+
+        system = CitySystem()
+        territory = system.get_city_territory(city, hm)
+        # 半径 2: 19 格
+        assert len(territory) == 19
+
+    def test_territory_level_5(self):
+        """5 级城市控制区半径=3"""
+        from game.systems.city_system import CitySystem
+
+        city = City(
+            id="test", name="测试", faction="wei", level=5,
+            wall_hp=5000, wall_max_hp=5000, gold=2500, food=2500,
+            population=100000, morale=70, garrison=5000,
+            position=HexCoord(5, 5),
+        )
+        hm = _make_small_hex_map(10, 10)
+
+        system = CitySystem()
+        territory = system.get_city_territory(city, hm)
+        # 半径 3: 37 格
+        assert len(territory) == 37
+
+    def test_territory_only_existing_tiles(self):
+        """控制区只包含实际存在的地块"""
+        from game.systems.city_system import CitySystem
+
+        city = _make_city(level=2)
+        hm = _make_small_hex_map(3, 3)  # 只有 3x3 格
+
+        system = CitySystem()
+        territory = system.get_city_territory(city, hm)
+        # 最多 3x3 = 9 格
+        assert len(territory) <= 9
+        for coord in territory:
+            assert hm.get_tile(coord) is not None
+
+    def test_territory_different_position(self):
+        """非原点位置的城市"""
+        from game.systems.city_system import CitySystem
+
+        city = City(
+            id="test", name="测试", faction="wei", level=2,
+            wall_hp=1000, wall_max_hp=1000, gold=400, food=600,
+            population=15000, morale=70, garrison=1000,
+            position=HexCoord(5, 5),
+        )
+        hm = _make_small_hex_map(10, 10)
+
+        system = CitySystem()
+        territory = system.get_city_territory(city, hm)
+        assert HexCoord(5, 5) in territory
+        # 应有 19 格（半径 2）
+        assert len(territory) == 19
+
+
+def _make_small_hex_map(width: int, height: int) -> HexMap:
+    """创建测试用小尺寸 HexMap"""
+    hm = HexMap(width=width, height=height)
+    for q in range(width):
+        for r in range(height):
+            hm.add_tile(Tile(coord=HexCoord(q, r), terrain=TerrainType.PLAIN))
+    return hm
