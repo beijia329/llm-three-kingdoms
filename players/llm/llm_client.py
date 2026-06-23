@@ -180,6 +180,10 @@ class LLMClient:
         usage = data.get("usage", {})
         self.total_prompt_tokens += usage.get("prompt_tokens", 0)
         self.total_completion_tokens += usage.get("completion_tokens", 0)
+        # 估算费用 (DeepSeek: $0.14/1M input, $0.28/1M output)
+        pt = usage.get("prompt_tokens", 0)
+        ct = usage.get("completion_tokens", 0)
+        self.total_cost += pt * 0.14 / 1_000_000 + ct * 0.28 / 1_000_000
 
         # 提取回复内容
         choices = data.get("choices", [])
@@ -208,6 +212,7 @@ class LLMClient:
             "total_prompt_tokens": self.total_prompt_tokens,
             "total_completion_tokens": self.total_completion_tokens,
             "total_tokens": self.total_prompt_tokens + self.total_completion_tokens,
+            "total_cost": round(self.total_cost, 6),
             "last_response_time": f"{self._last_response_time:.2f}s",
         }
 
