@@ -161,6 +161,15 @@ class Army(BaseModel):
     is_in_battle: bool = Field(default=False, description="是否正在战斗")
     current_battle_id: Optional[str] = Field(None, description="当前战斗ID")
 
+    # 六角格移动
+    current_hex: Optional[HexCoord] = Field(
+        default=None, description="当前所在六角格"
+    )
+    path_hexes: List[HexCoord] = Field(
+        default_factory=list, description="行军路径（HexCoord 列表）"
+    )
+    path_index: int = Field(default=0, description="当前路径索引")
+
 
 class ArmyInfo(BaseModel):
     """军队简略信息（用于信息迷雾）"""
