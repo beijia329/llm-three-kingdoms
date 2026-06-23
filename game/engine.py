@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from game.constants import (
     MAX_TURNS,
     NUM_FACTIONS,
+    FACTIONS,
     OVERTIME_EXTRA_SOLDIERS,
 )
 from game.event_bus import EventBus
@@ -145,6 +146,7 @@ class GameEngine:
         self._army_movement: ArmyMovementSystem = ArmyMovementSystem()
         self._battle_scheduler: BattleScheduler = BattleScheduler(rng=self.rng)
         self._battle_resolver: BattleResolver = BattleResolver(rng=self.rng)
+        self._kingdom_system: Any = None  # 建国系统（init_game 时初始化）
 
         # Hex Map (loaded in init_game)
         self.hex_map: Optional[Any] = None
@@ -193,6 +195,10 @@ class GameEngine:
             "游戏初始化完成: %d 城市, %d 将领, %d 势力",
             len(self.cities), len(self.generals), NUM_FACTIONS,
         )
+
+        # 初始化建国系统
+        from game.kingdom_system import KingdomSystem
+        self._kingdom_system = KingdomSystem()
 
         # 4. 加载 HexMap（如果地图数据可用）
         self._init_hex_map(data)
@@ -650,7 +656,18 @@ class GameEngine:
         result["game_over"] = self.game_over
         result["winner"] = self.winner
 
-        # 7. 回合递增
+        # 7. 建国检测
+        if self._kingdom_system is not None:
+            for faction in FACTIONS:
+                faction_cities = [c for c in self.cities.values() if c.faction == faction]
+                kingdom = self._kingdom_system.check_kingdom_eligibility(faction, list(self.cities.values()))
+                if kingdom:
+                    logger.info("🏰 %s 称%s！国号【%s】",
+                                FACTIONS.get(faction, faction),
+                                "帝" if kingdom["type"] == "emperor" else "王",
+                                kingdom["name"])
+
+        # 8. 回合递增
         if not self.game_over:
             self.turn += 1
 
