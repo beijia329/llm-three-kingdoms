@@ -376,3 +376,96 @@ AI_THINKING_TIMEOUT_SECONDS: int = 30
 
 AI_MAX_RETRIES: int = 3
 """LLM失败最大重试次数"""
+
+# ============================================================
+# 六角格地图
+# ============================================================
+
+HEX_SIZE: int = 32
+"""六角格边长（像素）"""
+
+HEX_MAP_WIDTH: int = 120
+"""六角格地图宽度（格子数）"""
+
+HEX_MAP_HEIGHT: int = 90
+"""六角格地图高度（格子数）"""
+
+# ============================================================
+# 地形参数
+# ============================================================
+
+TERRAIN_MOVE_COST: Dict[str, float] = {
+    "plain": 1.0,
+    "forest": 1.5,
+    "hill": 2.0,
+    "mountain": float("inf"),
+    "river": 2.0,
+    "desert": 1.5,
+}
+"""地形移动消耗倍数"""
+
+TERRAIN_DEFENSE_BONUS: Dict[str, float] = {
+    "plain": 0.0,
+    "forest": 0.10,
+    "hill": 0.20,
+    "mountain": 0.40,
+    "river": 0.0,
+    "desert": -0.10,
+}
+"""地形防御加成率（0.10 = +10%）"""
+
+# 基础产出：仅金钱/粮草/人口
+TERRAIN_YIELDS: Dict[str, Dict[str, float]] = {
+    "plain": {"gold": 0.0, "food": 3.0, "pop": 1.0},
+    "forest": {"gold": 0.0, "food": 1.5, "pop": 0.5},
+    "hill": {"gold": 1.5, "food": 0.5, "pop": 0.3},
+    "mountain": {"gold": 0.0, "food": 0.0, "pop": 0.0},
+    "river": {"gold": 0.5, "food": 2.0, "pop": 0.5},
+    "desert": {"gold": 0.0, "food": 0.2, "pop": 0.1},
+}
+"""地形基础产出（每格每回合）"""
+
+CITY_TERRITORY_RADIUS: Dict[int, int] = {
+    1: 1,
+    2: 2,
+    3: 2,
+    4: 3,
+    5: 3,
+}
+"""城市控制区半径（按城市等级）"""
+
+# ============================================================
+# 季节参数
+# ============================================================
+
+SEASON_FOOD_BONUS: Dict[str, float] = {
+    "spring": 1.10,
+    "summer": 1.05,
+    "autumn": 1.15,
+    "winter": 0.90,
+}
+"""季节粮草产出倍率"""
+
+SEASON_MOVEMENT_FACTOR: Dict[str, float] = {
+    "spring": 1.0,
+    "summer": 1.0,
+    "autumn": 1.0,
+    "winter": 0.8,
+}
+"""季节军队移动力倍率"""
+
+# ============================================================
+# 影响力系统参数
+# ============================================================
+
+INFLUENCE_DECAY_PER_HEX: float = 0.4
+"""影响力每向外一格衰减比例（40%）"""
+
+INFLUENCE_OWN_BUFF_RATE: float = 0.05
+"""己方高影响力地块产出加成（5%）"""
+
+INFLUENCE_ENEMY_DEBUFF_RATE: float = 0.10
+"""敌方高影响力地块产出减成（10%）"""
+
+INFLUENCE_ENEMY_DOMINANCE_RATIO: float = 2.0
+"""敌方影响力达到己方 2 倍时触发 debuff"""

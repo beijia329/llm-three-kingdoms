@@ -135,3 +135,92 @@ class TestGeneralConstants:
         assert GENERAL_ATTRIBUTE_MIN == 1
         assert GENERAL_ATTRIBUTE_MAX == 100
         assert GENERAL_ATTRIBUTE_MIN < GENERAL_ATTRIBUTE_MAX
+
+
+class TestHexMapConstants:
+    """六角格地图常量测试"""
+
+    def test_hex_size(self):
+        """六角格大小应为正数"""
+        from game.constants import HEX_SIZE
+        assert HEX_SIZE > 0
+
+    def test_hex_map_dimensions(self):
+        """地图尺寸应为正数"""
+        from game.constants import HEX_MAP_WIDTH, HEX_MAP_HEIGHT
+        assert HEX_MAP_WIDTH > 0
+        assert HEX_MAP_HEIGHT > 0
+
+
+class TestTerrainConstants:
+    """地形常量测试"""
+
+    def test_terrain_move_cost(self):
+        """地形移动消耗应有定义"""
+        from game.constants import TERRAIN_MOVE_COST
+        assert TERRAIN_MOVE_COST["plain"] == 1.0
+        assert TERRAIN_MOVE_COST["mountain"] == float("inf")
+        for terrain in ["plain", "forest", "hill", "mountain", "river", "desert"]:
+            assert terrain in TERRAIN_MOVE_COST
+
+    def test_terrain_defense_bonus(self):
+        """地形防御加成"""
+        from game.constants import TERRAIN_DEFENSE_BONUS
+        assert TERRAIN_DEFENSE_BONUS["plain"] == 0.0
+        assert TERRAIN_DEFENSE_BONUS["mountain"] == 0.40
+        assert TERRAIN_DEFENSE_BONUS["desert"] == -0.10
+
+    def test_terrain_yields(self):
+        """地形产出应有定义"""
+        from game.constants import TERRAIN_YIELDS
+        for terrain in ["plain", "forest", "hill", "mountain", "river", "desert"]:
+            yields = TERRAIN_YIELDS[terrain]
+            assert "gold" in yields
+            assert "food" in yields
+            assert "pop" in yields
+
+    def test_city_territory_radius(self):
+        """城市控制区半径"""
+        from game.constants import CITY_TERRITORY_RADIUS
+        assert len(CITY_TERRITORY_RADIUS) == 5
+        assert CITY_TERRITORY_RADIUS[1] == 1
+        assert CITY_TERRITORY_RADIUS[5] == 3
+
+
+class TestSeasonConstants:
+    """季节常量测试"""
+
+    def test_season_food_bonus(self):
+        """季节粮草加成"""
+        from game.constants import SEASON_FOOD_BONUS
+        assert "spring" in SEASON_FOOD_BONUS
+        assert "summer" in SEASON_FOOD_BONUS
+        assert "autumn" in SEASON_FOOD_BONUS
+        assert "winter" in SEASON_FOOD_BONUS
+        assert SEASON_FOOD_BONUS["autumn"] > 1.0  # 秋季丰收
+
+    def test_season_movement_factor(self):
+        """季节移动系数"""
+        from game.constants import SEASON_MOVEMENT_FACTOR
+        assert SEASON_MOVEMENT_FACTOR["winter"] < 1.0  # 冬季减速
+        assert "winter" in SEASON_MOVEMENT_FACTOR
+
+
+class TestInfluenceConstants:
+    """影响力常量测试"""
+
+    def test_influence_decay(self):
+        """影响力衰减应在合理范围"""
+        from game.constants import INFLUENCE_DECAY_PER_HEX
+        assert 0 < INFLUENCE_DECAY_PER_HEX < 1
+
+    def test_influence_buff_rates(self):
+        """影响力 Buff/Debuff 比率"""
+        from game.constants import INFLUENCE_OWN_BUFF_RATE, INFLUENCE_ENEMY_DEBUFF_RATE
+        assert INFLUENCE_OWN_BUFF_RATE > 0
+        assert INFLUENCE_ENEMY_DEBUFF_RATE > 0
+
+    def test_influence_dominance_ratio(self):
+        """敌方影响力优势阈值"""
+        from game.constants import INFLUENCE_ENEMY_DOMINANCE_RATIO
+        assert INFLUENCE_ENEMY_DOMINANCE_RATIO > 1.0
