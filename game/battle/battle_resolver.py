@@ -56,6 +56,7 @@ from game.models import (
     BattlePhase,
     BattleResult,
     BattleResultType,
+    BattleType,
 )
 from game.random import GameRandom
 
