@@ -1,0 +1,167 @@
+[
+  {
+    "id": "caocao",
+    "name": "曹操",
+    "faction": "wei",
+    "command": 96,
+    "politics": 94,
+    "bravery": 72,
+    "intelligence": 93,
+    "loyalty": 100,
+    "location": "xuchang"
+  },
+  {
+    "id": "xiahou_dun",
+    "name": "夏侯惇",
+    "faction": "wei",
+    "command": 88,
+    "politics": 60,
+    "bravery": 90,
+    "intelligence": 65,
+    "loyalty": 95,
+    "location": "luoyang"
+  },
+  {
+    "id": "xun_yu",
+    "name": "荀彧",
+    "faction": "wei",
+    "command": 60,
+    "politics": 95,
+    "bravery": 30,
+    "intelligence": 95,
+    "loyalty": 90,
+    "location": "xuchang"
+  },
+  {
+    "id": "zhang_liao",
+    "name": "张辽",
+    "faction": "wei",
+    "command": 92,
+    "politics": 55,
+    "bravery": 88,
+    "intelligence": 78,
+    "loyalty": 90,
+    "location": "yecheng"
+  },
+  {
+    "id": "simayi",
+    "name": "司马懿",
+    "faction": "wei",
+    "command": 95,
+    "politics": 90,
+    "bravery": 55,
+    "intelligence": 98,
+    "loyalty": 80,
+    "location": "changan"
+  },
+  {
+    "id": "liubei",
+    "name": "刘备",
+    "faction": "shu",
+    "command": 78,
+    "politics": 85,
+    "bravery": 70,
+    "intelligence": 80,
+    "loyalty": 100,
+    "location": "chengdu"
+  },
+  {
+    "id": "zhuge_liang",
+    "name": "诸葛亮",
+    "faction": "shu",
+    "command": 92,
+    "politics": 98,
+    "bravery": 35,
+    "intelligence": 100,
+    "loyalty": 100,
+    "location": "hanzhong"
+  },
+  {
+    "id": "guan_yu",
+    "name": "关羽",
+    "faction": "shu",
+    "command": 94,
+    "politics": 60,
+    "bravery": 96,
+    "intelligence": 72,
+    "loyalty": 100,
+    "location": "chengdu"
+  },
+  {
+    "id": "zhang_fei",
+    "name": "张飞",
+    "faction": "shu",
+    "command": 82,
+    "politics": 30,
+    "bravery": 98,
+    "intelligence": 40,
+    "loyalty": 100,
+    "location": "bai_di"
+  },
+  {
+    "id": "zhao_yun",
+    "name": "赵云",
+    "faction": "shu",
+    "command": 88,
+    "politics": 65,
+    "bravery": 95,
+    "intelligence": 76,
+    "loyalty": 95,
+    "location": "tianshui"
+  },
+  {
+    "id": "sun_quan",
+    "name": "孙权",
+    "faction": "wu",
+    "command": 75,
+    "politics": 90,
+    "bravery": 55,
+    "intelligence": 82,
+    "loyalty": 100,
+    "location": "jianye"
+  },
+  {
+    "id": "zhou_yu",
+    "name": "周瑜",
+    "faction": "wu",
+    "command": 96,
+    "politics": 80,
+    "bravery": 65,
+    "intelligence": 96,
+    "loyalty": 95,
+    "location": "chai_sang"
+  },
+  {
+    "id": "lu_meng",
+    "name": "吕蒙",
+    "faction": "wu",
+    "command": 90,
+    "politics": 65,
+    "bravery": 80,
+    "intelligence": 88,
+    "loyalty": 90,
+    "location": "jianye"
+  },
+  {
+    "id": "gan_ning",
+    "name": "甘宁",
+    "faction": "wu",
+    "command": 84,
+    "politics": 35,
+    "bravery": 95,
+    "intelligence": 60,
+    "loyalty": 85,
+    "location": "he_fei"
+  },
+  {
+    "id": "lu_xun",
+    "name": "陆逊",
+    "faction": "wu",
+    "command": 94,
+    "politics": 75,
+    "bravery": 55,
+    "intelligence": 95,
+    "loyalty": 90,
+    "location": "wu_jun"
+  }
+]

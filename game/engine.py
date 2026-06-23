@@ -1,0 +1,750 @@
+"""GameEngine 主类
+
+游戏引擎的核心，负责：
+1. 初始化游戏状态（加载城市、将领、地图数据）
+2. 执行玩家命令（发展、征兵、进攻、赏赐、探索、外交）
+3. 处理回合逻辑（资源产出、行军推进、战斗检测与结算）
+4. 胜利判定（城市最多者胜）
+5. 生成玩家观察数据（含信息迷雾）
+
+所有子系统在此汇聚：
+- MapSystem → 地图拓扑
+- ResourceSystem → 资源产出
+- CitySystem → 城市发展/征兵
+- GeneralSystem → 将领探索/赏赐/忠诚
+- DiplomacySystem → 外交消息/流言
+- ArmyMovementSystem → 行军
+- BattleScheduler/BattleResolver → 战斗
+- EventBus → 事件通知
+- StateManager → 状态快照（TODO: 任务4.3）
+
+参考设计文档：docs/design/architecture.md 第二章
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
+
+from game.constants import (
+    MAX_TURNS,
+    NUM_FACTIONS,
+    OVERTIME_EXTRA_SOLDIERS,
+)
+from game.event_bus import EventBus
+from game.models import (
+    Army,
+    ArmyStatus,
+    BattleContext,
+    BattlePhase,
+    BattleResult,
+    BattleResultType,
+    City,
+    Command,
+    DevelopCommand,
+    RecruitCommand,
+    AttackCommand,
+    RewardCommand,
+    ExploreCommand,
+    MessageCommand,
+    RumorCommand,
+    DiplomacyMessage,
+    General,
+    GameObservation,
+    GameState,
+    TurnLog,
+)
+from game.random import GameRandom
+from game.systems.city_system import CitySystem
+from game.systems.diplomacy_system import DiplomacySystem
+from game.systems.general_system import GeneralSystem
+from game.systems.map_system import MapSystem
+from game.systems.resource_system import ResourceSystem
+from game.battle.army_movement import ArmyMovementSystem
+from game.battle.battle_scheduler import BattleScheduler
+from game.battle.battle_resolver import BattleResolver
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================
+# 命令执行结果
+# ============================================================
+
+
+@dataclass
+class CommandResult:
+    """命令执行结果"""
+
+    success: bool = False
+    command_type: str = ""
+    description: str = ""
+    data: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class TurnResult:
+    """回合处理结果"""
+
+    turn: int = 0
+    game_over: bool = False
+    winner: str = ""
+    cities_updated: int = 0
+    armies_moved: int = 0
+    battles_fought: int = 0
+    events: List[Dict[str, Any]] = field(default_factory=list)
+
+
+# ============================================================
+# GameEngine 主类
+# ============================================================
+
+
+class GameEngine:
+    """游戏引擎主类
+
+    管理完整的游戏生命周期：初始化 → 回合循环 → 结束。
+    所有系统通过此类协调工作。
+    """
+
+    def __init__(self, seed: int = 42) -> None:
+        """初始化游戏引擎
+
+        Args:
+            seed: 随机种子，默认42
+        """
+        self.seed: int = seed
+        self.rng: GameRandom = GameRandom(seed)
+
+        # 游戏状态
+        self.turn: int = 1
+        self.max_turns: int = MAX_TURNS
+        self.game_over: bool = False
+        self.winner: Optional[str] = None
+
+        # 游戏数据
+        self.cities: Dict[str, City] = {}
+        self.armies: Dict[str, Army] = {}
+        self.generals: Dict[str, General] = {}
+
+        # 子系统
+        self.map: MapSystem = MapSystem()
+        self._city_system: CitySystem = CitySystem()
+        self._resource_system: ResourceSystem = ResourceSystem()
+        self._general_system: GeneralSystem = GeneralSystem(rng=self.rng)
+        self._diplomacy_system: DiplomacySystem = DiplomacySystem(rng=self.rng)
+        self._army_movement: ArmyMovementSystem = ArmyMovementSystem()
+        self._battle_scheduler: BattleScheduler = BattleScheduler(rng=self.rng)
+        self._battle_resolver: BattleResolver = BattleResolver(rng=self.rng)
+
+        # 事件总线
+        self.events: EventBus = EventBus()
+
+        # 日志
+        self.turn_logs: List[TurnLog] = []
+        self._messages: List[DiplomacyMessage] = []
+        self._pending_battles: List[BattleContext] = []
+        self._army_counter: int = 0
+
+    # ============================================================
+    # 游戏初始化
+    # ============================================================
+
+    def init_game(self, data: Dict[str, Any]) -> None:
+        """从数据字典初始化游戏
+
+        Args:
+            data: 包含 cities, generals, map_topology 的字典
+                  格式参考 data/*.json
+        """
+        # 1. 加载城市
+        for city_data in data.get("cities", []):
+            city = City(**city_data)
+            self.cities[city.id] = city
+            self.map.add_city(city)
+
+        # 2. 加载将领
+        for gen_data in data.get("generals", []):
+            general = General(**gen_data)
+            self.generals[general.id] = general
+
+        # 3. 加载地图拓扑（确保双向连接）
+        topology = data.get("map_topology", {})
+        for city_id, neighbors in topology.items():
+            if city_id in self.cities:
+                self.cities[city_id].neighbors = list(neighbors)
+                # 重新添加到地图以确保双向连接
+                self.map.add_city(self.cities[city_id])
+
+        logger.info(
+            "游戏初始化完成: %d 城市, %d 将领, %d 势力",
+            len(self.cities), len(self.generals), NUM_FACTIONS,
+        )
+
+    # ============================================================
+    # 命令执行
+    # ============================================================
+
+    def execute_command(self, command: Command) -> CommandResult:
+        """执行一个玩家命令
+
+        Args:
+            command: 命令对象
+
+        Returns:
+            命令执行结果
+        """
+        command_type = command.type
+
+        try:
+            if command_type == "develop" and isinstance(command, DevelopCommand):
+                return self._execute_develop(command)
+            elif command_type == "recruit" and isinstance(command, RecruitCommand):
+                return self._execute_recruit(command)
+            elif command_type == "attack" and isinstance(command, AttackCommand):
+                return self._execute_attack(command)
+            elif command_type == "reward" and isinstance(command, RewardCommand):
+                return self._execute_reward(command)
+            elif command_type == "explore" and isinstance(command, ExploreCommand):
+                return self._execute_explore(command)
+            elif command_type == "message" and isinstance(command, MessageCommand):
+                return self._execute_message(command)
+            elif command_type == "rumor" and isinstance(command, RumorCommand):
+                return self._execute_rumor(command)
+            else:
+                return CommandResult(
+                    success=False,
+                    command_type=command_type,
+                    description=f"未知命令类型: {command_type}",
+                )
+        except Exception as e:
+            logger.exception("命令执行失败: %s", command)
+            return CommandResult(
+                success=False,
+                command_type=command_type,
+                description=f"命令执行异常: {e}",
+            )
+
+    def _execute_develop(self, cmd: DevelopCommand) -> CommandResult:
+        """执行发展命令"""
+        city = self.cities.get(cmd.city)
+        if city is None:
+            return CommandResult(success=False, command_type="develop",
+                                 description=f"城市 {cmd.city} 不存在")
+        if city.faction != cmd.faction:
+            return CommandResult(success=False, command_type="develop",
+                                 description=f"城市 {cmd.city} 不属于 {cmd.faction}")
+
+        result = self._city_system.develop(city, cmd.develop_type)
+        return CommandResult(
+            success=result.success,
+            command_type="develop",
+            description=result.description,
+            data={"gold_cost": result.gold_cost, "effect": result.effect_value},
+        )
+
+    def _execute_recruit(self, cmd: RecruitCommand) -> CommandResult:
+        """执行征兵命令"""
+        city = self.cities.get(cmd.city)
+        if city is None:
+            return CommandResult(success=False, command_type="recruit",
+                                 description=f"城市 {cmd.city} 不存在")
+        if city.faction != cmd.faction:
+            return CommandResult(success=False, command_type="recruit",
+                                 description=f"城市 {cmd.city} 不属于 {cmd.faction}")
+
+        result = self._city_system.recruit(city, cmd.troops)
+        return CommandResult(
+            success=result.success,
+            command_type="recruit",
+            description=result.description,
+            data={"troops": result.troops_recruited,
+                  "gold_cost": result.gold_cost, "food_cost": result.food_cost},
+        )
+
+    def _execute_attack(self, cmd: AttackCommand) -> CommandResult:
+        """执行进攻命令"""
+        # 验证出发城市
+        from_city = self.cities.get(cmd.from_city)
+        if from_city is None:
+            return CommandResult(success=False, command_type="attack",
+                                 description=f"出发城市 {cmd.from_city} 不存在")
+        if from_city.faction != cmd.faction:
+            return CommandResult(success=False, command_type="attack",
+                                 description=f"城市 {cmd.from_city} 不属于 {cmd.faction}")
+
+        # 验证目标城市
+        to_city = self.cities.get(cmd.to_city)
+        if to_city is None:
+            return CommandResult(success=False, command_type="attack",
+                                 description=f"目标城市 {cmd.to_city} 不存在")
+
+        # 验证兵力
+        if cmd.troops > from_city.garrison:
+            return CommandResult(success=False, command_type="attack",
+                                 description=f"兵力不足: 需要{cmd.troops}, 仅有{from_city.garrison}")
+
+        # 验证将领
+        general = self.generals.get(cmd.general)
+        if general is None:
+            return CommandResult(success=False, command_type="attack",
+                                 description=f"将领 {cmd.general} 不存在")
+        if general.location != from_city.id:
+            return CommandResult(success=False, command_type="attack",
+                                 description=f"将领 {cmd.general} 不在 {cmd.from_city}")
+
+        # 计算距离
+        distance = self.map.get_distance(cmd.from_city, cmd.to_city)
+        if distance <= 0:
+            return CommandResult(success=False, command_type="attack",
+                                 description=f"无法到达 {cmd.to_city}")
+
+        # 创建军队
+        self._army_counter += 1
+        army = Army(
+            id=f"army_{self._army_counter}",
+            faction=cmd.faction,
+            general_id=cmd.general,
+            soldiers=cmd.troops,
+            food=cmd.troops * 3,  # 自带3回合粮草
+            food_consumption_per_turn=int(cmd.troops * 0.2),
+            morale=80,
+            status=ArmyStatus.MARCHING,
+            from_city=cmd.from_city,
+            to_city=cmd.to_city,
+            progress=0.0,
+            total_distance=distance,
+        )
+        self.armies[army.id] = army
+
+        # 减少城市守军
+        from_city.garrison -= cmd.troops
+
+        # 将领出征
+        general.location = army.id
+
+        return CommandResult(
+            success=True,
+            command_type="attack",
+            description=f"军队 {army.id} 从 {cmd.from_city} 出发，目标 {cmd.to_city}，距离 {distance} 回合",
+            data={"army_id": army.id, "distance": distance},
+        )
+
+    def _execute_reward(self, cmd: RewardCommand) -> CommandResult:
+        """执行赏赐命令"""
+        general = self.generals.get(cmd.general)
+        if general is None:
+            return CommandResult(success=False, command_type="reward",
+                                 description=f"将领 {cmd.general} 不存在")
+
+        # 从将领所在城市扣钱
+        city = self.cities.get(general.location)
+        if city is None:
+            return CommandResult(success=False, command_type="reward",
+                                 description=f"将领所在位置 {general.location} 无城市")
+
+        result = self._general_system.reward(general, city, cmd.gold)
+        return CommandResult(
+            success=result.success,
+            command_type="reward",
+            description=result.description,
+            data={"loyalty_change": result.loyalty_change},
+        )
+
+    def _execute_explore(self, cmd: ExploreCommand) -> CommandResult:
+        """执行探索命令"""
+        city = self.cities.get(cmd.city)
+        if city is None:
+            return CommandResult(success=False, command_type="explore",
+                                 description=f"城市 {cmd.city} 不存在")
+
+        result = self._general_system.explore(city)
+        if result.found:
+            # 创建新将领
+            gen_id = f"explored_{len(self.generals) + 1}"
+            new_general = General(
+                id=gen_id,
+                name=result.general_name,
+                faction=cmd.faction,
+                command=result.general_command,
+                politics=result.general_politics,
+                bravery=result.general_bravery,
+                intelligence=result.general_intelligence,
+                loyalty=60,
+                location=cmd.city,
+            )
+            self.generals[gen_id] = new_general
+            city.generals.append(gen_id)
+
+            return CommandResult(
+                success=True,
+                command_type="explore",
+                description=result.description,
+                data={"general_id": gen_id, "general_name": result.general_name},
+            )
+
+        return CommandResult(
+            success=True,
+            command_type="explore",
+            description=result.description,
+        )
+
+    def _execute_message(self, cmd: MessageCommand) -> CommandResult:
+        """执行外交消息命令"""
+        result = self._diplomacy_system.send_message(
+            from_faction=cmd.faction,
+            to_faction=cmd.to,
+            content=cmd.content,
+            turn=self.turn,
+        )
+        return CommandResult(
+            success=result.success,
+            command_type="message",
+            description=result.description,
+            data={"message_id": result.message_id},
+        )
+
+    def _execute_rumor(self, cmd: RumorCommand) -> CommandResult:
+        """执行流言命令"""
+        target_general = None
+        if cmd.target_general:
+            target_general = self.generals.get(cmd.target_general)
+
+        spy_intelligence = 50
+        if cmd.spy_general:
+            spy = self.generals.get(cmd.spy_general)
+            if spy:
+                spy_intelligence = spy.intelligence
+
+        result = self._diplomacy_system.spread_rumor(
+            target_city_id=cmd.city,
+            target_faction="",  # 由 GameEngine 查城市归属
+            spy_intelligence=spy_intelligence,
+            target_general=target_general,
+            turn=self.turn,
+        )
+        return CommandResult(
+            success=result.success,
+            command_type="rumor",
+            description=result.description,
+            data={"loyalty_decrease": result.loyalty_decrease},
+        )
+
+    # ============================================================
+    # 回合处理
+    # ============================================================
+
+    def process_turn(self) -> Dict[str, Any]:
+        """处理一个完整的游戏回合
+
+        回合流程：
+        1. 资源产出（所有城市）
+        2. 行军推进（所有军队）
+        3. 战斗检测与结算
+        4. 将领忠诚度衰减
+        5. 胜利判定
+        6. 回合计数递增
+
+        Returns:
+            回合处理结果摘要
+        """
+        result: Dict[str, Any] = {
+            "turn": self.turn,
+            "cities_updated": 0,
+            "armies_moved": 0,
+            "battles_fought": 0,
+            "game_over": False,
+            "winner": None,
+        }
+
+        # 1. 资源产出
+        for city in self.cities.values():
+            self._city_system.update_city(city)
+            result["cities_updated"] += 1
+
+        # 2. 行军推进（所有非驻守军队）
+        for army in list(self.armies.values()):
+            if army.soldiers <= 0:
+                # 全灭的军队清理
+                del self.armies[army.id]
+                continue
+            self._army_movement.process_movement(army)
+            result["armies_moved"] += 1
+
+        # 3. 将领忠诚度衰减
+        for general in self.generals.values():
+            self._general_system.process_turn_decay(general)
+
+        # 4. 战斗检测与结算
+        battle_contexts = self._battle_scheduler.detect_battles(
+            armies=self.armies,
+            cities=self.cities,
+            map_system=self.map,
+            generals=self.generals,
+        )
+
+        for ctx in battle_contexts:
+            ctx.turn = self.turn
+            # 更新上下文中的兵力数据
+            ctx.attacker_total_soldiers = sum(
+                self.armies[a_id].soldiers
+                for a_id in ctx.attacker_armies
+                if a_id in self.armies
+            )
+            defender_city = self.cities.get(ctx.defender_city or "")
+            if defender_city:
+                ctx.defender_total_soldiers = defender_city.garrison
+
+            battle_result = self._battle_resolver.resolve_battle(ctx)
+            self._apply_battle_result(ctx, battle_result)
+            result["battles_fought"] += 1
+
+        # 5. 清理已消灭的军队
+        self._cleanup_dead_armies()
+
+        # 6. 胜利判定
+        self._check_victory()
+        result["game_over"] = self.game_over
+        result["winner"] = self.winner
+
+        # 7. 回合递增
+        if not self.game_over:
+            self.turn += 1
+
+        # 记录日志
+        self.turn_logs.append(TurnLog(
+            turn=result["turn"],
+            events=[result],
+        ))
+
+        return result
+
+    # ============================================================
+    # 战斗结果应用
+    # ============================================================
+
+    def _apply_battle_result(
+        self, ctx: BattleContext, result: BattleResult
+    ) -> None:
+        """应用战斗结果到游戏状态
+
+        Args:
+            ctx: 战斗上下文
+            result: 战斗结果
+        """
+        if result.result == BattleResultType.ATTACKER_WIN:
+            # 攻击方胜利：占领城市
+            if result.captured_city and result.captured_city in self.cities:
+                city = self.cities[result.captured_city]
+                city.faction = ctx.attacker_faction
+                city.morale = max(20, city.morale - 20)  # 占领后民心下降
+
+            # 清理攻击方伤亡
+            for army_id in ctx.attacker_armies:
+                if army_id in self.armies:
+                    army = self.armies[army_id]
+                    # 按比例减少兵力
+                    if ctx.attacker_total_soldiers > 0:
+                        loss_ratio = result.attacker_casualties / max(ctx.attacker_total_soldiers, 1)
+                        army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
+                    if army.soldiers > 0:
+                        army.status = ArmyStatus.GARRISONED
+                        if result.captured_city:
+                            army.to_city = result.captured_city
+                            army.from_city = result.captured_city
+
+        elif result.result == BattleResultType.DEFENDER_WIN:
+            # 防守方胜利：攻击方军队撤退或消灭
+            for army_id in ctx.attacker_armies:
+                if army_id in self.armies:
+                    army = self.armies[army_id]
+                    loss_ratio = result.attacker_casualties / max(ctx.attacker_total_soldiers, 1)
+                    army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
+                    if army.soldiers > 0:
+                        army.status = ArmyStatus.RETREATING
+                        # 撤回出发城市
+                        army.from_city, army.to_city = army.to_city, army.from_city
+
+        elif result.result in (BattleResultType.DRAW, BattleResultType.RETREAT):
+            # 平局/撤退
+            for army_id in ctx.attacker_armies:
+                if army_id in self.armies:
+                    army = self.armies[army_id]
+                    loss_ratio = result.attacker_casualties / max(ctx.attacker_total_soldiers, 1)
+                    army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
+                    if army.soldiers > 0:
+                        army.status = ArmyStatus.RETREATING
+
+        # 清理俘虏的将领
+        for gen_id in result.captured_generals:
+            if gen_id in self.generals:
+                gen = self.generals[gen_id]
+                self._general_system.process_capture(
+                    gen, captor_faction=ctx.attacker_faction, turn=self.turn,
+                )
+
+    def _cleanup_dead_armies(self) -> None:
+        """清理已消灭的军队"""
+        dead_army_ids = [
+            aid for aid, army in self.armies.items()
+            if army.soldiers <= 0
+        ]
+        for aid in dead_army_ids:
+            army = self.armies[aid]
+            # 将领返回原城市
+            gen = self.generals.get(army.general_id)
+            if gen:
+                gen.location = army.from_city
+            del self.armies[aid]
+
+    # ============================================================
+    # 胜利判定
+    # ============================================================
+
+    def _check_victory(self) -> None:
+        """检查游戏是否结束
+
+        规则：
+        - 24回合到达 → 城市最多者胜
+        - 某势力无城市 → 该势力出局（其他势力继续）
+        - 只剩一个势力 → 该势力胜
+        """
+        if self.game_over:
+            return
+
+        # 统计各势力城市数
+        city_counts: Dict[str, int] = {}
+        for city in self.cities.values():
+            city_counts[city.faction] = city_counts.get(city.faction, 0) + 1
+
+        # 检查是否只剩一个势力（其他全灭）
+        active_factions = [f for f, c in city_counts.items() if c > 0]
+        if len(active_factions) == 1:
+            self.game_over = True
+            self.winner = active_factions[0]
+            return
+
+        # 检查是否到达最大回合
+        if self.turn >= self.max_turns:
+            self.game_over = True
+            # 城市最多者胜（平票时 winner 保持 None 表示平局）
+            max_count = max(city_counts.values()) if city_counts else 0
+            winners = [f for f, c in city_counts.items() if c == max_count]
+            if len(winners) == 1:
+                self.winner = winners[0]
+            else:
+                self.winner = None  # 平局
+
+    # ============================================================
+    # 观察数据生成
+    # ============================================================
+
+    def get_observation(self, faction: str) -> GameObservation:
+        """为指定势力生成游戏观察数据
+
+        包含信息迷雾：己方信息完整，敌方信息有限。
+
+        Args:
+            faction: 势力名称
+
+        Returns:
+            该势力能看到的游戏状态
+        """
+        own_cities = [
+            c for c in self.cities.values() if c.faction == faction
+        ]
+        own_armies = [
+            a for a in self.armies.values() if a.faction == faction
+        ]
+        own_generals = [
+            g for g in self.generals.values()
+            if g.faction == faction and not g.is_captured
+        ]
+
+        # 敌方城市（有迷雾）
+        known_cities = []
+        for city in self.cities.values():
+            if city.faction != faction:
+                from game.models import CityInfo
+                # 检查是否相邻
+                is_neighbor = any(
+                    n in [oc.id for oc in own_cities]
+                    for n in city.neighbors
+                )
+                info = CityInfo(
+                    id=city.id,
+                    name=city.name,
+                    faction=city.faction,
+                    level=city.level,
+                    is_besieged=city.is_besieged,
+                )
+                if is_neighbor:
+                    info.garrison = city.garrison
+                    info.morale = city.morale
+                    info.wall_hp = city.wall_hp
+                known_cities.append(info)
+
+        return GameObservation(
+            faction=faction,
+            turn=self.turn,
+            max_turns=self.max_turns,
+            own_cities=own_cities,
+            own_armies=own_armies,
+            own_generals=own_generals,
+            known_cities=known_cities,
+            visible_armies=[],
+            map_topology={
+                cid: c.neighbors for cid, c in self.cities.items()
+            },
+            received_messages=self._diplomacy_system.get_messages_for_faction(faction),
+            sent_messages=self._diplomacy_system.get_sent_messages(faction),
+            recent_events=[
+                {"turn": tl.turn, "summary": tl.events[-1] if tl.events else {}}
+                for tl in self.turn_logs[-5:]
+            ],
+        )
+
+    # ============================================================
+    # 状态管理
+    # ============================================================
+
+    def get_state_snapshot(self) -> GameState:
+        """获取当前游戏状态快照
+
+        Returns:
+            可序列化的完整游戏状态
+        """
+        return GameState(
+            turn=self.turn,
+            seed=self.seed,
+            game_over=self.game_over,
+            winner=self.winner,
+            cities=self.cities,
+            armies=self.armies,
+            generals=self.generals,
+            messages=self._messages,
+            turn_logs=self.turn_logs,
+        )
+
+    def load_state_snapshot(self, state: GameState) -> None:
+        """从快照恢复游戏状态
+
+        Args:
+            state: 之前保存的游戏状态
+        """
+        self.turn = state.turn
+        self.seed = state.seed
+        self.game_over = state.game_over
+        self.winner = state.winner
+        self.cities = state.cities
+        self.armies = state.armies
+        self.generals = state.generals
+        self._messages = state.messages
+        self.turn_logs = state.turn_logs
+
+        # 重建子系统
+        self.rng = GameRandom(self.seed)
+        self.map = MapSystem()
+        for city in self.cities.values():
+            self.map.add_city(city)
