@@ -795,16 +795,16 @@ class GameEngine:
         if self.game_mode == GameMode.INFINITE:
             return
 
-        # 检查是否到达最大回合
+        # 检查是否到达最大回合（排除中立城）
         if self.turn >= self.max_turns:
             self.game_over = True
-            # 城市最多者胜（平票时 winner 保持 None 表示平局）
-            max_count = max(city_counts.values()) if city_counts else 0
-            winners = [f for f, c in city_counts.items() if c == max_count]
-            if len(winners) == 1:
-                self.winner = winners[0]
-            else:
-                self.winner = None  # 平局
+            active_counts = {f: c for f, c in city_counts.items() if f != "neutral"}
+            if not active_counts:
+                self.winner = None
+                return
+            max_count = max(active_counts.values())
+            winners = [f for f, c in active_counts.items() if c == max_count]
+            self.winner = winners[0] if len(winners) == 1 else None  # 平局
 
     # ============================================================
     # 观察数据生成

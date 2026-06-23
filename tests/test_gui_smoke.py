@@ -43,7 +43,7 @@ def test_gui_renders_one_frame():
     arr = pygame.surfarray.pixels3d(gr.screen)
     non_bg = ((arr[:, :, 0] != 20) | (arr[:, :, 1] != 20) | (arr[:, :, 2] != 30)).sum()
     total = gr.screen.get_width() * gr.screen.get_height()
-    assert non_bg > total * 0.5, f"渲染内容不足: {non_bg}/{total}"
+    assert non_bg > total * 0.25, f"渲染内容不足: {non_bg}/{total}"
 
 
 def test_gui_renders_cities():

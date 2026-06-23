@@ -13,7 +13,7 @@ import os
 import time
 from typing import Optional
 
-from game.hex_grid import axial_to_pixel
+from game.hex_grid import HexCoord, axial_to_pixel
 from game.tile import TerrainType
 
 # Pygame is only imported for type hints — actual import happens at render time
@@ -171,7 +171,7 @@ class HexMapRenderer:
         camera_offset: tuple = (0, 0),
         camera_zoom: float = 1.0,
     ) -> None:
-        """渲染所有地块 + 省界线
+        """渲染所有地块 + 省界线（仅渲染屏幕可见范围）
 
         Args:
             surface: Pygame Surface 对象
@@ -181,8 +181,28 @@ class HexMapRenderer:
         if pygame is None:
             return
 
-        for tile in self.hex_map.iter_tiles():
-            self._draw_hex(surface, tile, camera_offset, camera_zoom)
+        # 计算可见范围
+        sw = surface.get_width() if hasattr(surface, 'get_width') else 800
+        sh = surface.get_height() if hasattr(surface, 'get_height') else 600
+        margin = self.hex_size * camera_zoom * 2
+        world_x0 = (-camera_offset[0] - margin) / camera_zoom
+        world_y0 = (-camera_offset[1] - margin) / camera_zoom
+        world_x1 = (sw - camera_offset[0] + margin) / camera_zoom
+        world_y1 = (sh - camera_offset[1] + margin) / camera_zoom
+
+        sqrt3 = math.sqrt(3)
+        q_min = max(0, int(world_x0 / (sqrt3 * self.hex_size) - 2))
+        q_max = min(self.hex_map.width - 1, int(world_x1 / (sqrt3 * self.hex_size) + 2))
+        r_min = max(0, int(world_y0 / (1.5 * self.hex_size) - 2))
+        r_max = min(self.hex_map.height - 1, int(world_y1 / (1.5 * self.hex_size) + 2))
+
+        drawn = 0
+        for q in range(q_min, q_max + 1):
+            for r in range(r_min, r_max + 1):
+                tile = self.hex_map.get_tile(HexCoord(q, r))
+                if tile is not None:
+                    self._draw_hex(surface, tile, camera_offset, camera_zoom)
+                    drawn += 1
 
         # 势力边界
         self._draw_faction_borders(surface, camera_offset, camera_zoom)
