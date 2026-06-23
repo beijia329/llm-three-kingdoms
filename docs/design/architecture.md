@@ -70,9 +70,9 @@
 class GameEngine:
     """游戏引擎主类"""
 
-    def __init__(self, seed: int = None):
-        self.seed = seed or random.randint(0, 1000000)
-        self.rng = GameRandom(self.seed)
+    def __init__(self, seed: int = 42):
+        self._seed = seed
+        self.rng = GameRandom(seed)
 
         # 游戏状态
         self.turn: int = 1
@@ -84,14 +84,23 @@ class GameEngine:
         self.cities: Dict[str, City] = {}
         self.armies: Dict[str, Army] = {}
         self.generals: Dict[str, General] = {}
-        self.map: MapSystem = None
         self.events: EventBus = EventBus()
 
+        # 子系统管理器（在 init_game 中初始化）
+        self.map: MapSystem = None
+        self._city_system: CitySystem = None
+        self._general_system: GeneralSystem = None
+        self._resource_system: ResourceSystem = None
+        self._diplomacy_system: DiplomacySystem = None
+        self._army_movement: ArmyMovementSystem = None
+        self._battle_scheduler: BattleScheduler = None
+        self._battle_resolver: BattleResolver = None
+
         # 外交消息
-        self.messages: List[DiplomacyMessage] = []
+        self._messages: List[DiplomacyMessage] = []
 
         # 回合日志
-        self.turn_log: List[TurnLog] = []
+        self.turn_logs: List[TurnLog] = []
 ```
 
 ### 2.2 核心方法
@@ -108,21 +117,50 @@ class GameEngine:
 ### 2.3 回合处理流水线
 
 ```python
-def process_turn(self):
-    """处理一回合"""
-    # 1. 处理所有军队行军
-    self._process_army_movement()
+def process_turn(self) -> Dict[str, Any]:
+    """处理一回合
 
-    # 2. 检测并处理战斗
-    self._process_battles()
+    流水线顺序：
+    1. 资源产出（金钱、粮草）
+    2. 城市更新（人口增长、粮耗、民心变化）
+    3. 军队行军推进（含粮食消耗和饥饿判定）
+    4. 战斗检测与结算（围城→巷战→战后）
+    5. 清理已消灭的军队（将领归城/被俘）
+    6. 胜利判定（城市最多者胜）
+    7. 回合递增
+    """
+    result = {"turn": self.turn, "battles_fought": 0, "armies_moved": 0}
 
-    # 3. 回合结束处理（资源产出、消耗等）
-    self._process_end_of_turn()
+    # 1. 资源产出
+    for city in self.cities.values():
+        self._resource_system.produce_resources(city)
 
-    # 4. 检查胜利条件
+    # 2. 城市更新
+    for city in self.cities.values():
+        self._city_system.update_city(city, self.turn)
+
+    # 3. 军队行军
+    for army in list(self.armies.values()):
+        self._army_movement.process_movement(army)
+
+    # 4. 战斗检测与结算
+    contexts = self._battle_scheduler.detect_battles(...)
+    for ctx in contexts:
+        ctx.turn = self.turn
+        result = self._battle_resolver.resolve_battle(ctx)
+        self._apply_battle_result(ctx, result)
+
+    # 5. 清理已消灭的军队
+    self._cleanup_dead_armies()
+
+    # 6. 胜利判定
     self._check_victory()
 
-    self.turn += 1
+    # 7. 回合递增
+    if not self.game_over:
+        self.turn += 1
+
+    return result
 ```
 
 ---
@@ -201,10 +239,11 @@ def process_turn(self):
 
 ```
 battle/
-├── battle_context.py      # 战斗上下文（共享数据）
-├── battle_scheduler.py    # 战斗调度（谁和谁打）
-├── army_movement.py       # 行军系统
-└── battle_resolver.py     # 战斗结算
+├── battle_scheduler.py    # 战斗调度（检测和创建战斗上下文）
+├── army_movement.py       # 行军系统（行军进度、粮耗、撤退）
+└── battle_resolver.py     # 战斗结算（围城→巷战→士气→胜负）
+
+# BattleContext 和 BattleResult 在 game/models.py 中定义
 ```
 
 ### 4.2 设计原则
@@ -224,36 +263,51 @@ battle/
 ### 5.2 事件类型
 
 ```python
-@dataclass
-class GameEvent:
-    turn: int
-    timestamp: float
+@dataclass(frozen=True)
+class Event:
+    """事件基类（不可变数据类）"""
+    event_type: str = field(default="", init=False)
 
-@dataclass
-class CityCapturedEvent(GameEvent):
-    city_id: str
-    old_faction: str
-    new_faction: str
+    def __post_init__(self) -> None:
+        """自动填充事件类型"""
+        object.__setattr__(self, "event_type", type(self).__name__)
 
-@dataclass
-class BattleEndedEvent(GameEvent):
-    battle_id: str
-    attacker: str
-    defender: str
-    result: str  # "attacker_win" / "defender_win" / "draw"
-    casualties: Dict[str, int]
+@dataclass(frozen=True)
+class CityCapturedEvent(Event):
+    city_id: str = ""
+    old_faction: str = ""
+    new_faction: str = ""
 
-@dataclass
-class GeneralDiedEvent(GameEvent):
-    general_id: str
-    cause: str
+@dataclass(frozen=True)
+class BattleStartedEvent(Event):
+    battle_id: str = ""
+    attacker_faction: str = ""
+    defender_faction: str = ""
+    battle_type: str = ""
 
-@dataclass
-class ResourceChangedEvent(GameEvent):
-    faction: str
-    resource_type: str
-    change: int
-    reason: str
+@dataclass(frozen=True)
+class BattleEndedEvent(Event):
+    battle_id: str = ""
+    attacker_faction: str = ""
+    defender_faction: str = ""
+    result: str = ""
+
+@dataclass(frozen=True)
+class CityBesiegedEvent(Event):
+    city_id: str = ""
+    faction: str = ""
+
+@dataclass(frozen=True)
+class GeneralDefectedEvent(Event):
+    general_id: str = ""
+    old_faction: str = ""
+    new_faction: str = ""
+
+@dataclass(frozen=True)
+class GeneralRecruitedEvent(Event):
+    general_id: str = ""
+    faction: str = ""
+    city: str = ""
 ```
 
 ---

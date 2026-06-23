@@ -107,6 +107,9 @@ class UIPanel:
         elif self.active_tab == "log":
             self._render_event_log(surface)
 
+        # 底部状态栏
+        self._render_status_bar(surface)
+
     # ============================================================
     # 回合信息
     # ============================================================
@@ -323,19 +326,62 @@ class UIPanel:
             y += 16
 
             # 显示回合摘要
+            # 显示回合摘要
             for event in log.events:
                 if isinstance(event, dict):
-                    for key, value in event.items():
-                        if key == "battles_fought" and value > 0:
-                            self._draw_text(
-                                surface, f"  ⚔️ {value}场战斗",
-                                (PANEL_X + 5, y), (200, 150, 100), self.font_small,
-                            )
-                            y += 14
+                    battles = event.get("battles_fought", 0)
+                    armies_moved = event.get("armies_moved", 0)
+                    game_over = event.get("game_over", False)
+                    winner = event.get("winner")
+
+                    if battles > 0:
+                        self._draw_text(
+                            surface, f"  ⚔️ {battles}场战斗",
+                            (PANEL_X + 5, y), (200, 150, 100), self.font_small,
+                        )
+                        y += 14
+                    if armies_moved > 0:
+                        self._draw_text(
+                            surface, f"  🚩 {armies_moved}支军队移动",
+                            (PANEL_X + 5, y), (150, 150, 150), self.font_small,
+                        )
+                        y += 14
+                    if game_over and winner:
+                        winner_name = FACTIONS.get(winner, winner)
+                        self._draw_text(
+                            surface, f"  🏆 {winner_name}获胜!",
+                            (PANEL_X + 5, y), (255, 215, 0), self.font_small,
+                        )
+                        y += 14
 
             y += 6
-            if y > 580:
+            if y > 560:
                 break
+
+    def _render_status_bar(self, surface: pygame.Surface) -> None:
+        """渲染底部状态栏
+
+        Args:
+            surface: 目标表面
+        """
+        bar_y = surface.get_height() - 24
+        pygame.draw.line(
+            surface, COLOR_BORDER,
+            (MAP_WIDTH, bar_y), (MAP_WIDTH + PANEL_WIDTH, bar_y), 1,
+        )
+
+        # 自动推进状态
+        if self.renderer.auto_advance:
+            status_text = "▶ 自动推进 (A关)"
+            status_color = (50, 200, 50)
+        else:
+            status_text = "⏸ 手动模式 (A开)"
+            status_color = (150, 150, 150)
+
+        self._draw_text(
+            surface, status_text,
+            (PANEL_X + 5, bar_y + 4), status_color, self.font_small,
+        )
 
     # ============================================================
     # 工具方法

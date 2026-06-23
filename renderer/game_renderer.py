@@ -81,6 +81,7 @@ class GameRenderer:
         self.auto_advance: bool = False
         self.turn_delay: int = 60  # 自动推进的帧数延迟
         self._turn_counter: int = 0
+        self._players: Optional[dict] = None  # 玩家字典（用于SPACE/A键触发回合）
 
     @property
     def map_renderer(self):
@@ -114,13 +115,15 @@ class GameRenderer:
             auto_run: 是否自动运行（非交互式）
         """
         self.running = True
+        self._players = players
 
         while self.running:
             for event in pygame.event.get():
                 self._handle_event(event)
 
-            # 自动推进
-            if auto_run and not self.engine.game_over and players:
+            # 自动推进（auto_run 参数 或 A键切换的 auto_advance）
+            should_auto = (auto_run or self.auto_advance)
+            if should_auto and not self.engine.game_over and players:
                 self._turn_counter += 1
                 if self._turn_counter >= self.turn_delay:
                     self._turn_counter = 0
@@ -133,6 +136,7 @@ class GameRenderer:
             self.map_renderer.render(
                 self.screen,
                 selected_city_id=self.selected_city_id,
+                auto_advance=self.auto_advance,
             )
 
             # 渲染UI面板
@@ -179,7 +183,8 @@ class GameRenderer:
                 self.running = False
             elif event.key == pygame.K_SPACE:
                 # 空格键手动推进一回合
-                self._advance_turn()
+                if self._players:
+                    self._run_turn(self._players)
             elif event.key == pygame.K_a:
                 # A键切换自动推进
                 self.auto_advance = not self.auto_advance
@@ -209,11 +214,6 @@ class GameRenderer:
             # 侧边栏点击由UIPanel处理
             self.ui_panel.handle_click(x, y)
 
-    def _advance_turn(self) -> None:
-        """推进一个回合"""
-        logger.info("推进到第 %d 回合", self.engine.turn + 1)
-        # 在游戏循环中由外部推进
-
     def update_engine(self, engine: GameEngine) -> None:
         """更新引擎引用（外部调用）
 
@@ -223,18 +223,6 @@ class GameRenderer:
         self.engine = engine
         self._map_renderer = None
         self._ui_panel = None
-
-    # ============================================================
-    # 更新逻辑
-    # ============================================================
-
-    def _update(self) -> None:
-        """每帧更新逻辑"""
-        if self.auto_advance and not self.engine.game_over:
-            self._turn_counter += 1
-            if self._turn_counter >= self.turn_delay:
-                self._turn_counter = 0
-                # 自动推进由外部处理
 
     # ============================================================
     # 渲染

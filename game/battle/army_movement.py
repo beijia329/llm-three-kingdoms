@@ -124,7 +124,7 @@ class ArmyMovementSystem:
             result.progress_made = army.progress - old_progress
         elif army.status == ArmyStatus.RETREATING:
             # 撤退中的军队以双倍速度返回
-            progress_step = 1.0 / max(army.total_distance, 1)
+            progress_step = 2.0 / max(army.total_distance, 1)
             old_progress = army.progress
             army.progress = min(1.0, army.progress + progress_step)
             result.progress_made = army.progress - old_progress

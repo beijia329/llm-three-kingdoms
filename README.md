@@ -35,17 +35,26 @@ pip install -r requirements.txt
 
 ### 运行AI对战
 ```bash
-python main.py --mode ai-vs-ai --models claude gpt gemini
+# CLI模式（内置AI）
+python main.py
+
+# LLM对战模式（需要API密钥）
+python main.py --llm --model deepseek-v4-flash
+
+# GUI模式（可视化观看对战）
+python main.py --mode gui
 ```
 
-### 观看回放
+### 观看回放（开发中）
 ```bash
+# TODO: 回放系统尚未完全对接 GameRenderer
 python main.py --mode replay --file replay.json
 ```
 
-### 人机对战
+### 人机对战（开发中）
 ```bash
-python main.py --mode human-vs-ai --faction shu
+# TODO: 人机对战模式尚未实现
+python main.py --mode human-vs-ai
 ```
 
 ---
@@ -63,8 +72,7 @@ llm-sanguo/
 │
 ├── players/             # 玩家抽象层
 │   ├── base_player.py   # 玩家基类
-│   ├── cli_player.py    # CLI玩家
-│   ├── gui_player.py    # GUI玩家
+│   ├── cli_player.py    # CLI内置AI玩家
 │   └── llm/             # LLM玩家
 │
 ├── renderer/            # 渲染层（Pygame GUI）
@@ -130,7 +138,7 @@ llm-sanguo/
 ## 版本信息
 
 ### 项目整体版本
-**v1.0-beta**（设计完成，待开发）
+**v1.0**（全部功能已实现，308 测试全通过）
 
 ### 文档版本说明
 各文档独立维护版本号，因为不同文档更新频率不同。v1.1 表示该文档有重大更新或补充，v1.0 表示暂无重大更新的稳定版本。

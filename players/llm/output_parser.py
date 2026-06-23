@@ -259,20 +259,29 @@ class OutputParser:
         if missing:
             return False, f"缺少必填参数: {missing}"
 
-        # 数值校验
+        # 数值校验（含类型规整：float→int）
         if cmd_type == "recruit":
             troops = params.get("troops", 0)
-            if not isinstance(troops, (int, float)) or troops <= 0:
+            if isinstance(troops, float):
+                troops = int(troops)
+                params["troops"] = troops
+            if not isinstance(troops, int) or troops <= 0:
                 return False, "troops 必须是正整数"
 
         if cmd_type == "attack":
             troops = params.get("troops", 0)
-            if not isinstance(troops, (int, float)) or troops <= 0:
+            if isinstance(troops, float):
+                troops = int(troops)
+                params["troops"] = troops
+            if not isinstance(troops, int) or troops <= 0:
                 return False, "troops 必须是正整数"
 
         if cmd_type == "reward":
             gold = params.get("gold", 0)
-            if not isinstance(gold, (int, float)) or gold <= 0:
+            if isinstance(gold, float):
+                gold = int(gold)
+                params["gold"] = gold
+            if not isinstance(gold, int) or gold <= 0:
                 return False, "gold 必须是正整数"
 
         # develop type 校验

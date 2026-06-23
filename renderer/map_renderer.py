@@ -27,19 +27,24 @@ class MapRenderer:
     负责绘制游戏地图的可视化元素。
     """
 
-    def __init__(self, engine: GameEngine) -> None:
+    def __init__(self, engine: GameEngine, auto_advance: bool = False) -> None:
         """初始化地图渲染器
 
         Args:
             engine: 游戏引擎
+            auto_advance: 是否自动推进模式
         """
         self.engine = engine
         self.font = pygame.font.Font(None, 12)
         self.font_city = pygame.font.Font(None, 14)
+        self.font_banner = pygame.font.Font(None, 20)
 
         # 城市位置缓存
         self._city_positions: Dict[str, Tuple[int, int]] = {}
         self._update_city_positions()
+
+        # 动画状态
+        self._flash_tick: int = 0
 
     def _update_city_positions(self) -> None:
         """更新城市位置缓存"""
@@ -54,13 +59,17 @@ class MapRenderer:
         self,
         surface: pygame.Surface,
         selected_city_id: Optional[str] = None,
+        auto_advance: bool = False,
     ) -> None:
         """渲染地图
 
         Args:
             surface: 目标表面
             selected_city_id: 选中的城市ID
+            auto_advance: 是否自动推进模式
         """
+        self._flash_tick = (self._flash_tick + 1) % 60
+
         # 背景
         surface.fill((16, 16, 24))
 
@@ -73,8 +82,46 @@ class MapRenderer:
         # 绘制城市
         self._draw_cities(surface, selected_city_id)
 
+        # 绘制顶部横幅
+        self._draw_banner(surface, auto_advance)
+
         # 绘制图例
         self._draw_legend(surface)
+
+    # ============================================================
+    # 横幅
+    # ============================================================
+
+    def _draw_banner(self, surface: pygame.Surface, auto_advance: bool) -> None:
+        """绘制顶部信息横幅
+
+        Args:
+            surface: 目标表面
+            auto_advance: 是否自动推进
+        """
+        banner_y = 8
+        turn_text = f"第 {self.engine.turn}/{self.engine.max_turns} 回合"
+
+        if self.engine.game_over:
+            if self.engine.winner:
+                winner_name = "魏" if self.engine.winner == "wei" else "蜀" if self.engine.winner == "shu" else "吴"
+                turn_text = f"🏆 {winner_name} 获胜！共{self.engine.turn}回合"
+            else:
+                turn_text = "⚖️ 平局！"
+
+        text_surf = self.font_banner.render(turn_text, True, (255, 215, 0))
+        text_rect = text_surf.get_rect(center=(MAP_WIDTH // 2, banner_y + 14))
+        # 背景框
+        bg_rect = text_rect.inflate(20, 6)
+        pygame.draw.rect(surface, (10, 10, 20), bg_rect, border_radius=4)
+        pygame.draw.rect(surface, (60, 60, 80), bg_rect, 1, border_radius=4)
+        surface.blit(text_surf, text_rect)
+
+        # 自动推进指示
+        if auto_advance and not self.engine.game_over:
+            auto_color = (50, 200, 50) if (self._flash_tick // 15) % 2 == 0 else (30, 120, 30)
+            auto_text = self.font.render("▶ 自动推进中", True, auto_color)
+            surface.blit(auto_text, (MAP_WIDTH - 100, banner_y + 4))
 
     # ============================================================
     # 连接线
@@ -162,6 +209,10 @@ class MapRenderer:
                 pygame.draw.circle(surface, (255, 255, 100), pos, radius + 4, 2)
             pygame.draw.circle(surface, color, pos, radius)
 
+            # 被围困城市：闪烁红色边框
+            if city.is_besieged and (self._flash_tick // 15) % 2 == 0:
+                pygame.draw.circle(surface, (255, 80, 30), pos, radius + 3, 2)
+
             # 城市名称
             text = self.font_city.render(city.name, True, (255, 255, 255))
             text_rect = text.get_rect(center=(x, y - radius - 12))
@@ -202,26 +253,80 @@ class MapRenderer:
 
             if army.status == ArmyStatus.MARCHING:
                 pygame.draw.rect(surface, color, rect, 2)
+                # 箭头指示行军方向
+                self._draw_direction_arrow(surface, army, x, y, color, size)
             elif army.status == ArmyStatus.BESIEGING:
                 pygame.draw.rect(surface, color, rect)
+                # 围城闪烁效果
+                if (self._flash_tick // 20) % 2 == 0:
+                    pygame.draw.rect(surface, (255, 100, 50), rect, 2)
             elif army.status == ArmyStatus.RETREATING:
                 pygame.draw.rect(surface, (150, 150, 150), rect, 1)
             else:
                 pygame.draw.rect(surface, color, rect)
 
             # 士气条
-            if army.morale < 50:
-                bar_color = (200, 50, 50)
-            elif army.morale < 30:
+            if army.morale >= 50:
+                bar_color = (50, 200, 50)
+            elif army.morale >= 30:
                 bar_color = (200, 200, 50)
             else:
-                bar_color = (50, 200, 50)
+                bar_color = (200, 50, 50)
+            bar_width = max(4, int(size * 2 * army.morale / 100))
             pygame.draw.line(
                 surface, bar_color,
                 (x - size, y + size + 2),
-                (x - size + int(size * 2 * army.morale / 100), y + size + 2),
+                (x - size + bar_width, y + size + 2),
                 2,
             )
+
+            # 兵力数字标签
+            label = self.font.render(f"{army.soldiers}", True, (220, 220, 200))
+            label_rect = label.get_rect(midtop=(x, y + size + 5))
+            surface.blit(label, label_rect)
+
+    def _draw_direction_arrow(
+        self, surface: pygame.Surface, army: Army,
+        x: int, y: int, color: tuple, size: int,
+    ) -> None:
+        """绘制行军方向箭头
+
+        Args:
+            surface: 目标表面
+            army: 军队
+            x: 当前x
+            y: 当前y
+            color: 箭头颜色
+        """
+        from_pos = self._city_positions.get(army.from_city)
+        to_pos = self._city_positions.get(army.to_city)
+        if not from_pos or not to_pos:
+            return
+
+        # 计算方向向量
+        dx = to_pos[0] - from_pos[0]
+        dy = to_pos[1] - from_pos[1]
+        length = math.sqrt(dx * dx + dy * dy)
+        if length == 0:
+            return
+
+        # 单位方向
+        dx, dy = dx / length, dy / length
+
+        # 箭头位置（军队前方一点）
+        arrow_size = 6
+        tip_x = x + dx * (size + 2)
+        tip_y = y + dy * (size + 2)
+
+        # 箭头三角
+        angle = math.atan2(dy, dx)
+        p1 = (tip_x, tip_y)
+        p2 = (tip_x - arrow_size * math.cos(angle - 0.5),
+              tip_y - arrow_size * math.sin(angle - 0.5))
+        p3 = (tip_x - arrow_size * math.cos(angle + 0.5),
+              tip_y - arrow_size * math.sin(angle + 0.5))
+
+        pygame.draw.polygon(surface, color, [p1, p2, p3])
 
     def _get_army_position(self, army: Army) -> Optional[Tuple[int, int]]:
         """计算军队在地图上的位置

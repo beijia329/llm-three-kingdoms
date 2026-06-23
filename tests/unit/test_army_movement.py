@@ -243,6 +243,21 @@ class TestMovementEdgeCases:
         ams.process_movement(army)
         assert army.food < food_before
 
+    def test_retreating_army_moves_double_speed(self):
+        """撤退中的军队以双倍速度返回"""
+        ams = ArmyMovementSystem()
+        army = _make_retreating_army(soldiers=1000, food=1000)
+        army.total_distance = 4  # 距离4，行军速度 0.25，撤退应为 0.5
+        army.progress = 0.0
+
+        ams.process_movement(army)
+        # 双倍速度：进度应增加 2.0/4 = 0.5
+        assert army.progress == pytest.approx(0.5, abs=0.001)
+
+        ams.process_movement(army)
+        # 第二回合应到达（上限1.0）
+        assert army.progress == pytest.approx(1.0, abs=0.001)
+
     def test_army_progress_does_not_exceed_one(self):
         """进度不会超过1"""
         ams = ArmyMovementSystem()

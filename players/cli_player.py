@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import List, Set
+from typing import List, Optional, Set
 
 from game.models import (
     Command,
@@ -15,6 +15,7 @@ from game.models import (
     AttackCommand,
     City,
     GameObservation,
+    General,
 )
 from game.random import GameRandom
 from players.base_player import BasePlayer
@@ -82,7 +83,7 @@ class CLIPlayer(BasePlayer):
     @staticmethod
     def _find_general_in_city(
         city_id: str, observation: GameObservation
-    ) -> object:
+    ) -> Optional[General]:
         """查找在指定城市的己方将领
 
         Args:

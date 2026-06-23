@@ -234,6 +234,106 @@ class TestFullGameFlow:
         assert engine.turn == 6
 
 
+class TestBattleResultApplication:
+    """战斗结果应用测试"""
+
+    def test_casualty_ratio_uses_initial_soldiers(self):
+        """伤亡比例应基于战斗前初始兵力，而非战斗后剩余兵力"""
+        engine = _make_initialized_engine()
+
+        # 创建攻击方军队
+        engine._army_counter += 1
+        army = Army(
+            id="army_test",
+            faction="wei",
+            general_id="general_wei_1",
+            soldiers=1000,
+            food=1000,
+            food_consumption_per_turn=200,
+            morale=80,
+            status="besieging",
+            from_city="city_wei_1",
+            to_city="city_shu_1",
+            progress=1.0,
+            total_distance=1,
+        )
+        engine.armies["army_test"] = army
+
+        # 手动构建战斗上下文：初始1000，战斗后剩余800，伤亡200
+        from game.models import BattleContext, BattlePhase, BattleResult, BattleResultType, BattleType
+        ctx = BattleContext(
+            battle_id="test_battle",
+            turn=1,
+            attacker_faction="wei",
+            defender_faction="shu",
+            attacker_armies=["army_test"],
+            attacker_total_soldiers=800,  # 战斗后剩余
+            attacker_initial_soldiers=1000,  # 战斗前初始
+            attacker_avg_morale=80.0,
+            attacker_avg_command=70.0,
+            defender_city="city_shu_1",
+            defender_total_soldiers=500,
+            defender_initial_soldiers=500,
+            defender_avg_morale=50.0,
+            defender_avg_command=50.0,
+            battle_type=BattleType.SIEGE,
+            battle_phase=BattlePhase.STREET,
+            round_count=5,
+        )
+        result = BattleResult(
+            battle_id="test_battle",
+            battle_type=BattleType.SIEGE,
+            result=BattleResultType.ATTACKER_WIN,
+            attacker_casualties=200,
+            defender_casualties=500,
+            captured_city="city_shu_1",
+        )
+
+        engine._apply_battle_result(ctx, result)
+
+        # 伤亡比例 = 200/1000 = 20%，军队剩余应为 1000 * 0.8 = 800
+        # 如果按旧的 bug 用 800 作分母，会得到 200/800 = 25%，剩余 750
+        assert army.soldiers == 800
+
+    def test_reward_general_in_army(self):
+        """出征中的将领也可以被赏赐，金钱从军队出发城市扣除"""
+        engine = _make_initialized_engine()
+        general = engine.generals["general_wei_1"]
+        from_city = engine.cities["city_wei_1"]
+
+        # 创建军队并指派将领
+        engine._army_counter += 1
+        army = Army(
+            id="army_reward_test",
+            faction="wei",
+            general_id="general_wei_1",
+            soldiers=500,
+            food=500,
+            food_consumption_per_turn=100,
+            morale=80,
+            status="marching",
+            from_city="city_wei_1",
+            to_city="city_shu_1",
+            progress=0.5,
+            total_distance=1,
+        )
+        engine.armies["army_reward_test"] = army
+        general.location = "army_reward_test"
+
+        from_city.gold = 500
+        old_loyalty = general.loyalty
+
+        cmd = RewardCommand(
+            faction="wei", turn=1,
+            general="general_wei_1", gold=200,
+        )
+        result = engine.execute_command(cmd)
+
+        assert result.success is True
+        assert from_city.gold == 300
+        assert general.loyalty > old_loyalty
+
+
 # ============================================================
 # 辅助函数
 # ============================================================

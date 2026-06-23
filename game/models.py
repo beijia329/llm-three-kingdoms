@@ -361,6 +361,7 @@ class BattleContext(BaseModel):
     # 攻击方
     attacker_armies: List[str] = Field(description="攻击方军队ID列表")
     attacker_total_soldiers: int = Field(default=0, description="攻击方总兵力")
+    attacker_initial_soldiers: int = Field(default=0, description="攻击方战斗前初始总兵力")
     attacker_avg_morale: float = Field(default=0.0, description="攻击方平均士气")
     attacker_avg_command: float = Field(default=0.0, description="攻击方平均统帅")
 
@@ -368,8 +369,13 @@ class BattleContext(BaseModel):
     defender_city: Optional[str] = Field(None, description="防守城市ID（攻城战）")
     defender_armies: List[str] = Field(default_factory=list, description="防守方军队ID")
     defender_total_soldiers: int = Field(default=0, description="防守方总兵力")
+    defender_initial_soldiers: int = Field(default=0, description="防守方战斗前初始总兵力")
     defender_avg_morale: float = Field(default=0.0, description="防守方平均士气")
     defender_avg_command: float = Field(default=0.0, description="防守方平均统帅")
+
+    # 城墙耐久（攻城战，由 GameEngine 从城市数据填充）
+    wall_hp: int = Field(default=0, description="城墙当前耐久")
+    wall_max_hp: int = Field(default=0, description="城墙最大耐久")
 
     # 战斗状态
     battle_type: BattleType = Field(description="战斗类型")

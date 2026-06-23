@@ -17,3 +17,4 @@ json_repair>=0.60.0      # LLM输出JSON容错修复
 pytest>=7.0.0            # 测试框架
 pytest-cov>=5.0.0        # 测试覆盖率
 pytest-asyncio>=0.23.0   # 异步测试支持
+pytest-mock>=3.10.0      # Mock支持（mocker fixture）

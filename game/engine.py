@@ -338,8 +338,16 @@ class GameEngine:
             return CommandResult(success=False, command_type="reward",
                                  description=f"将领 {cmd.general} 不存在")
 
-        # 从将领所在城市扣钱
-        city = self.cities.get(general.location)
+        # 确定支付赏赐的城市
+        city: Optional[City] = None
+        if general.location in self.cities:
+            city = self.cities[general.location]
+        elif general.location.startswith("army_"):
+            # 将领随军出征，从军队出发城市支付
+            army = self.armies.get(general.location)
+            if army:
+                city = self.cities.get(army.from_city)
+
         if city is None:
             return CommandResult(success=False, command_type="reward",
                                  description=f"将领所在位置 {general.location} 无城市")
@@ -492,12 +500,23 @@ class GameEngine:
                 for a_id in ctx.attacker_armies
                 if a_id in self.armies
             )
+            ctx.attacker_initial_soldiers = ctx.attacker_total_soldiers
+
             defender_city = self.cities.get(ctx.defender_city or "")
             if defender_city:
                 ctx.defender_total_soldiers = defender_city.garrison
+                ctx.defender_initial_soldiers = ctx.defender_total_soldiers
+                # 传递实际城墙耐久（攻城战用）
+                ctx.wall_hp = defender_city.wall_hp
+                ctx.wall_max_hp = defender_city.wall_max_hp
 
             battle_result = self._battle_resolver.resolve_battle(ctx)
             self._apply_battle_result(ctx, battle_result)
+
+            # 回写城墙耐久（攻城战中可能被损坏）
+            if defender_city and ctx.wall_hp >= 0:
+                defender_city.wall_hp = ctx.wall_hp
+
             result["battles_fought"] += 1
 
         # 5. 清理已消灭的军队
@@ -544,10 +563,10 @@ class GameEngine:
             for army_id in ctx.attacker_armies:
                 if army_id in self.armies:
                     army = self.armies[army_id]
-                    # 按比例减少兵力
-                    if ctx.attacker_total_soldiers > 0:
-                        loss_ratio = result.attacker_casualties / max(ctx.attacker_total_soldiers, 1)
-                        army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
+                    # 按比例减少兵力（使用战斗前初始总兵力计算比例）
+                    initial_total = max(ctx.attacker_initial_soldiers, 1)
+                    loss_ratio = result.attacker_casualties / initial_total
+                    army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
                     if army.soldiers > 0:
                         army.status = ArmyStatus.GARRISONED
                         if result.captured_city:
@@ -559,7 +578,8 @@ class GameEngine:
             for army_id in ctx.attacker_armies:
                 if army_id in self.armies:
                     army = self.armies[army_id]
-                    loss_ratio = result.attacker_casualties / max(ctx.attacker_total_soldiers, 1)
+                    initial_total = max(ctx.attacker_initial_soldiers, 1)
+                    loss_ratio = result.attacker_casualties / initial_total
                     army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
                     if army.soldiers > 0:
                         army.status = ArmyStatus.RETREATING
@@ -571,7 +591,8 @@ class GameEngine:
             for army_id in ctx.attacker_armies:
                 if army_id in self.armies:
                     army = self.armies[army_id]
-                    loss_ratio = result.attacker_casualties / max(ctx.attacker_total_soldiers, 1)
+                    initial_total = max(ctx.attacker_initial_soldiers, 1)
+                    loss_ratio = result.attacker_casualties / initial_total
                     army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
                     if army.soldiers > 0:
                         army.status = ArmyStatus.RETREATING
