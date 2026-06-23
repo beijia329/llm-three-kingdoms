@@ -100,7 +100,7 @@ class BattleResolver:
         )
 
         # 初始化城墙耐久（攻城战才有）
-        if context.battle_type.value == "siege" and context.battle_phase == BattlePhase.SIEGE:
+        if context.battle_type == BattleType.SIEGE and context.battle_phase == BattlePhase.SIEGE:
             if context.wall_hp > 0:
                 # 使用实际城市城墙耐久
                 self._wall_hp[context.battle_id] = context.wall_hp
