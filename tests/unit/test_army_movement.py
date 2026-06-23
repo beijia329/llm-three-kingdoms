@@ -190,7 +190,7 @@ class TestArrival:
         """到达己方城市并入城"""
         ams = ArmyMovementSystem()
         # 同一势力，入城
-        army = _make_marching_army(distance=2, progress=0.99, from_faction="wei", to_faction="wei")
+        army = _make_marching_army(distance=2, progress=0.99, from_faction="caocao", to_faction="caocao")
 
         result = ams.process_movement(army)
         assert result.arrived is True
@@ -199,7 +199,7 @@ class TestArrival:
     def test_arrival_at_enemy_city_besieges(self):
         """到达敌方城市开始围城"""
         ams = ArmyMovementSystem()
-        army = _make_marching_army(distance=2, progress=0.99, from_faction="wei", to_faction="shu")
+        army = _make_marching_army(distance=2, progress=0.99, from_faction="caocao", to_faction="liubei")
 
         result = ams.process_movement(army)
         assert result.arrived is True
@@ -292,7 +292,7 @@ def _make_army(**kwargs) -> Army:
     """创建测试用军队"""
     params = {
         "id": "test_army",
-        "faction": "wei",
+        "faction": "caocao",
         "general_id": "test_general",
         "soldiers": 1000,
         "food": 5000,
@@ -338,7 +338,7 @@ def _make_garrisoned_army(food: int = 1000) -> Army:
     """创建驻守军队"""
     return Army(
         id="garrison_army",
-        faction="wei",
+        faction="caocao",
         general_id="test_gen",
         soldiers=1000,
         food=food,
@@ -356,7 +356,7 @@ def _make_retreating_army(soldiers: int = 1000, food: int = 1000) -> Army:
     """创建撤退中军队"""
     return Army(
         id="retreat_army",
-        faction="wei",
+        faction="caocao",
         general_id="test_gen",
         soldiers=soldiers,
         food=food,
@@ -374,7 +374,7 @@ def _make_besieging_army(soldiers: int = 1000, food: int = 2000) -> Army:
     """创建围城中军队"""
     return Army(
         id="besiege_army",
-        faction="wei",
+        faction="caocao",
         general_id="test_gen",
         soldiers=soldiers,
         food=food,

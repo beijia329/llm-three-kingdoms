@@ -71,3 +71,21 @@ def load_hex_map_data(path: str = "") -> Dict[str, Any]:
         path = os.path.join(DATA_DIR, "hex_map.json")
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_china_geojson(path: str = "") -> Dict[str, Any]:
+    """加载中国行政区划 GeoJSON 数据
+
+    Args:
+        path: GeoJSON 文件路径，为空时使用默认路径 data/china_provinces.json
+
+    Returns:
+        GeoJSON FeatureCollection，包含各省边界坐标
+    """
+    if not path:
+        path = os.path.join(DATA_DIR, "china_provinces.json")
+    if not os.path.exists(path):
+        logger.warning("中国地图数据文件不存在: %s", path)
+        return {"type": "FeatureCollection", "features": []}
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)

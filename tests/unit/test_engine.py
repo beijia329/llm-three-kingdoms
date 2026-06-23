@@ -49,8 +49,8 @@ class TestEngineInit:
         data = _make_game_data()
         engine.init_game(data)
 
-        wei_cities = engine.map.get_faction_cities("wei")
-        assert "city_wei_1" in wei_cities
+        faction_cities = [c.id for c in engine.cities.values() if c.faction == "caocao"]
+        assert "city_caocao_1" in faction_cities
 
 
 class TestCommandExecution:
@@ -60,8 +60,8 @@ class TestCommandExecution:
         """执行发展命令"""
         engine = _make_initialized_engine()
         cmd = DevelopCommand(
-            faction="wei", turn=1,
-            city="city_wei_1", develop_type="economy",
+            faction="caocao", turn=1,
+            city="city_caocao_1", develop_type="economy",
         )
         result = engine.execute_command(cmd)
         assert result.success is True
@@ -71,10 +71,10 @@ class TestCommandExecution:
         """执行征兵命令"""
         engine = _make_initialized_engine()
         # 多给点钱
-        engine.cities["city_wei_1"].gold = 10000
+        engine.cities["city_caocao_1"].gold = 10000
         cmd = RecruitCommand(
-            faction="wei", turn=1,
-            city="city_wei_1", troops=500,
+            faction="caocao", turn=1,
+            city="city_caocao_1", troops=500,
         )
         result = engine.execute_command(cmd)
         assert result.success is True
@@ -82,7 +82,7 @@ class TestCommandExecution:
     def test_execute_invalid_command(self):
         """无效命令"""
         engine = _make_initialized_engine()
-        cmd = Command(type="invalid", faction="wei", turn=1)
+        cmd = Command(type="invalid", faction="caocao", turn=1)
         result = engine.execute_command(cmd)
         assert result.success is False
 
@@ -90,8 +90,8 @@ class TestCommandExecution:
         """不是该势力的城市"""
         engine = _make_initialized_engine()
         cmd = DevelopCommand(
-            faction="wei", turn=1,
-            city="city_shu_1", develop_type="economy",
+            faction="caocao", turn=1,
+            city="city_liubei_1", develop_type="economy",
         )
         result = engine.execute_command(cmd)
         assert result.success is False
@@ -100,9 +100,9 @@ class TestCommandExecution:
         """执行进攻命令"""
         engine = _make_initialized_engine()
         cmd = AttackCommand(
-            faction="wei", turn=1,
-            from_city="city_wei_1", to_city="city_shu_1",
-            troops=500, general="general_wei_1",
+            faction="caocao", turn=1,
+            from_city="city_caocao_1", to_city="city_liubei_1",
+            troops=500, general="general_caocao_1",
         )
         result = engine.execute_command(cmd)
         assert result.success is True
@@ -112,10 +112,10 @@ class TestCommandExecution:
     def test_execute_reward(self):
         """执行赏赐命令"""
         engine = _make_initialized_engine()
-        engine.cities["city_wei_1"].gold = 5000
+        engine.cities["city_caocao_1"].gold = 5000
         cmd = RewardCommand(
-            faction="wei", turn=1,
-            general="general_wei_1", gold=200,
+            faction="caocao", turn=1,
+            general="general_caocao_1", gold=200,
         )
         result = engine.execute_command(cmd)
         assert result.success is True
@@ -124,8 +124,8 @@ class TestCommandExecution:
         """执行探索命令"""
         engine = _make_initialized_engine()
         cmd = ExploreCommand(
-            faction="wei", turn=1,
-            city="city_wei_1",
+            faction="caocao", turn=1,
+            city="city_caocao_1",
         )
         result = engine.execute_command(cmd)
         assert result.success is True
@@ -134,7 +134,7 @@ class TestCommandExecution:
         """执行外交消息命令"""
         engine = _make_initialized_engine()
         cmd = MessageCommand(
-            faction="wei", turn=1,
+            faction="caocao", turn=1,
             to="shu", content="结盟吧",
         )
         result = engine.execute_command(cmd)
@@ -165,11 +165,11 @@ class TestTurnProcessing:
     def test_resource_production_happens(self):
         """回合处理产生资源"""
         engine = _make_initialized_engine()
-        gold_before = engine.cities["city_wei_1"].gold
+        gold_before = engine.cities["city_caocao_1"].gold
 
         engine.process_turn()
 
-        assert engine.cities["city_wei_1"].gold > gold_before
+        assert engine.cities["city_caocao_1"].gold > gold_before
 
 
 class TestVictoryConditions:
@@ -245,15 +245,15 @@ class TestBattleResultApplication:
         engine._army_counter += 1
         army = Army(
             id="army_test",
-            faction="wei",
-            general_id="general_wei_1",
+            faction="caocao",
+            general_id="general_caocao_1",
             soldiers=1000,
             food=1000,
             food_consumption_per_turn=200,
             morale=80,
             status="besieging",
-            from_city="city_wei_1",
-            to_city="city_shu_1",
+            from_city="city_caocao_1",
+            to_city="city_liubei_1",
             progress=1.0,
             total_distance=1,
         )
@@ -264,14 +264,14 @@ class TestBattleResultApplication:
         ctx = BattleContext(
             battle_id="test_battle",
             turn=1,
-            attacker_faction="wei",
-            defender_faction="shu",
+            attacker_faction="caocao",
+            defender_faction="liubei",
             attacker_armies=["army_test"],
             attacker_total_soldiers=800,  # 战斗后剩余
             attacker_initial_soldiers=1000,  # 战斗前初始
             attacker_avg_morale=80.0,
             attacker_avg_command=70.0,
-            defender_city="city_shu_1",
+            defender_city="city_liubei_1",
             defender_total_soldiers=500,
             defender_initial_soldiers=500,
             defender_avg_morale=50.0,
@@ -286,7 +286,7 @@ class TestBattleResultApplication:
             result=BattleResultType.ATTACKER_WIN,
             attacker_casualties=200,
             defender_casualties=500,
-            captured_city="city_shu_1",
+            captured_city="city_liubei_1",
         )
 
         engine._apply_battle_result(ctx, result)
@@ -298,22 +298,22 @@ class TestBattleResultApplication:
     def test_reward_general_in_army(self):
         """出征中的将领也可以被赏赐，金钱从军队出发城市扣除"""
         engine = _make_initialized_engine()
-        general = engine.generals["general_wei_1"]
-        from_city = engine.cities["city_wei_1"]
+        general = engine.generals["general_caocao_1"]
+        from_city = engine.cities["city_caocao_1"]
 
         # 创建军队并指派将领
         engine._army_counter += 1
         army = Army(
             id="army_reward_test",
-            faction="wei",
-            general_id="general_wei_1",
+            faction="caocao",
+            general_id="general_caocao_1",
             soldiers=500,
             food=500,
             food_consumption_per_turn=100,
             morale=80,
             status="marching",
-            from_city="city_wei_1",
-            to_city="city_shu_1",
+            from_city="city_caocao_1",
+            to_city="city_liubei_1",
             progress=0.5,
             total_distance=1,
         )
@@ -324,8 +324,8 @@ class TestBattleResultApplication:
         old_loyalty = general.loyalty
 
         cmd = RewardCommand(
-            faction="wei", turn=1,
-            general="general_wei_1", gold=200,
+            faction="caocao", turn=1,
+            general="general_caocao_1", gold=200,
         )
         result = engine.execute_command(cmd)
 
@@ -343,51 +343,51 @@ def _make_game_data() -> dict:
     return {
         "cities": [
             {
-                "id": "city_wei_1", "name": "魏城1", "faction": "wei", "level": 3,
+                "id": "city_caocao_1", "name": "曹城1", "faction": "caocao", "level": 3,
                 "wall_hp": 2000, "wall_max_hp": 2000,
                 "gold": 1000, "food": 1000, "population": 30000,
                 "morale": 70, "garrison": 2000,
-                "position": {"q": 0, "r": 0}, "neighbors": ["city_shu_1"],
-                "generals": ["general_wei_1"],
+                "position": {"q": 0, "r": 0}, "neighbors": ["city_liubei_1"],
+                "generals": ["general_caocao_1"],
             },
             {
-                "id": "city_shu_1", "name": "蜀城1", "faction": "shu", "level": 3,
+                "id": "city_liubei_1", "name": "刘城1", "faction": "liubei", "level": 3,
                 "wall_hp": 2000, "wall_max_hp": 2000,
                 "gold": 1000, "food": 1000, "population": 30000,
                 "morale": 70, "garrison": 2000,
-                "position": {"q": 100, "r": 0}, "neighbors": ["city_wei_1", "city_wu_1"],
-                "generals": ["general_shu_1"],
+                "position": {"q": 100, "r": 0}, "neighbors": ["city_caocao_1", "city_sunjian_1"],
+                "generals": ["general_liubei_1"],
             },
             {
-                "id": "city_wu_1", "name": "吴城1", "faction": "wu", "level": 3,
+                "id": "city_sunjian_1", "name": "孙城1", "faction": "sunjian", "level": 3,
                 "wall_hp": 2000, "wall_max_hp": 2000,
                 "gold": 1000, "food": 1000, "population": 30000,
                 "morale": 70, "garrison": 2000,
-                "position": {"q": 200, "r": 0}, "neighbors": ["city_shu_1"],
-                "generals": ["general_wu_1"],
+                "position": {"q": 200, "r": 0}, "neighbors": ["city_liubei_1"],
+                "generals": ["general_sunjian_1"],
             },
         ],
         "generals": [
             {
-                "id": "general_wei_1", "name": "魏将", "faction": "wei",
+                "id": "general_caocao_1", "name": "曹将", "faction": "caocao",
                 "command": 85, "politics": 70, "bravery": 80, "intelligence": 75,
-                "loyalty": 80, "location": "city_wei_1",
+                "loyalty": 80, "location": "city_caocao_1",
             },
             {
-                "id": "general_shu_1", "name": "蜀将", "faction": "shu",
+                "id": "general_liubei_1", "name": "刘将", "faction": "liubei",
                 "command": 85, "politics": 70, "bravery": 80, "intelligence": 75,
-                "loyalty": 80, "location": "city_shu_1",
+                "loyalty": 80, "location": "city_liubei_1",
             },
             {
-                "id": "general_wu_1", "name": "吴将", "faction": "wu",
+                "id": "general_sunjian_1", "name": "孙将", "faction": "sunjian",
                 "command": 85, "politics": 70, "bravery": 80, "intelligence": 75,
-                "loyalty": 80, "location": "city_wu_1",
+                "loyalty": 80, "location": "city_sunjian_1",
             },
         ],
         "map_topology": {
-            "city_wei_1": ["city_shu_1"],
-            "city_shu_1": ["city_wei_1", "city_wu_1"],
-            "city_wu_1": ["city_shu_1"],
+            "city_caocao_1": ["city_liubei_1"],
+            "city_liubei_1": ["city_caocao_1", "city_sunjian_1"],
+            "city_sunjian_1": ["city_liubei_1"],
         },
     }
 

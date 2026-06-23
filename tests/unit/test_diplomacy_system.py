@@ -21,8 +21,8 @@ class TestSendMessage:
         ds = DiplomacySystem(rng=GameRandom(seed=42))
 
         result = ds.send_message(
-            from_faction="shu",
-            to_faction="wei",
+            from_faction="liubei",
+            to_faction="caocao",
             content="我们结盟吧",
             turn=5,
         )
@@ -36,29 +36,29 @@ class TestSendMessage:
         ds = DiplomacySystem(rng=GameRandom(seed=42))
 
         ds.send_message(
-            from_faction="shu",
-            to_faction="wei",
+            from_faction="liubei",
+            to_faction="caocao",
             content="合作抗吴",
             turn=5,
         )
 
-        messages = ds.get_messages_for_faction("wei")
+        messages = ds.get_messages_for_faction("caocao")
         assert len(messages) == 1
         assert messages[0].content == "合作抗吴"
-        assert messages[0].from_faction == "shu"
+        assert messages[0].from_faction == "liubei"
 
     def test_max_messages_per_turn(self):
         """每回合最多发1条消息"""
         ds = DiplomacySystem(rng=GameRandom(seed=42))
 
         result1 = ds.send_message(
-            from_faction="shu", to_faction="wei",
+            from_faction="liubei", to_faction="caocao",
             content="第一条", turn=5,
         )
         assert result1.success is True
 
         result2 = ds.send_message(
-            from_faction="shu", to_faction="wu",
+            from_faction="liubei", to_faction="sunjian",
             content="第二条", turn=5,
         )
         assert result2.success is False  # 超限
@@ -68,16 +68,16 @@ class TestSendMessage:
         ds = DiplomacySystem(rng=GameRandom(seed=42))
 
         ds.send_message(
-            from_faction="shu", to_faction="wei",
+            from_faction="liubei", to_faction="caocao",
             content="第5回合", turn=5,
         )
         ds.send_message(
-            from_faction="shu", to_faction="wu",
+            from_faction="liubei", to_faction="sunjian",
             content="第6回合", turn=6,
         )
 
-        messages_to_wei = ds.get_messages_for_faction("wei")
-        messages_to_wu = ds.get_messages_for_faction("wu")
+        messages_to_wei = ds.get_messages_for_faction("caocao")
+        messages_to_wu = ds.get_messages_for_faction("sunjian")
 
         assert len(messages_to_wei) == 1
         assert len(messages_to_wu) == 1
@@ -87,7 +87,7 @@ class TestSendMessage:
         ds = DiplomacySystem(rng=GameRandom(seed=42))
 
         result = ds.send_message(
-            from_faction="shu", to_faction="wei",
+            from_faction="liubei", to_faction="caocao",
             content="", turn=5,
         )
         assert result.success is True  # 允许空消息
@@ -97,7 +97,7 @@ class TestSendMessage:
         ds = DiplomacySystem(rng=GameRandom(seed=42))
 
         result = ds.send_message(
-            from_faction="shu", to_faction="shu",
+            from_faction="liubei", to_faction="liubei",
             content="自言自语", turn=5,
         )
         assert result.success is True
@@ -113,7 +113,7 @@ class TestRumor:
 
         result = ds.spread_rumor(
             target_city_id="chengdu",
-            target_faction="shu",
+            target_faction="liubei",
             target_general=general,
             spy_intelligence=80,
             turn=5,
@@ -130,7 +130,7 @@ class TestRumor:
 
         result = ds.spread_rumor(
             target_city_id="chengdu",
-            target_faction="shu",
+            target_faction="liubei",
             target_general=general,
             spy_intelligence=90,
             turn=5,
@@ -147,7 +147,7 @@ class TestRumor:
 
         result = ds.spread_rumor(
             target_city_id="chengdu",
-            target_faction="shu",
+            target_faction="liubei",
             target_general=general,
             spy_intelligence=20,
             turn=5,
@@ -161,7 +161,7 @@ class TestRumor:
 
         result = ds.spread_rumor(
             target_city_id="chengdu",
-            target_faction="shu",
+            target_faction="liubei",
             target_general=None,
             spy_intelligence=80,
             turn=5,
@@ -176,27 +176,27 @@ class TestMessageQuery:
     def test_get_messages_empty(self):
         """没有消息时返回空列表"""
         ds = DiplomacySystem(rng=GameRandom(seed=42))
-        messages = ds.get_messages_for_faction("wei")
+        messages = ds.get_messages_for_faction("caocao")
         assert messages == []
 
     def test_get_messages_multiple(self):
         """多条消息查询"""
         ds = DiplomacySystem(rng=GameRandom(seed=42))
 
-        ds.send_message(from_faction="shu", to_faction="wei", content="你好", turn=5)
-        ds.send_message(from_faction="wu", to_faction="wei", content="你好", turn=6)
+        ds.send_message(from_faction="liubei", to_faction="caocao", content="你好", turn=5)
+        ds.send_message(from_faction="sunjian", to_faction="caocao", content="你好", turn=6)
 
-        messages = ds.get_messages_for_faction("wei")
+        messages = ds.get_messages_for_faction("caocao")
         assert len(messages) == 2
 
     def test_get_sent_messages(self):
         """查询已发送消息"""
         ds = DiplomacySystem(rng=GameRandom(seed=42))
 
-        ds.send_message(from_faction="shu", to_faction="wei", content="你好", turn=5)
-        ds.send_message(from_faction="shu", to_faction="wu", content="你好", turn=6)
+        ds.send_message(from_faction="liubei", to_faction="caocao", content="你好", turn=5)
+        ds.send_message(from_faction="liubei", to_faction="sunjian", content="你好", turn=6)
 
-        sent = ds.get_sent_messages("shu")
+        sent = ds.get_sent_messages("liubei")
         assert len(sent) == 2
 
     def test_message_read_status(self):
@@ -204,15 +204,15 @@ class TestMessageQuery:
         ds = DiplomacySystem(rng=GameRandom(seed=42))
 
         msg_id = ds.send_message(
-            from_faction="shu", to_faction="wei",
+            from_faction="liubei", to_faction="caocao",
             content="你好", turn=5,
         ).message_id
 
-        messages = ds.get_messages_for_faction("wei")
+        messages = ds.get_messages_for_faction("caocao")
         assert messages[0].is_read is False
 
         ds.mark_as_read(msg_id)
-        messages = ds.get_messages_for_faction("wei")
+        messages = ds.get_messages_for_faction("caocao")
         assert messages[0].is_read is True
 
 
@@ -223,11 +223,11 @@ class TestDiplomacyEdgeCases:
         """多势力消息隔离"""
         ds = DiplomacySystem(rng=GameRandom(seed=42))
 
-        ds.send_message(from_faction="shu", to_faction="wei", content="秘密1", turn=5)
-        ds.send_message(from_faction="wu", to_faction="wei", content="秘密2", turn=5)
+        ds.send_message(from_faction="liubei", to_faction="caocao", content="秘密1", turn=5)
+        ds.send_message(from_faction="sunjian", to_faction="caocao", content="秘密2", turn=5)
 
-        wei_msgs = ds.get_messages_for_faction("wei")
-        shu_msgs = ds.get_messages_for_faction("shu")
+        wei_msgs = ds.get_messages_for_faction("caocao")
+        shu_msgs = ds.get_messages_for_faction("liubei")
 
         assert len(wei_msgs) == 2
         assert len(shu_msgs) == 0  # 没给shu发过
@@ -236,18 +236,18 @@ class TestDiplomacyEdgeCases:
         """清理回合数据"""
         ds = DiplomacySystem(rng=GameRandom(seed=42))
 
-        ds.send_message(from_faction="shu", to_faction="wei", content="test", turn=5)
+        ds.send_message(from_faction="liubei", to_faction="caocao", content="test", turn=5)
 
         # 手动模拟新回合
         # 发送限制应该在方法内部处理
         result = ds.send_message(
-            from_faction="shu", to_faction="wei",
+            from_faction="liubei", to_faction="caocao",
             content="test2", turn=5,  # 同一回合
         )
         assert result.success is False  # 已达上限
 
         result = ds.send_message(
-            from_faction="shu", to_faction="wei",
+            from_faction="liubei", to_faction="caocao",
             content="test3", turn=6,  # 新回合
         )
         assert result.success is True  # 重置了
@@ -263,7 +263,7 @@ def _make_city(id: str = "chengdu", morale: int = 70) -> City:
     return City(
         id=id,
         name="测试城",
-        faction="shu",
+        faction="liubei",
         level=1,
         wall_hp=lc["wall_hp"],
         wall_max_hp=lc["wall_hp"],
@@ -284,7 +284,7 @@ def _make_general(
     return General(
         id=general_id,
         name="测试将",
-        faction="shu",
+        faction="liubei",
         command=70,
         politics=50,
         bravery=60,

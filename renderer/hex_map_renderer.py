@@ -25,7 +25,7 @@ except ImportError:
 class HexMapRenderer:
     """六角格地图渲染器
 
-    在 Pygame Surface 上绘制六角格地形。
+    在 Pygame Surface 上绘制六角格地形、城市标记和中国省界。
 
     Attributes:
         hex_size: 六角格外接圆半径（像素）
@@ -42,6 +42,8 @@ class HexMapRenderer:
         self.hex_map = hex_map
         self.hex_size = hex_size
         self.colors = self._load_colors()
+        self._boundaries: list = []  # 省界数据（屏幕坐标缓存）
+        self._bounds = {"min_lon": 95.0, "max_lon": 125.0, "min_lat": 22.0, "max_lat": 45.0}
 
     def _load_colors(self) -> dict:
         """加载地形颜色配置"""
@@ -62,6 +64,107 @@ class HexMapRenderer:
                 "desert": {"fill": "#e6c075", "border": "#c19a4b"},
             }
 
+    def set_boundaries(self, geojson: dict) -> None:
+        """加载中国省界 GeoJSON 数据并转换为屏幕坐标
+
+        Args:
+            geojson: GeoJSON FeatureCollection
+        """
+        self._boundaries = []
+        for feature in geojson.get("features", []):
+            name = feature.get("name", "")
+            coords = feature.get("coordinates", [])
+            lines = self._extract_polygon_lines(coords)
+            self._boundaries.append({"name": name, "lines": lines})
+
+    def _extract_polygon_lines(self, coordinates: list) -> list:
+        """从 GeoJSON 多边形坐标提取屏幕线段列表
+
+        Args:
+            coordinates: GeoJSON 坐标数组
+
+        Returns:
+            [(x1, y1, x2, y2), ...] 屏幕坐标线段
+        """
+        lines = []
+
+        def extract_ring(ring):
+            for i in range(len(ring) - 1):
+                lon1, lat1 = ring[i][0], ring[i][1]
+                lon2, lat2 = ring[i + 1][0], ring[i + 1][1]
+                if (lon1 < 90 or lon1 > 128 or lat1 < 20 or lat1 > 47):
+                    continue
+                x1, y1 = self._lonlat_to_screen(lon1, lat1)
+                x2, y2 = self._lonlat_to_screen(lon2, lat2)
+                lines.append((x1, y1, x2, y2))
+
+        def traverse(coord):
+            if len(coord) == 0:
+                return
+            if isinstance(coord[0], (int, float)):
+                return
+            if isinstance(coord[0][0], (int, float)):
+                extract_ring(coord)
+            else:
+                for sub in coord:
+                    traverse(sub)
+
+        traverse(coordinates)
+        return lines
+
+    def _lonlat_to_screen(self, lon: float, lat: float) -> tuple:
+        """经纬度 → 六角格屏幕像素坐标
+
+        Args:
+            lon: 经度
+            lat: 纬度
+
+        Returns:
+            (x, y) 像素坐标
+        """
+        import math
+        # 浮点轴向坐标
+        q = (lon - 95.0) / 30.0 * (self.hex_map.width - 1)
+        r = (45.0 - lat) / 23.0 * (self.hex_map.height - 1)
+        # 屏幕像素
+        x = self.hex_size * (math.sqrt(3) * q + math.sqrt(3) / 2 * r)
+        y = self.hex_size * (3.0 / 2 * r)
+        return (x, y)
+
+    def _draw_boundaries(
+        self,
+        surface: object,
+        camera_offset: tuple = (0, 0),
+        camera_zoom: float = 1.0,
+    ) -> None:
+        """绘制中国省界线（半透明叠加在六角格地形之上）
+
+        Args:
+            surface: Pygame Surface
+            camera_offset: 相机偏移
+            camera_zoom: 缩放倍率
+        """
+        if pygame is None or not self._boundaries:
+            return
+
+        border_color = (100, 100, 110)  # 暗灰色省界线
+        for province in self._boundaries:
+            for (x1, y1, x2, y2) in province["lines"]:
+                sx1 = x1 * camera_zoom + camera_offset[0]
+                sy1 = y1 * camera_zoom + camera_offset[1]
+                sx2 = x2 * camera_zoom + camera_offset[0]
+                sy2 = y2 * camera_zoom + camera_offset[1]
+                sw = surface.get_width() if hasattr(surface, 'get_width') else 800
+                sh = surface.get_height() if hasattr(surface, 'get_height') else 600
+                if (sx1 < -50 and sx2 < -50) or (sx1 > sw + 50 and sx2 > sw + 50):
+                    continue
+                if (sy1 < -50 and sy2 < -50) or (sy1 > sh + 50 and sy2 > sh + 50):
+                    continue
+                try:
+                    pygame.draw.line(surface, border_color, (sx1, sy1), (sx2, sy2), 1)
+                except Exception:
+                    pass
+
     def render(
         self,
         surface: object,
@@ -80,6 +183,9 @@ class HexMapRenderer:
 
         for tile in self.hex_map.iter_tiles():
             self._draw_hex(surface, tile, camera_offset, camera_zoom)
+
+        # 叠加省界线
+        self._draw_boundaries(surface, camera_offset, camera_zoom)
 
     def _draw_hex(
         self,
@@ -130,17 +236,14 @@ class HexMapRenderer:
         if pygame is None:
             return
 
-        faction_colors = {
-            "wei": (0, 85, 164),
-            "shu": (204, 0, 0),
-            "wu": (0, 170, 85),
-        }
+        from game.constants import FACTION_COLORS
 
         for city in cities.values():
             x, y = axial_to_pixel(city.position, self.hex_size * camera_zoom)
             x += camera_offset[0]
             y += camera_offset[1]
-            color = faction_colors.get(city.faction, (136, 136, 136))
+            hex_color = FACTION_COLORS.get(city.faction, "#888888")
+            color = self._hex_to_rgb(hex_color)
             radius = int(8 * camera_zoom)
             pygame.draw.circle(surface, color, (int(x), int(y)), max(radius, 3))
             pygame.draw.circle(surface, (255, 255, 255), (int(x), int(y)), max(radius, 3), 1)

@@ -383,7 +383,7 @@ class TestAftermath:
         resolver = BattleResolver(rng=GameRandom(seed=42))
         ctx = _make_siege_context(
             attacker_soldiers=5000, defender_soldiers=0,
-            attacker_faction="wei", defender_faction="shu",
+            attacker_faction="caocao", defender_faction="liubei",
         )
         ctx.result = BattleResultType.ATTACKER_WIN
 

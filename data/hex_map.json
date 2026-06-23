@@ -63074,6 +63074,48 @@
       "r": 53,
       "terrain": "plain",
       "elevation": 1
+    },
+    {
+      "q": 79,
+      "r": 30,
+      "terrain": "plain",
+      "elevation": 1
+    },
+    {
+      "q": 85,
+      "r": 20,
+      "terrain": "plain",
+      "elevation": 1
+    },
+    {
+      "q": 68,
+      "r": 50,
+      "terrain": "plain",
+      "elevation": 1
+    },
+    {
+      "q": 70,
+      "r": 46,
+      "terrain": "plain",
+      "elevation": 1
+    },
+    {
+      "q": 71,
+      "r": 65,
+      "terrain": "plain",
+      "elevation": 1
+    },
+    {
+      "q": 86,
+      "r": 48,
+      "terrain": "plain",
+      "elevation": 1
+    },
+    {
+      "q": 30,
+      "r": 27,
+      "terrain": "plain",
+      "elevation": 1
     }
   ],
   "rivers": [
@@ -64402,6 +64444,34 @@
     "wu_jun": {
       "q": 102,
       "r": 53
+    },
+    "julu": {
+      "q": 79,
+      "r": 30
+    },
+    "ji": {
+      "q": 85,
+      "r": 20
+    },
+    "xiangyang": {
+      "q": 68,
+      "r": 50
+    },
+    "nanyang": {
+      "q": 70,
+      "r": 46
+    },
+    "changsha": {
+      "q": 71,
+      "r": 65
+    },
+    "shouchun": {
+      "q": 86,
+      "r": 48
+    },
+    "wuwei": {
+      "q": 30,
+      "r": 27
     }
   }
 }

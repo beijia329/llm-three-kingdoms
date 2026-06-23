@@ -248,7 +248,7 @@ def _make_test_city(
     return City(
         id="test_city",
         name="测试城",
-        faction="wei",
+        faction="caocao",
         level=level,
         wall_hp=level_config["wall_hp"],
         wall_max_hp=level_config["wall_hp"],

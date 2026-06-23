@@ -33,7 +33,7 @@ class TestBattleDetection:
         """驻守军队不触发战斗"""
         scheduler = BattleScheduler(rng=GameRandom(seed=42))
         army = _make_army(status=ArmyStatus.GARRISONED)
-        city = _make_city(owner="wei", city_id="city_wei")
+        city = _make_city(owner="caocao", city_id="city_wei")
 
         battles = scheduler.detect_battles(
             armies={"army1": army},
@@ -47,11 +47,11 @@ class TestBattleDetection:
         scheduler = BattleScheduler(rng=GameRandom(seed=42))
         army = _make_army(
             id="besieger",
-            faction="wei",
+            faction="caocao",
             status=ArmyStatus.BESIEGING,
             to_city="city_shu",
         )
-        city = _make_city(owner="shu", city_id="city_shu")
+        city = _make_city(owner="liubei", city_id="city_shu")
 
         battles = scheduler.detect_battles(
             armies={"besieger": army},
@@ -60,19 +60,19 @@ class TestBattleDetection:
         )
         assert len(battles) == 1
         assert battles[0].battle_type == BattleType.SIEGE
-        assert battles[0].attacker_faction == "wei"
-        assert battles[0].defender_faction == "shu"
+        assert battles[0].attacker_faction == "caocao"
+        assert battles[0].defender_faction == "liubei"
 
     def test_own_city_no_battle(self):
         """友方城市不触发战斗"""
         scheduler = BattleScheduler(rng=GameRandom(seed=42))
         army = _make_army(
             id="friend",
-            faction="wei",
+            faction="caocao",
             status=ArmyStatus.BESIEGING,
             to_city="city_wei",
         )
-        city = _make_city(owner="wei", city_id="city_wei")
+        city = _make_city(owner="caocao", city_id="city_wei")
 
         battles = scheduler.detect_battles(
             armies={"friend": army},
@@ -85,12 +85,12 @@ class TestBattleDetection:
         """多支部队攻击同一目标时合并"""
         scheduler = BattleScheduler(rng=GameRandom(seed=42))
         armies = {
-            "a1": _make_army(id="a1", faction="wei", status=ArmyStatus.BESIEGING,
+            "a1": _make_army(id="a1", faction="caocao", status=ArmyStatus.BESIEGING,
                              to_city="city_shu", soldiers=3000),
-            "a2": _make_army(id="a2", faction="wei", status=ArmyStatus.BESIEGING,
+            "a2": _make_army(id="a2", faction="caocao", status=ArmyStatus.BESIEGING,
                              to_city="city_shu", soldiers=2000),
         }
-        city = _make_city(owner="shu", city_id="city_shu")
+        city = _make_city(owner="liubei", city_id="city_shu")
 
         battles = scheduler.detect_battles(
             armies=armies,
@@ -105,14 +105,14 @@ class TestBattleDetection:
         """不同目标分别创建战斗"""
         scheduler = BattleScheduler(rng=GameRandom(seed=42))
         armies = {
-            "a1": _make_army(id="a1", faction="wei", status=ArmyStatus.BESIEGING,
+            "a1": _make_army(id="a1", faction="caocao", status=ArmyStatus.BESIEGING,
                              to_city="city_shu", soldiers=3000),
-            "a2": _make_army(id="a2", faction="shu", status=ArmyStatus.BESIEGING,
+            "a2": _make_army(id="a2", faction="liubei", status=ArmyStatus.BESIEGING,
                              to_city="city_wei", soldiers=2000),
         }
         cities = {
-            "city_shu": _make_city(owner="shu", city_id="city_shu"),
-            "city_wei": _make_city(owner="wei", city_id="city_wei"),
+            "city_shu": _make_city(owner="liubei", city_id="city_shu"),
+            "city_wei": _make_city(owner="caocao", city_id="city_wei"),
         }
 
         battles = scheduler.detect_battles(
@@ -130,12 +130,12 @@ class TestBattleContextCreation:
         """上下文包含攻击方信息"""
         scheduler = BattleScheduler(rng=GameRandom(seed=42))
         army = _make_army(
-            faction="wei", status=ArmyStatus.BESIEGING,
+            faction="caocao", status=ArmyStatus.BESIEGING,
             to_city="city_shu", soldiers=5000, morale=80,
             general_id="caocao",
         )
         general = _make_general(general_id="caocao", command=95)
-        city = _make_city(owner="shu", city_id="city_shu", garrison=3000)
+        city = _make_city(owner="liubei", city_id="city_shu", garrison=3000)
 
         battles = scheduler.detect_battles(
             armies={"a1": army},
@@ -151,11 +151,11 @@ class TestBattleContextCreation:
     def test_context_has_battle_id(self):
         """上下文有唯一ID"""
         scheduler = BattleScheduler(rng=GameRandom(seed=42))
-        army = _make_army(faction="wei", status=ArmyStatus.BESIEGING, to_city="city_shu")
+        army = _make_army(faction="caocao", status=ArmyStatus.BESIEGING, to_city="city_shu")
 
         battles = scheduler.detect_battles(
             armies={"a1": army},
-            cities={"city_shu": _make_city(owner="shu")},
+            cities={"city_shu": _make_city(owner="liubei")},
             map_system=MapSystem(),
         )
         assert battles[0].battle_id.startswith("battle_")
@@ -163,11 +163,11 @@ class TestBattleContextCreation:
     def test_context_phase_init(self):
         """上下文初始阶段为siege"""
         scheduler = BattleScheduler(rng=GameRandom(seed=42))
-        army = _make_army(faction="wei", status=ArmyStatus.BESIEGING, to_city="city_shu")
+        army = _make_army(faction="caocao", status=ArmyStatus.BESIEGING, to_city="city_shu")
 
         battles = scheduler.detect_battles(
             armies={"a1": army},
-            cities={"city_shu": _make_city(owner="shu")},
+            cities={"city_shu": _make_city(owner="liubei")},
             map_system=MapSystem(),
         )
         assert battles[0].battle_phase == BattlePhase.SIEGE
@@ -236,7 +236,7 @@ def _make_general(
     return General(
         id=general_id,
         name="测试将",
-        faction="wei",
+        faction="caocao",
         command=command,
         politics=50,
         bravery=60,

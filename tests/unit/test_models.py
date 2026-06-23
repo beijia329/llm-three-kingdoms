@@ -33,16 +33,16 @@ class TestFaction:
     """势力枚举测试"""
 
     def test_faction_values(self):
-        assert Faction.WEI.value == "wei"
-        assert Faction.SHU.value == "shu"
-        assert Faction.WU.value == "wu"
+        assert Faction.CAOCAO.value == "caocao"
+        assert Faction.LIUBEI.value == "liubei"
+        assert Faction.SUNJIAN.value == "sunjian"
 
     def test_faction_count(self):
-        assert len(Faction) == 3
+        assert len(Faction) == 12
 
     def test_faction_from_string(self):
-        assert Faction("wei") == Faction.WEI
-        assert Faction("shu") == Faction.SHU
+        assert Faction("caocao") == Faction.CAOCAO
+        assert Faction("liubei") == Faction.LIUBEI
 
 
 # ============================================================
@@ -56,7 +56,7 @@ class TestCity:
         city = City(
             id="chengdu",
             name="成都",
-            faction="shu",
+            faction="liubei",
             level=3,
             wall_hp=2000,
             wall_max_hp=2000,
@@ -69,7 +69,7 @@ class TestCity:
         )
         assert city.id == "chengdu"
         assert city.name == "成都"
-        assert city.faction == "shu"
+        assert city.faction == "liubei"
         assert city.level == 3
         assert not city.is_besieged
 
@@ -78,7 +78,7 @@ class TestCity:
         city = City(
             id="test",
             name="测试城",
-            faction="wei",
+            faction="caocao",
             level=1,
             wall_hp=500,
             wall_max_hp=500,
@@ -98,7 +98,7 @@ class TestCity:
         """等级必须在1-5之间"""
         with pytest.raises(ValidationError):
             City(
-                id="bad", name="坏城", faction="wei", level=0,
+                id="bad", name="坏城", faction="caocao", level=0,
                 wall_hp=500, wall_max_hp=500, gold=200, food=300,
                 population=5000, morale=70, garrison=500, position=HexCoord(0, 0),
             )
@@ -107,7 +107,7 @@ class TestCity:
         """民心必须在0-100之间"""
         with pytest.raises(ValidationError):
             City(
-                id="bad", name="坏城", faction="wei", level=1,
+                id="bad", name="坏城", faction="caocao", level=1,
                 wall_hp=500, wall_max_hp=500, gold=200, food=300,
                 population=5000, morale=150, garrison=500, position=HexCoord(0, 0),
             )
@@ -116,7 +116,7 @@ class TestCity:
         """资源不能为负"""
         with pytest.raises(ValidationError):
             City(
-                id="bad", name="坏城", faction="wei", level=1,
+                id="bad", name="坏城", faction="caocao", level=1,
                 wall_hp=500, wall_max_hp=500, gold=-1, food=300,
                 population=5000, morale=70, garrison=500, position=HexCoord(0, 0),
             )
@@ -132,7 +132,7 @@ class TestArmy:
     def test_create_army(self):
         army = Army(
             id="army_001",
-            faction="wei",
+            faction="caocao",
             general_id="caocao",
             soldiers=5000,
             food=1000,
@@ -148,7 +148,7 @@ class TestArmy:
 
     def test_army_defaults(self):
         army = Army(
-            id="army_002", faction="shu", general_id="guanyu",
+            id="army_002", faction="liubei", general_id="guanyu",
             soldiers=3000, food=500, food_consumption_per_turn=60,
             status=ArmyStatus.MARCHING, from_city="chengdu",
             to_city="hanzhong", total_distance=3,
@@ -162,7 +162,7 @@ class TestArmy:
         """兵力必须为正数"""
         with pytest.raises(ValidationError):
             Army(
-                id="bad", faction="wei", general_id="x",
+                id="bad", faction="caocao", general_id="x",
                 soldiers=0, food=100, food_consumption_per_turn=10,
                 status=ArmyStatus.GARRISONED, from_city="a",
                 to_city="a", total_distance=1,
@@ -172,7 +172,7 @@ class TestArmy:
         """行军进度必须在0-1之间"""
         with pytest.raises(ValidationError):
             Army(
-                id="bad", faction="wei", general_id="x",
+                id="bad", faction="caocao", general_id="x",
                 soldiers=100, food=100, food_consumption_per_turn=10,
                 status=ArmyStatus.MARCHING, from_city="a",
                 to_city="b", total_distance=3, progress=1.5,
@@ -182,7 +182,7 @@ class TestArmy:
         """士气必须在0-100之间"""
         with pytest.raises(ValidationError):
             Army(
-                id="bad", faction="wei", general_id="x",
+                id="bad", faction="caocao", general_id="x",
                 soldiers=100, food=100, food_consumption_per_turn=10,
                 status=ArmyStatus.GARRISONED, from_city="a",
                 to_city="a", total_distance=1, morale=150,
@@ -200,7 +200,7 @@ class TestGeneral:
         g = General(
             id="zhaoyun",
             name="赵云",
-            faction="shu",
+            faction="liubei",
             command=90,
             politics=65,
             bravery=95,
@@ -212,7 +212,7 @@ class TestGeneral:
 
     def test_general_defaults(self):
         g = General(
-            id="test", name="测试", faction="wei",
+            id="test", name="测试", faction="caocao",
             command=50, politics=50, bravery=50, intelligence=50,
             location="xuchang",
         )
@@ -225,13 +225,13 @@ class TestGeneral:
         """属性必须在1-100之间"""
         with pytest.raises(ValidationError):
             General(
-                id="bad", name="坏", faction="wei",
+                id="bad", name="坏", faction="caocao",
                 command=0, politics=50, bravery=50, intelligence=50,
                 location="x",
             )
         with pytest.raises(ValidationError):
             General(
-                id="bad", name="坏2", faction="wei",
+                id="bad", name="坏2", faction="caocao",
                 command=50, politics=50, bravery=50, intelligence=101,
                 location="x",
             )
@@ -240,7 +240,7 @@ class TestGeneral:
         """忠诚度必须在0-100之间"""
         with pytest.raises(ValidationError):
             General(
-                id="bad", name="坏", faction="wei",
+                id="bad", name="坏", faction="caocao",
                 command=50, politics=50, bravery=50, intelligence=50,
                 location="x", loyalty=150,
             )
@@ -254,15 +254,15 @@ class TestCommands:
     """命令模型测试"""
 
     def test_base_command(self):
-        cmd = Command(type="develop", faction="shu", turn=5)
+        cmd = Command(type="develop", faction="liubei", turn=5)
         assert cmd.type == "develop"
-        assert cmd.faction == "shu"
+        assert cmd.faction == "liubei"
         assert cmd.turn == 5
         assert cmd.params == {}
 
     def test_develop_command(self):
         cmd = DevelopCommand(
-            faction="shu", turn=5,
+            faction="liubei", turn=5,
             city="chengdu", develop_type="economy",
         )
         assert cmd.city == "chengdu"
@@ -270,14 +270,14 @@ class TestCommands:
 
     def test_recruit_command(self):
         cmd = RecruitCommand(
-            faction="wei", turn=3,
+            faction="caocao", turn=3,
             city="xuchang", troops=1000,
         )
         assert cmd.troops == 1000
 
     def test_attack_command(self):
         cmd = AttackCommand(
-            faction="shu", turn=8,
+            faction="liubei", turn=8,
             from_city="chengdu", to_city="hanzhong",
             troops=2000, general="zhaoyun",
         )
@@ -285,21 +285,21 @@ class TestCommands:
 
     def test_reward_command(self):
         cmd = RewardCommand(
-            faction="wei", turn=4,
+            faction="caocao", turn=4,
             general="caocao", gold=200,
         )
         assert cmd.gold == 200
 
     def test_explore_command(self):
         cmd = ExploreCommand(
-            faction="wu", turn=6,
+            faction="sunjian", turn=6,
             city="jianye", general="zhouyu",
         )
         assert cmd.general == "zhouyu"
 
     def test_message_command(self):
         cmd = MessageCommand(
-            faction="shu", turn=7,
+            faction="liubei", turn=7,
             to="wei", content="我们结盟吧",
         )
         assert cmd.to == "wei"
@@ -307,7 +307,7 @@ class TestCommands:
 
     def test_rumor_command(self):
         cmd = RumorCommand(
-            faction="wei", turn=9,
+            faction="caocao", turn=9,
             city="chengdu", target_general="zhugeliang",
             spy_general="simayi",
         )
@@ -323,13 +323,13 @@ class TestGameObservation:
 
     def test_create_observation(self):
         city = City(
-            id="chengdu", name="成都", faction="shu", level=3,
+            id="chengdu", name="成都", faction="liubei", level=3,
             wall_hp=2000, wall_max_hp=2000, gold=800, food=1000,
             population=30000, morale=70, garrison=2000,
             position=HexCoord(100, 200),
         )
         obs = GameObservation(
-            faction="shu",
+            faction="liubei",
             turn=5,
             max_turns=192,
             own_cities=[city],
@@ -342,7 +342,7 @@ class TestGameObservation:
             sent_messages=[],
             recent_events=[],
         )
-        assert obs.faction == "shu"
+        assert obs.faction == "liubei"
         assert obs.turn == 5
         assert len(obs.own_cities) == 1
 
@@ -351,7 +351,7 @@ class TestGameObservation:
         city_info = CityInfo(
             id="xuchang",
             name="许昌",
-            faction="wei",
+            faction="caocao",
             level=5,
             is_besieged=False,
         )

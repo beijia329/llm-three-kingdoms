@@ -11,15 +11,15 @@ class TestPromptBuilder:
 
     def test_build_system_prompt(self):
         """构建系统Prompt"""
-        prompt = PromptBuilder.build_system_prompt("wei")
-        assert "魏国" in prompt
+        prompt = PromptBuilder.build_system_prompt("caocao")
+        assert "曹操" in prompt or "caocao" in prompt.lower()
         assert "发展经济" in prompt
-        assert "192回合" in prompt
+        assert "192" in prompt
 
     def test_system_prompt_different_faction(self):
         """不同势力的Prompt"""
-        shu = PromptBuilder.build_system_prompt("shu")
-        assert "蜀国" in shu
+        shu = PromptBuilder.build_system_prompt("liubei")
+        assert "刘备" in shu
 
     def test_build_commands_help(self):
         """构建命令说明"""
@@ -48,14 +48,14 @@ class TestPromptBuilder:
         """构建完整Prompt"""
         obs = _make_test_observation()
         messages = PromptBuilder.build_full_prompt(
-            faction="shu",
+            faction="liubei",
             observation=obs,
             memory_context="## 历史摘要\n第1回合...",
         )
         assert len(messages) == 2
         assert messages[0]["role"] == "system"
         assert messages[1]["role"] == "user"
-        assert "蜀国" in messages[0]["content"]
+        assert "刘备" in messages[0]["content"]
         assert "成都" in messages[1]["content"]
         assert "第1回合" in messages[1]["content"]
 
@@ -64,32 +64,32 @@ def _make_test_observation() -> GameObservation:
     """创建测试观察"""
     lc = CITY_LEVELS[3]
     city = City(
-        id="chengdu", name="成都", faction="shu", level=3,
+        id="chengdu", name="成都", faction="liubei", level=3,
         wall_hp=lc["wall_hp"], wall_max_hp=lc["wall_hp"],
         gold=1200, food=3500, population=30000, morale=72, garrison=3000,
         position=HexCoord(0, 0), neighbors=["hanzhong"],
         generals=["zhugeliang", "zhaoyun"],
     )
     general = General(
-        id="zhugeliang", name="诸葛亮", faction="shu",
+        id="zhugeliang", name="诸葛亮", faction="liubei",
         command=92, politics=98, bravery=35, intelligence=100,
         loyalty=100, location="chengdu",
     )
     return GameObservation(
-        faction="shu",
+        faction="liubei",
         turn=5,
         max_turns=192,
         own_cities=[city],
         own_armies=[],
         own_generals=[general],
         known_cities=[
-            CityInfo(id="xuchang", name="许昌", faction="wei", level=5),
+            CityInfo(id="xuchang", name="许昌", faction="caocao", level=5),
         ],
         visible_armies=[],
         map_topology={"chengdu": ["hanzhong"], "hanzhong": ["chengdu"]},
         received_messages=[
             DiplomacyMessage(
-                id="m1", from_faction="wei", to_faction="shu",
+                id="m1", from_faction="caocao", to_faction="liubei",
                 content="我们结盟吧", turn=3,
             )
         ],

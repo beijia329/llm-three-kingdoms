@@ -4,7 +4,7 @@ import pytest
 from game.constants import (
     MAX_TURNS,
     NUM_FACTIONS,
-    STARTING_CITIES_PER_FACTION,
+    TOTAL_CITIES,
     CITY_LEVELS,
     FACTIONS,
     FACTION_COLORS,
@@ -26,20 +26,20 @@ class TestGameConstants:
     def test_game_rules(self):
         """测试基本游戏规则"""
         assert MAX_TURNS == 192
-        assert NUM_FACTIONS == 3
-        assert STARTING_CITIES_PER_FACTION == 5
+        assert NUM_FACTIONS == 12
+        assert TOTAL_CITIES == 22
 
     def test_factions(self):
         """测试势力定义"""
-        assert len(FACTIONS) == 3
-        assert "wei" in FACTIONS
-        assert "shu" in FACTIONS
-        assert "wu" in FACTIONS
-        assert FACTIONS["wei"] == "魏国"
+        assert len(FACTIONS) == 12
+        assert "caocao" in FACTIONS
+        assert "liubei" in FACTIONS
+        assert "sunjian" in FACTIONS
+        assert FACTIONS["caocao"] == "曹操"
 
     def test_faction_colors(self):
         """测试势力颜色"""
-        assert len(FACTION_COLORS) == 4  # 3 factions + neutral
+        assert len(FACTION_COLORS) == 13  # 12 factions + neutral
         assert FACTION_COLORS["neutral"] == "#888888"
         # 颜色应该是有效的十六进制颜色码
         for color in FACTION_COLORS.values():

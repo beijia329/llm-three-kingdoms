@@ -20,15 +20,15 @@ from typing import Dict, Any
 # ============================================================
 
 MAX_TURNS: int = 192
-"""最大回合数，188回合达到后游戏结束（184年黄巾-232年三国鼎立，每季度1回合=1季度）"""
+"""最大回合数，192回合达到后游戏结束（184年黄巾-232年三国鼎立，每季度1回合）"""
 
-NUM_FACTIONS: int = 3
-"""势力数量（魏、蜀、吴）"""
+NUM_FACTIONS: int = 12
+"""势力数量（184年剧本，12方诸侯）"""
 
-STARTING_CITIES_PER_FACTION: int = 5
-"""每个势力初始城市数量"""
+STARTING_CITIES_PER_FACTION: int = 0
+"""每方初始城市数（不固定，按实际历史分配）"""
 
-TOTAL_CITIES: int = 15
+TOTAL_CITIES: int = 22
 """地图上总城市数"""
 
 OVERTIME_EXTRA_SOLDIERS: int = 500
@@ -39,16 +39,34 @@ OVERTIME_EXTRA_SOLDIERS: int = 500
 # ============================================================
 
 FACTIONS: Dict[str, str] = {
-    "wei": "魏国",
-    "shu": "蜀国",
-    "wu": "吴国",
+    "han":        "汉室",
+    "zhangjiao":  "张角",
+    "dongzhuo":   "董卓",
+    "yuanshao":   "袁绍",
+    "caocao":     "曹操",
+    "liubei":     "刘备",
+    "sunjian":    "孙坚",
+    "liubiao":    "刘表",
+    "liuyan":     "刘焉",
+    "gongsunzan": "公孙瓒",
+    "mateng":     "马腾",
+    "yuanshu":    "袁术",
 }
 
 FACTION_COLORS: Dict[str, str] = {
-    "wei": "#0055A4",  # 蓝色
-    "shu": "#CC0000",  # 红色
-    "wu": "#00AA55",   # 绿色
-    "neutral": "#888888",  # 灰色（中立）
+    "han":        "#FFD700",  # 金色 - 汉室正统
+    "zhangjiao":  "#FFFF00",  # 明黄 - 黄巾"苍天已死，黄天当立"
+    "dongzhuo":   "#8B0000",  # 深红 - 西凉铁骑
+    "yuanshao":   "#FF6600",  # 橙色 - 袁绍
+    "caocao":     "#0055A4",  # 蓝色 - 曹操
+    "liubei":     "#00AA55",  # 绿色 - 刘备
+    "sunjian":    "#CC0000",  # 红色 - 孙坚
+    "liubiao":    "#8B4513",  # 棕色 - 刘表
+    "liuyan":     "#9370DB",  # 紫色 - 刘焉
+    "gongsunzan": "#FFFFFF",  # 白色 - 公孙瓒
+    "mateng":     "#4B0082",  # 靛蓝 - 马腾
+    "yuanshu":    "#FF1493",  # 粉红 - 袁术
+    "neutral":    "#888888",  # 灰色（中立）
 }
 
 # ============================================================

@@ -87,31 +87,20 @@ def run_ai_vs_ai(
         sys.exit(1)
     engine.init_game(data)
 
-    # 创建玩家
+    # 创建玩家（取前3方势力，LLM玩家只给第一个）
     players = {}
+    faction_list = list(FACTIONS.keys())
     if use_llm:
-        # 只让第一个势力（魏国）用LLM，其余用CLI
-        llm_client = LLMClient(
-            provider="deepseek",
-            model=model,
-            api_key=api_key,
-        )
-        players["wei"] = LLMPlayer(
-            faction="wei", llm_client=llm_client,
-        )
-        for f in ["shu", "wu"]:
-            players[f] = CLIPlayer(
-                faction=f, rng=GameRandom(seed + hash(f) % 10000),
-            )
-        print(f"  🤖 魏国: {model}")
-        print(f"  👤 蜀国: CLI AI")
-        print(f"  👤 吴国: CLI AI")
+        llm_client = LLMClient(provider="deepseek", model=model, api_key=api_key)
+        players[faction_list[0]] = LLMPlayer(faction=faction_list[0], llm_client=llm_client)
+        for f in faction_list[1:]:
+            players[f] = CLIPlayer(faction=f, rng=GameRandom(seed + hash(f) % 10000))
+        print(f"  🤖 {FACTIONS[faction_list[0]]}: {model}")
+        for f in faction_list[1:]:
+            print(f"  👤 {FACTIONS[f]}: CLI AI")
     else:
         for faction in FACTIONS:
-            players[faction] = CLIPlayer(
-                faction=faction,
-                rng=GameRandom(seed + hash(faction) % 10000),
-            )
+            players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
 
     print(f"\n初始状态: {len(engine.cities)} 城市, {len(engine.generals)} 将领")
     print(f"势力分布:")
@@ -195,17 +184,15 @@ def run_gui_mode(
 
     # 创建玩家
     players = {}
-    for faction in FACTIONS:
-        if use_llm and faction == "wei":
-            llm_client = LLMClient(
-                provider="deepseek", model=model, api_key=api_key,
-            )
-            players[faction] = LLMPlayer(faction=faction, llm_client=llm_client)
-        else:
-            players[faction] = CLIPlayer(
-                faction=faction,
-                rng=GameRandom(seed + hash(faction) % 10000),
-            )
+    faction_list = list(FACTIONS.keys())
+    if use_llm:
+        llm_client = LLMClient(provider="deepseek", model=model, api_key=api_key)
+        players[faction_list[0]] = LLMPlayer(faction=faction_list[0], llm_client=llm_client)
+        for f in faction_list[1:]:
+            players[f] = CLIPlayer(faction=f, rng=GameRandom(seed + hash(f) % 10000))
+    else:
+        for faction in FACTIONS:
+            players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
 
     from renderer.game_renderer import GameRenderer
     renderer = GameRenderer(engine, title="LLM三国志 - 三国策略对战")
@@ -243,19 +230,15 @@ def run_infinite_mode(
 
     # 创建玩家
     players = {}
+    faction_list = list(FACTIONS.keys())
     if use_llm:
         llm_client = LLMClient(provider="deepseek", model=model, api_key=api_key)
-        players["wei"] = LLMPlayer(faction="wei", llm_client=llm_client)
-        for f in ["shu", "wu"]:
-            players[f] = CLIPlayer(
-                faction=f, rng=GameRandom(seed + hash(f) % 10000),
-            )
+        players[faction_list[0]] = LLMPlayer(faction=faction_list[0], llm_client=llm_client)
+        for f in faction_list[1:]:
+            players[f] = CLIPlayer(faction=f, rng=GameRandom(seed + hash(f) % 10000))
     else:
         for faction in FACTIONS:
-            players[faction] = CLIPlayer(
-                faction=faction,
-                rng=GameRandom(seed + hash(faction) % 10000),
-            )
+            players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
 
     from renderer.game_renderer import GameRenderer
     renderer = GameRenderer(engine, title="LLM三国志 - 无限模式")

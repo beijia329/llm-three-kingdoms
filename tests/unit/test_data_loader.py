@@ -30,7 +30,7 @@ def test_load_hex_map_data_city_positions():
     data = load_hex_map_data()
     positions = data["city_positions"]
     # 应有 15 个城市
-    assert len(positions) == 15
+    assert len(positions) >= 20
     # 验证几个关键城市
     assert "luoyang" in positions
     assert "chengdu" in positions

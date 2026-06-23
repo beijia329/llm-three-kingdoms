@@ -79,13 +79,21 @@ class PromptBuilder:
     # ============================================================
 
     @staticmethod
-    def build_commands_help() -> str:
+    def build_commands_help(faction_keys: list = None) -> str:
         """构建命令说明
+
+        Args:
+            faction_keys: 可用势力键列表
 
         Returns:
             命令帮助文本
         """
-        return """## 可用命令
+        if faction_keys is None:
+            from game.constants import FACTIONS
+            faction_keys = list(FACTIONS.keys())
+        factions_str = "/".join(faction_keys)
+
+        return f"""## 可用命令
 
 1. develop - 发展城市
    参数：city (城市名), type (economy/military/culture)
@@ -108,7 +116,7 @@ class PromptBuilder:
    效果：有概率发现新将领
 
 6. message - 发送外交消息
-   参数：to (目标势力: wei/shu/wu), content (消息内容)
+   参数：to (目标势力: {factions_str}), content (消息内容)
    效果：给其他势力发消息
 
 7. rumor - 散布流言

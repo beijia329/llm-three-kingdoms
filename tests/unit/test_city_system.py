@@ -264,7 +264,7 @@ class TestCityTerritory:
         from game.systems.city_system import CitySystem
 
         city = City(
-            id="test", name="测试", faction="wei", level=1,
+            id="test", name="测试", faction="caocao", level=1,
             wall_hp=500, wall_max_hp=500, gold=200, food=300,
             population=5000, morale=70, garrison=500,
             position=HexCoord(5, 5),
@@ -282,7 +282,7 @@ class TestCityTerritory:
         from game.systems.city_system import CitySystem
 
         city = City(
-            id="test", name="测试", faction="wei", level=2,
+            id="test", name="测试", faction="caocao", level=2,
             wall_hp=1000, wall_max_hp=1000, gold=400, food=600,
             population=15000, morale=70, garrison=1000,
             position=HexCoord(5, 5),
@@ -299,7 +299,7 @@ class TestCityTerritory:
         from game.systems.city_system import CitySystem
 
         city = City(
-            id="test", name="测试", faction="wei", level=5,
+            id="test", name="测试", faction="caocao", level=5,
             wall_hp=5000, wall_max_hp=5000, gold=2500, food=2500,
             population=100000, morale=70, garrison=5000,
             position=HexCoord(5, 5),
@@ -330,7 +330,7 @@ class TestCityTerritory:
         from game.systems.city_system import CitySystem
 
         city = City(
-            id="test", name="测试", faction="wei", level=2,
+            id="test", name="测试", faction="caocao", level=2,
             wall_hp=1000, wall_max_hp=1000, gold=400, food=600,
             population=15000, morale=70, garrison=1000,
             position=HexCoord(5, 5),

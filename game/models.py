@@ -19,11 +19,20 @@ from game.hex_grid import HexCoord
 # ============================================================
 
 class Faction(str, Enum):
-    """势力枚举"""
+    """势力枚举（184年剧本，12方诸侯）"""
 
-    WEI = "wei"
-    SHU = "shu"
-    WU = "wu"
+    HAN = "han"
+    ZHANGJIAO = "zhangjiao"
+    DONGZHUO = "dongzhuo"
+    YUANSHAO = "yuanshao"
+    CAOCAO = "caocao"
+    LIUBEI = "liubei"
+    SUNJIAN = "sunjian"
+    LIUBIAO = "liubiao"
+    LIUYAN = "liuyan"
+    GONGSUNZAN = "gongsunzan"
+    MATENG = "mateng"
+    YUANSHU = "yuanshu"
 
 
 class ArmyStatus(str, Enum):

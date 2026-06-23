@@ -20,7 +20,7 @@ class TestMapSystem:
         """添加单个城市"""
         ms = MapSystem()
         city = City(
-            id="chengdu", name="成都", faction="shu", level=3,
+            id="chengdu", name="成都", faction="liubei", level=3,
             wall_hp=2000, wall_max_hp=2000, gold=800, food=1000,
             population=30000, morale=70, garrison=2000,
             position=HexCoord(100, 200), neighbors=["hanzhong"],
@@ -35,15 +35,15 @@ class TestMapSystem:
         ms = MapSystem()
 
         cities = [
-            City(id="a", name="A", faction="wei", level=1,
+            City(id="a", name="A", faction="caocao", level=1,
                  wall_hp=500, wall_max_hp=500, gold=200, food=300,
                  population=5000, morale=70, garrison=500,
                  position=HexCoord(0, 0), neighbors=["b"]),
-            City(id="b", name="B", faction="wei", level=1,
+            City(id="b", name="B", faction="caocao", level=1,
                  wall_hp=500, wall_max_hp=500, gold=200, food=300,
                  population=5000, morale=70, garrison=500,
                  position=HexCoord(100, 0), neighbors=["a", "c"]),
-            City(id="c", name="C", faction="shu", level=1,
+            City(id="c", name="C", faction="liubei", level=1,
                  wall_hp=500, wall_max_hp=500, gold=200, food=300,
                  population=5000, morale=70, garrison=500,
                  position=HexCoord(200, 0), neighbors=["b"]),

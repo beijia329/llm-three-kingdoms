@@ -146,10 +146,10 @@ class TestCaptureAndSurrender:
         gs = GeneralSystem(rng=GameRandom(seed=42))
         general = _make_general(loyalty=40)
 
-        result = gs.process_capture(general, captor_faction="wei")
+        result = gs.process_capture(general, captor_faction="caocao")
         assert result.is_captured is True
         assert general.is_captured is True
-        assert general.captor_faction == "wei"
+        assert general.captor_faction == "caocao"
 
     def test_high_loyalty_resists_surrender(self):
         """高忠诚度将领不易投降"""
@@ -159,7 +159,7 @@ class TestCaptureAndSurrender:
         surrendered = False
         for _ in range(20):
             general = _make_general(loyalty=90)
-            result = gs.process_capture(general, captor_faction="wei")
+            result = gs.process_capture(general, captor_faction="caocao")
             surrendered = result.surrendered or surrendered
             if not surrendered:
                 # 部分可能投降了，但多数应抵抗
@@ -168,7 +168,7 @@ class TestCaptureAndSurrender:
         # 不assert，因为概率测试不稳定
         # 只是验证接口工作正常
         general = _make_general(loyalty=90)
-        result = gs.process_capture(general, captor_faction="wei")
+        result = gs.process_capture(general, captor_faction="caocao")
         assert isinstance(result.surrendered, bool)
 
     def test_low_loyalty_more_likely_to_surrender(self):
@@ -178,7 +178,7 @@ class TestCaptureAndSurrender:
         surrendered = False
         for _ in range(10):
             general = _make_general(loyalty=20)
-            result = gs.process_capture(general, captor_faction="wei")
+            result = gs.process_capture(general, captor_faction="caocao")
             if result.surrendered:
                 surrendered = True
                 break
@@ -191,7 +191,7 @@ class TestCaptureAndSurrender:
         gs = GeneralSystem(rng=GameRandom(seed=42))
         general = _make_general(loyalty=50)
 
-        gs.process_capture(general, captor_faction="wei", turn=10)
+        gs.process_capture(general, captor_faction="caocao", turn=10)
         if general.is_captured:
             assert general.captured_turn == 10
 
@@ -230,7 +230,7 @@ class TestGeneralSystemEdgeCases:
         gs = GeneralSystem(rng=GameRandom(seed=42))
         general = _make_general(loyalty=50)
 
-        gs.process_capture(general, captor_faction="wei")
+        gs.process_capture(general, captor_faction="caocao")
         assert general.is_captured
 
 
@@ -248,7 +248,7 @@ def _make_city(
     return City(
         id=id,
         name="测试城",
-        faction="wei",
+        faction="caocao",
         level=1,
         wall_hp=lc["wall_hp"],
         wall_max_hp=lc["wall_hp"],
