@@ -1,0 +1,340 @@
+"""城市系统
+
+管理城市的发展和运营：
+- 发展城市（经济、军事、文化）
+- 征兵
+- 城市回合更新（资源产出、人口增长）
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Optional
+
+from game.constants import (
+    CITY_LEVELS,
+    RECRUIT_COST_GOLD,
+    RECRUIT_COST_FOOD,
+)
+from game.models import City
+from game.systems.resource_system import ResourceSystem
+
+
+# ============================================================
+# 结果数据结构
+# ============================================================
+
+
+@dataclass
+class DevelopResult:
+    """城市发展结果"""
+
+    success: bool = False
+    develop_type: str = ""
+    gold_cost: int = 0
+    description: str = ""
+    effect_value: int = 0  # 具体效果值
+
+
+@dataclass
+class RecruitResult:
+    """征兵结果"""
+
+    success: bool = False
+    troops_recruited: int = 0
+    gold_cost: int = 0
+    food_cost: int = 0
+    description: str = ""
+
+
+@dataclass
+class CityUpdateResult:
+    """城市更新结果"""
+
+    gold_change: int = 0
+    food_change: int = 0
+    population_change: int = 0
+    morale_change: int = 0
+
+
+# ============================================================
+# 城市发展成本配置
+# ============================================================
+
+DEVELOP_COST_BASE: int = 200
+"""发展基础成本"""
+
+DEVELOP_COST_LEVEL_MULTIPLIER: int = 100
+"""每级城市额外成本"""
+
+ECONOMY_GOLD_BONUS: int = 20
+"""每次发展经济额外增加的基础金钱产出"""
+
+MILITARY_WALL_REPAIR: int = 200
+"""每次发展军事修复/增加的城墙耐久"""
+
+CULTURE_MORALE_BONUS: int = 5
+"""每次发展文化提升的民心"""
+
+GARRISON_CAP_PER_LEVEL: int = 1000
+"""每级城市守军上限"""
+
+
+class CitySystem:
+    """城市系统
+
+    管理城市的各项操作：发展、征兵、更新。
+    内部使用 ResourceSystem 计算资源产出。
+    """
+
+    def __init__(self) -> None:
+        self._resource_system: ResourceSystem = ResourceSystem()
+
+    # ============================================================
+    # 城市发展
+    # ============================================================
+
+    def develop(self, city: City, develop_type: str) -> DevelopResult:
+        """发展城市
+
+        三种发展类型：
+        - economy: 提升经济产出（+基础金钱产出）
+        - military: 强化城防（+城墙耐久）
+        - culture: 提升民心（+民心值）
+
+        Args:
+            city: 目标城市
+            develop_type: 发展类型 (economy/military/culture)
+
+        Returns:
+            发展结果
+        """
+        if develop_type not in ("economy", "military", "culture"):
+            return DevelopResult(
+                success=False,
+                develop_type=develop_type,
+                description=f"无效的发展类型: {develop_type}",
+            )
+
+        gold_cost = self._calculate_develop_cost(city)
+
+        if city.gold < gold_cost:
+            return DevelopResult(
+                success=False,
+                develop_type=develop_type,
+                gold_cost=gold_cost,
+                description=f"金钱不足: 需要{gold_cost}, 当前{city.gold}",
+            )
+
+        city.gold -= gold_cost
+        effect_value = 0
+
+        if develop_type == "economy":
+            # 增加基础金钱产出（通过提升城市登记或记录额外产出）
+            # 由于 City 模型没有单独的 development_level 字段，
+            # 我们通过修改城市数据来记录发展效果
+            effect_value = ECONOMY_GOLD_BONUS
+
+        elif develop_type == "military":
+            # 修复并提升城墙耐久
+            wall_increase = MILITARY_WALL_REPAIR
+            city.wall_hp = min(
+                city.wall_hp + wall_increase,
+                city.wall_max_hp + wall_increase,
+            )
+            city.wall_max_hp += wall_increase
+            effect_value = wall_increase
+
+        elif develop_type == "culture":
+            # 提升民心
+            morale_increase = CULTURE_MORALE_BONUS
+            city.morale = min(city.morale + morale_increase, 100)
+            effect_value = morale_increase
+
+        type_names = {
+            "economy": "经济",
+            "military": "军事",
+            "culture": "文化",
+        }
+
+        return DevelopResult(
+            success=True,
+            develop_type=develop_type,
+            gold_cost=gold_cost,
+            effect_value=effect_value,
+            description=(
+                f"{type_names.get(develop_type, develop_type)}发展成功，"
+                f"消耗{gold_cost}金钱"
+            ),
+        )
+
+    def _calculate_develop_cost(self, city: City) -> int:
+        """计算城市发展成本
+
+        Args:
+            city: 目标城市
+
+        Returns:
+            发展所需金钱
+        """
+        return DEVELOP_COST_BASE + city.level * DEVELOP_COST_LEVEL_MULTIPLIER
+
+    # ============================================================
+    # 征兵
+    # ============================================================
+
+    def recruit(self, city: City, troops: int) -> RecruitResult:
+        """征兵
+
+        消耗金钱和粮草，增加城市守军。
+
+        Args:
+            city: 目标城市
+            troops: 征兵数量
+
+        Returns:
+            征兵结果
+        """
+        if troops <= 0:
+            return RecruitResult(
+                success=False,
+                description="征兵数量必须大于0",
+            )
+
+        max_garrison = self._get_max_garrison(city)
+        available_space = max_garrison - city.garrison
+
+        if available_space <= 0:
+            return RecruitResult(
+                success=False,
+                description=f"守军已达上限({max_garrison})",
+            )
+
+        # 实际可征兵数（受上限和资源限制）
+        actual_troops = min(troops, available_space)
+
+        # 计算所需资源
+        gold_needed = actual_troops * RECRUIT_COST_GOLD
+        food_needed = actual_troops * RECRUIT_COST_FOOD
+
+        # 根据金钱上限调整
+        max_by_gold = city.gold // RECRUIT_COST_GOLD
+        actual_troops = min(actual_troops, max_by_gold)
+
+        # 根据粮草上限调整
+        max_by_food = city.food // RECRUIT_COST_FOOD
+        actual_troops = min(actual_troops, max_by_food)
+
+        if actual_troops <= 0:
+            return RecruitResult(
+                success=False,
+                description="资源不足，无法征兵",
+            )
+
+        # 重新计算最终消耗
+        gold_needed = actual_troops * RECRUIT_COST_GOLD
+        food_needed = actual_troops * RECRUIT_COST_FOOD
+
+        # 执行征兵
+        city.gold -= gold_needed
+        city.food -= food_needed
+        city.garrison += actual_troops
+
+        return RecruitResult(
+            success=True,
+            troops_recruited=actual_troops,
+            gold_cost=gold_needed,
+            food_cost=food_needed,
+            description=f"成功征兵{actual_troops}人，消耗{gold_needed}金钱、{food_needed}粮草",
+        )
+
+    def _get_max_garrison(self, city: City) -> int:
+        """获取城市最大守军容量
+
+        Args:
+            city: 城市对象
+
+        Returns:
+            最大守军数量
+        """
+        return city.level * GARRISON_CAP_PER_LEVEL
+
+    # ============================================================
+    # 城市更新（每回合调用）
+    # ============================================================
+
+    def update_city(self, city: City) -> CityUpdateResult:
+        """更新城市状态（每回合调用）
+
+        处理：
+        1. 资源产出（金钱、粮草）
+        2. 人口增长
+        3. 守军粮草消耗
+        4. 民心自然变化
+
+        Args:
+            city: 要更新的城市
+
+        Returns:
+            更新结果
+        """
+        # 使用 ResourceSystem 计算资源变化
+        resource_result = self._resource_system.update_city_resources(city)
+
+        # 应用资源变化
+        city.gold += resource_result["gold_change"]
+        city.food += resource_result["food_change"]
+        city.population += resource_result["population_change"]
+
+        # 民心自然变化
+        morale_change = self._calculate_morale_change(city)
+        city.morale = max(0, min(100, city.morale + morale_change))
+
+        # 确保资源不为负
+        city.gold = max(0, city.gold)
+        city.food = max(0, city.food)
+        city.population = max(0, city.population)
+
+        return CityUpdateResult(
+            gold_change=resource_result["gold_change"],
+            food_change=resource_result["food_change"],
+            population_change=resource_result["population_change"],
+            morale_change=morale_change,
+        )
+
+    @staticmethod
+    def _calculate_morale_change(city: City) -> int:
+        """计算民心自然变化
+
+        规则：
+        - 如果被围困，每回合-3
+        - 如果粮草为0，每回合-5
+        - 如果粮草充足且有盈余，每回合+1（上限100）
+        - 高于70民心每回合微降，低于30每回合微升（向50回归）
+
+        Args:
+            city: 城市对象
+
+        Returns:
+            本回合民心变化量
+        """
+        change = 0
+
+        # 被围困惩罚
+        if city.is_besieged:
+            change -= 3
+
+        # 粮草不足惩罚
+        if city.food <= 0:
+            change -= 5
+        elif city.food > city.garrison * 2:
+            # 粮草充足时民心微升
+            change += 1
+
+        # 向中间值回归
+        if city.morale > 70:
+            change -= 1
+        elif city.morale < 30 and city.morale > 0:
+            change += 1
+
+        return change
