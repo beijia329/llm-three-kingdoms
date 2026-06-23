@@ -88,20 +88,17 @@ def run_ai_vs_ai(
         sys.exit(1)
     engine.init_game(data)
 
-    # 创建玩家（取前3方势力，LLM玩家只给第一个）
+    # 创建玩家（全部LLM 或 全部CLI）
     players = {}
-    faction_list = list(FACTIONS.keys())
     if use_llm:
         llm_client = LLMClient(provider="deepseek", model=model, api_key=api_key)
-        players[faction_list[0]] = LLMPlayer(faction=faction_list[0], llm_client=llm_client)
-        for f in faction_list[1:]:
-            players[f] = CLIPlayer(faction=f, rng=GameRandom(seed + hash(f) % 10000))
-        print(f"  🤖 {FACTIONS[faction_list[0]]}: {model}")
-        for f in faction_list[1:]:
-            print(f"  👤 {FACTIONS[f]}: CLI AI")
+        for faction in FACTIONS:
+            players[faction] = LLMPlayer(faction=faction, llm_client=llm_client)
+        print(f"  🤖 全势力 LLM 对战: {model}")
     else:
         for faction in FACTIONS:
             players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
+        print(f"  👤 全势力 CLI AI 对战")
 
     print(f"\n初始状态: {len(engine.cities)} 城市, {len(engine.generals)} 将领")
     print(f"势力分布:")
@@ -201,12 +198,10 @@ def run_gui_mode(
 
     # 创建玩家
     players = {}
-    faction_list = list(FACTIONS.keys())
     if use_llm:
         llm_client = LLMClient(provider="deepseek", model=model, api_key=api_key)
-        players[faction_list[0]] = LLMPlayer(faction=faction_list[0], llm_client=llm_client)
-        for f in faction_list[1:]:
-            players[f] = CLIPlayer(faction=f, rng=GameRandom(seed + hash(f) % 10000))
+        for faction in FACTIONS:
+            players[faction] = LLMPlayer(faction=faction, llm_client=llm_client)
     else:
         for faction in FACTIONS:
             players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
@@ -252,12 +247,10 @@ def run_infinite_mode(
 
     # 创建玩家
     players = {}
-    faction_list = list(FACTIONS.keys())
     if use_llm:
         llm_client = LLMClient(provider="deepseek", model=model, api_key=api_key)
-        players[faction_list[0]] = LLMPlayer(faction=faction_list[0], llm_client=llm_client)
-        for f in faction_list[1:]:
-            players[f] = CLIPlayer(faction=f, rng=GameRandom(seed + hash(f) % 10000))
+        for faction in FACTIONS:
+            players[faction] = LLMPlayer(faction=faction, llm_client=llm_client)
     else:
         for faction in FACTIONS:
             players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))

@@ -63,9 +63,12 @@ class GameRenderer:
         self._ui_panel = None
         self._hex_map_renderer = None
 
-        # 相机
+        # 相机（初始缩放聚焦中原）
         from renderer.camera import Camera
-        self.camera = Camera(x=0, y=0, zoom=1.0)
+        self.camera = Camera(x=-800, y=-400, zoom=0.35)
+        # 滚轮缩放范围放宽
+        self.camera.min_zoom = 0.1
+        self.camera.max_zoom = 2.0
 
         # 中国边界
         self._china_boundaries: Optional[dict] = None
@@ -117,6 +120,9 @@ class GameRenderer:
     def run(self, players: Optional[dict] = None, auto_run: bool = True) -> None:
         self.running = True
         self._players = players
+
+        # 确保渲染器已初始化
+        self.map_renderer  # 触发懒加载
 
         while self.running:
             for event in pygame.event.get():
