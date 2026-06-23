@@ -139,12 +139,12 @@ class PromptBuilder:
 
         # 己方城市
         lines.append("### 我方城市")
-        lines.append("| 城市 | 等级 | 城墙 | 金钱 | 粮草 | 民心 | 兵力 | 将领 |")
-        lines.append("|------|------|------|------|------|------|------|------|")
+        lines.append("| ID | 名称 | 等级 | 城墙 | 金钱 | 粮草 | 民心 | 兵力 | 将领 |")
+        lines.append("|---|------|------|------|------|------|------|------|------|")
         for city in observation.own_cities:
             generals_str = ",".join(city.generals) if city.generals else "-"
             lines.append(
-                f"| {city.name} | {city.level} | {city.wall_hp} | "
+                f"| {city.id} | {city.name} | {city.level} | {city.wall_hp} | "
                 f"{city.gold} | {city.food} | {city.morale} | "
                 f"{city.garrison} | {generals_str} |"
             )
@@ -153,8 +153,8 @@ class PromptBuilder:
         # 己方军队
         if observation.own_armies:
             lines.append("### 我方军队")
-            lines.append("| 军队 | 主将 | 兵力 | 士气 | 状态 | 位置 |")
-            lines.append("|------|------|------|------|------|------|")
+            lines.append("| ID | 主将 | 兵力 | 士气 | 状态 | 位置 |")
+            lines.append("|---|---|---|---|---|---|")
             for army in observation.own_armies:
                 loc = f"{army.from_city}→{army.to_city}({int(army.progress*100)}%)"
                 lines.append(
@@ -166,11 +166,11 @@ class PromptBuilder:
         # 将领
         if observation.own_generals:
             lines.append("### 我方将领")
-            lines.append("| 将领 | 统帅 | 政治 | 勇武 | 智力 | 忠诚 | 位置 |")
-            lines.append("|------|------|------|------|------|------|------|")
+            lines.append("| ID | 名称 | 统帅 | 政治 | 勇武 | 智力 | 忠诚 | 位置 |")
+            lines.append("|---|------|------|------|------|------|------|------|")
             for gen in observation.own_generals:
                 lines.append(
-                    f"| {gen.name} | {gen.command} | {gen.politics} | "
+                    f"| {gen.id} | {gen.name} | {gen.command} | {gen.politics} | "
                     f"{gen.bravery} | {gen.intelligence} | {gen.loyalty} | {gen.location} |"
                 )
             lines.append("")
@@ -178,13 +178,12 @@ class PromptBuilder:
         # 已知敌方城市
         if observation.known_cities:
             lines.append("### 已知敌方城市")
-            lines.append("| 城市 | 势力 | 等级 | 兵力(估) | 城墙(估) |")
-            lines.append("|------|------|------|---------|---------|")
+            lines.append("| ID | 名称 | 势力 | 等级 | 兵力(估) |")
+            lines.append("|---|------|------|------|---------|")
             for ci in observation.known_cities:
                 garr = str(ci.garrison) if ci.garrison is not None else "?"
-                wall = str(ci.wall_hp) if ci.wall_hp is not None else "?"
                 lines.append(
-                    f"| {ci.name} | {ci.faction} | {ci.level} | {garr} | {wall} |"
+                    f"| {ci.id} | {ci.name} | {ci.faction} | {ci.level} | {garr} |"
                 )
             lines.append("")
 
@@ -237,12 +236,15 @@ class PromptBuilder:
 请严格按以下JSON格式输出命令数组：
 
 [
-  {"type": "develop", "params": {"city": "城市名", "type": "economy"}},
-  {"type": "recruit", "params": {"city": "城市名", "troops": 500}},
-  {"type": "attack", "params": {"from": "出发城", "to": "目标城", "troops": 1500, "general": "将领名"}}
+  {"type": "develop", "params": {"city": "xuchang", "type": "economy"}},
+  {"type": "recruit", "params": {"city": "chengdu", "troops": 500}},
+  {"type": "attack", "params": {"from": "changan", "to": "hanzhong", "troops": 1500, "general": "simayi"}}
 ]
 
-【重要】只输出JSON数组，不要输出其他解释文字。"""
+【重要说明】
+- city 参数使用城市 ID（如 xuchang/chengdu/jianye），不是中文名
+- general 参数使用将领 ID（如 caocao/zhugeliang/simayi），不是中文名
+- 只输出JSON数组，不要输出其他解释文字"""
 
     # ============================================================
     # 完整Prompt组装

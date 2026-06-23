@@ -28,6 +28,8 @@ from game.data_loader import load_game_data
 from game.constants import FACTIONS
 from game.random import GameRandom
 from players.cli_player import CLIPlayer
+from players.llm.llm_client import LLMClient
+from players.llm.llm_player import LLMPlayer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,18 +52,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42, help="随机种子")
     parser.add_argument("--file", type=str, help="回放文件路径")
     parser.add_argument("--max-turns", type=int, default=24, help="最大回合数")
+    parser.add_argument("--llm", action="store_true", help="使用LLM玩家（默认使用CLI AI）")
+    parser.add_argument("--model", type=str, default="deepseek-v4-flash", help="LLM模型名称")
+    parser.add_argument("--api-key", type=str, default="", help="API密钥（默认从环境变量读取）")
     return parser.parse_args()
 
 
-def run_ai_vs_ai(seed: int = 42, max_turns: int = 24) -> None:
+def run_ai_vs_ai(
+    seed: int = 42, max_turns: int = 24,
+    use_llm: bool = False, model: str = "deepseek-v4-flash",
+    api_key: str = "",
+) -> None:
     """运行 AI vs AI 自动对战
 
     Args:
         seed: 随机种子
         max_turns: 最大回合数
+        use_llm: 是否使用LLM玩家
+        model: LLM模型名称
+        api_key: API密钥
     """
+    title = "LLM三国志 - LLM vs CLI 对战" if use_llm else "LLM三国志 - AI vs AI 自动对战"
     print("=" * 60)
-    print("  LLM三国志 - AI vs AI 自动对战")
+    print(f"  {title}")
     print("=" * 60)
 
     # 初始化引擎
@@ -69,16 +82,41 @@ def run_ai_vs_ai(seed: int = 42, max_turns: int = 24) -> None:
     engine.max_turns = max_turns
     data = load_game_data()
     if not data["cities"]:
-        logger.error("无法加载游戏数据，请确保 data/ 目录下有 cities.json 和 generals.json")
+        logger.error("无法加载游戏数据")
         sys.exit(1)
     engine.init_game(data)
 
-    # 创建 AI 玩家
-    rng = GameRandom(seed + 1)
-    players = {
-        faction: CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
-        for faction in FACTIONS
-    }
+    # 创建玩家
+    players = {}
+    if use_llm:
+        # 只让第一个势力（魏国）用LLM，其余用CLI
+        llm_client = LLMClient(
+            provider="deepseek",
+            model=model,
+            api_key=api_key,
+        )
+        players["wei"] = LLMPlayer(
+            faction="wei", llm_client=llm_client,
+        )
+        for f in ["shu", "wu"]:
+            players[f] = CLIPlayer(
+                faction=f, rng=GameRandom(seed + hash(f) % 10000),
+            )
+        print(f"  🤖 魏国: {model}")
+        print(f"  👤 蜀国: CLI AI")
+        print(f"  👤 吴国: CLI AI")
+    else:
+        for faction in FACTIONS:
+            players[faction] = CLIPlayer(
+                faction=faction,
+                rng=GameRandom(seed + hash(faction) % 10000),
+            )
+
+    print(f"\n初始状态: {len(engine.cities)} 城市, {len(engine.generals)} 将领")
+    print(f"势力分布:")
+    for f_name, f_label in FACTIONS.items():
+        count = engine.map.get_faction_cities(f_name)
+        print(f"  {f_label}: {len(count)} 城")
 
     print(f"\n初始状态: {len(engine.cities)} 城市, {len(engine.generals)} 将领")
     print(f"势力分布:")
@@ -139,8 +177,14 @@ def main() -> None:
     """主入口"""
     args = parse_args()
 
+    # 获取 API Key
+    api_key = args.api_key or os.environ.get("OPENROUTER_API_KEY") or ""
+
     if args.mode == "ai-vs-ai":
-        run_ai_vs_ai(seed=args.seed, max_turns=args.max_turns)
+        run_ai_vs_ai(
+            seed=args.seed, max_turns=args.max_turns,
+            use_llm=args.llm, model=args.model, api_key=api_key,
+        )
     elif args.mode == "human-vs-ai":
         print("人机对战模式尚在开发中...")
     elif args.mode == "replay":
