@@ -53,6 +53,7 @@ from game.models import (
     ProposeAllianceCommand,
     DeclareWarCommand,
     DiplomacyMessage,
+    DiplomaticStatus,
     General,
     GameObservation,
     GameState,
@@ -556,14 +557,11 @@ class GameEngine:
         from game.event_bus import DiplomacyMessageSentEvent
         self.events.publish(
             DiplomacyMessageSentEvent(
-                event_type="diplomacy_message_sent",
-                data={
-                    "message_id": result.message_id,
-                    "from_faction": cmd.faction,
-                    "to_faction": cmd.to,
-                    "content": cmd.content,
-                    "turn": self.turn,
-                },
+                message_id=result.message_id,
+                from_faction=cmd.faction,
+                to_faction=cmd.to,
+                content=cmd.content,
+                turn=self.turn,
             )
         )
 

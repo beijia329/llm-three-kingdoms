@@ -135,10 +135,49 @@ class TestCommandExecution:
         engine = _make_initialized_engine()
         cmd = MessageCommand(
             faction="caocao", turn=1,
-            to="shu", content="结盟吧",
+            to="liubei", content="结盟吧",
         )
         result = engine.execute_command(cmd)
         assert result.success is True
+
+    def test_execute_propose_alliance(self):
+        """执行提出同盟命令"""
+        engine = _make_initialized_engine()
+        from game.models import ProposeAllianceCommand, DiplomaticStatus
+        cmd = ProposeAllianceCommand(faction="caocao", turn=1, to="liubei")
+        result = engine.execute_command(cmd)
+        assert result.success is True
+        status = engine._diplomacy_relation_system.get_status("caocao", "liubei")
+        assert status == DiplomaticStatus.ALLIANCE
+
+    def test_execute_declare_war(self):
+        """执行宣战命令"""
+        engine = _make_initialized_engine()
+        from game.models import DeclareWarCommand, DiplomaticStatus
+        cmd = DeclareWarCommand(faction="caocao", turn=1, to="liubei")
+        result = engine.execute_command(cmd)
+        assert result.success is True
+        status = engine._diplomacy_relation_system.get_status("caocao", "liubei")
+        assert status == DiplomaticStatus.WAR
+
+    def test_cannot_attack_ally(self):
+        """同盟后不能攻击"""
+        engine = _make_initialized_engine()
+        from game.models import ProposeAllianceCommand, DiplomaticStatus
+        engine._diplomacy_relation_system.set_status(
+            "caocao", "liubei", DiplomaticStatus.ALLIANCE, turn=1
+        )
+        cmd = ProposeAllianceCommand(faction="caocao", turn=1, to="liubei")  # 先执行同盟
+        engine.execute_command(cmd)
+        from game.models import AttackCommand
+        cmd = AttackCommand(
+            faction="caocao", turn=1,
+            from_city="city_caocao_1", to_city="city_liubei_1",
+            troops=500, general="general_caocao_1",
+        )
+        result = engine.execute_command(cmd)
+        assert result.success is False
+        assert "无法攻击" in result.description or "处于" in result.description
 
 
 class TestTurnProcessing:

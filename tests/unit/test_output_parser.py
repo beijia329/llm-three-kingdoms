@@ -118,3 +118,33 @@ class TestOutputParser:
             {"type": "recruit", "params": {"city": "成都", "troops": -100}}
         )
         assert valid is False
+
+    def test_validate_propose_alliance(self):
+        """校验 propose_alliance 命令"""
+        valid, _ = OutputParser.validate_command(
+            {"type": "propose_alliance", "params": {"to": "caocao"}}
+        )
+        assert valid is True
+
+    def test_validate_propose_alliance_missing_to(self):
+        """propose_alliance 缺少 to 参数"""
+        valid, err = OutputParser.validate_command(
+            {"type": "propose_alliance", "params": {}}
+        )
+        assert valid is False
+        assert "缺少必填参数" in err
+
+    def test_validate_declare_war(self):
+        """校验 declare_war 命令"""
+        valid, _ = OutputParser.validate_command(
+            {"type": "declare_war", "params": {"to": "yuanshao"}}
+        )
+        assert valid is True
+
+    def test_validate_declare_war_missing_to(self):
+        """declare_war 缺少 to 参数"""
+        valid, err = OutputParser.validate_command(
+            {"type": "declare_war", "params": {}}
+        )
+        assert valid is False
+        assert "缺少必填参数" in err
