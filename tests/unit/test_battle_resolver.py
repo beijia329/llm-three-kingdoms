@@ -118,15 +118,15 @@ class TestStreetDamage:
         assert damage_high > damage_low
 
     def test_high_command_increases_damage(self):
-        """高统帅增加伤害"""
+        """高统帅增加伤害（排除暴击干扰）"""
         resolver = BattleResolver(rng=GameRandom(seed=42))
         ctx_high = _make_siege_context(
             attacker_soldiers=5000, defender_soldiers=3000,
-            attacker_command=95,
+            attacker_command=95, attacker_avg_bravery=0,
         )
         ctx_low = _make_siege_context(
             attacker_soldiers=5000, defender_soldiers=3000,
-            attacker_command=50,
+            attacker_command=50, attacker_avg_bravery=0,
         )
         damage_high = resolver.calculate_attacker_damage(ctx_high)
         damage_low = resolver.calculate_attacker_damage(ctx_low)
@@ -417,6 +417,8 @@ def _make_siege_context(
     defender_command: float = 50.0,
     attacker_morale: float = 80.0,
     defender_morale: float = 70.0,
+    attacker_avg_bravery: float = 50.0,
+    defender_avg_bravery: float = 50.0,
     attacker_faction: str = "wei",
     defender_faction: str = "shu",
     attacker_armies: list = None,
@@ -433,15 +435,52 @@ def _make_siege_context(
         attacker_initial_soldiers=attacker_soldiers,
         attacker_avg_morale=attacker_morale,
         attacker_avg_command=attacker_command,
+        attacker_avg_bravery=attacker_avg_bravery,
         defender_city="target_city",
         defender_armies=defender_armies or [],
         defender_total_soldiers=defender_soldiers,
         defender_initial_soldiers=defender_soldiers,
         defender_avg_morale=defender_morale,
         defender_avg_command=defender_command,
+        defender_avg_bravery=defender_avg_bravery,
         wall_hp=wall_hp,
         wall_max_hp=wall_hp,
         battle_type=BattleType.SIEGE,
         battle_phase=BattlePhase.SIEGE,
         round_count=0,
     )
+
+
+class TestBraveryCrit:
+    """勇武暴击测试"""
+
+    def test_bravery_crit_with_high_bravery(self):
+        """高勇武=100时暴击率0.5，约一半伤害触发1.5x"""
+        resolver = BattleResolver(rng=GameRandom(seed=0))
+        ctx = _make_siege_context(
+            attacker_soldiers=5000, attacker_command=50.0,
+            attacker_morale=100.0, attacker_avg_bravery=100.0,
+        )
+        n = 2000
+        crit_count = 0
+        for _ in range(n):
+            dmg = resolver.calculate_attacker_damage(ctx)
+            if dmg == 750:
+                crit_count += 1
+            elif dmg == 500:
+                pass
+            else:
+                raise AssertionError(f"Unexpected damage: {dmg}")
+        ratio = crit_count / n
+        assert 0.40 < ratio < 0.60, f"Crit rate {ratio:.3f} ({crit_count}/{n})"
+
+    def test_no_crit_with_zero_bravery(self):
+        """勇武=0时暴击率0，永不触发"""
+        resolver = BattleResolver(rng=GameRandom(seed=0))
+        ctx = _make_siege_context(
+            attacker_soldiers=5000, attacker_command=50.0,
+            attacker_morale=100.0, attacker_avg_bravery=0.0,
+        )
+        for _ in range(100):
+            dmg = resolver.calculate_attacker_damage(ctx)
+            assert dmg == 500, f"Expected 500, got {dmg}"

@@ -2,7 +2,7 @@
 
 import pytest
 
-from game.models import City
+from game.models import City, General
 from game.hex_grid import HexCoord
 from game.systems.resource_system import ResourceSystem
 from game.constants import (
@@ -338,8 +338,64 @@ class TestTileResourceProduction:
         """旧接口（无 tiles）仍然可用"""
         rs = ResourceSystem()
         city = _make_test_city(level=2, population=15000, morale=70)
-        # 不传 tiles 应该正常工作
         gold = rs.calculate_gold_production(city)
         assert gold >= 0
         result = rs.update_city_resources(city)
         assert "gold_change" in result
+
+
+class TestPoliticsBonus:
+    """政治属性对城市产出的加成测试"""
+
+    def test_politics_bonus_increases_gold(self):
+        """高政治将领驻守城市时金钱产出提高"""
+        rs = ResourceSystem()
+        city = _make_test_city(level=3, population=30000, morale=70)
+
+        gold_without = rs.calculate_gold_production(city)
+        assert gold_without == pytest.approx(500, rel=0.01)
+
+        general = General(
+            id="gen_p80", name="政治80", faction="caocao",
+            command=50, politics=80, bravery=50, intelligence=50, location="test_city",
+        )
+        city.generals = ["gen_p80"]
+        generals_dict = {"gen_p80": general}
+        gold_with = rs.calculate_gold_production(city, generals=generals_dict)
+        # politics_bonus = 1.0 + 80 * 0.005 = 1.4, gold = 500 * 1.4 = 700
+        assert gold_with > gold_without
+        assert gold_with == pytest.approx(700, rel=0.01)
+
+    def test_no_generals_no_bonus(self):
+        """无将领时政治加成为 1.0"""
+        city = _make_test_city(level=3, population=30000, morale=70)
+        assert ResourceSystem._get_politics_bonus(city, generals=None) == 1.0
+        assert ResourceSystem._get_politics_bonus(city, generals={}) == 1.0
+
+        general = General(
+            id="gen_orphan", name="孤将", faction="caocao",
+            command=50, politics=99, bravery=50, intelligence=50, location="other",
+        )
+        assert ResourceSystem._get_politics_bonus(city, generals={"gen_orphan": general}) == 1.0
+
+    def test_multiple_generals_stacked(self):
+        """多个将领政治属性叠加正确"""
+        gen1 = General(
+            id="gen_80", name="政治80", faction="caocao",
+            command=50, politics=80, bravery=50, intelligence=50, location="test_city",
+        )
+        gen2 = General(
+            id="gen_60", name="政治60", faction="caocao",
+            command=50, politics=60, bravery=50, intelligence=50, location="test_city",
+        )
+        city = _make_test_city(level=3, population=30000, morale=70)
+        city.generals = ["gen_80", "gen_60"]
+        generals_dict = {"gen_80": gen1, "gen_60": gen2}
+
+        bonus = ResourceSystem._get_politics_bonus(city, generals=generals_dict)
+        # 1.0 + (80+60)*0.005 = 1.7
+        assert bonus == pytest.approx(1.7)
+
+        rs = ResourceSystem()
+        gold = rs.calculate_gold_production(city, generals=generals_dict)
+        assert gold == pytest.approx(850, rel=0.01)  # 500 * 1.7

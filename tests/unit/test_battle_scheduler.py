@@ -208,9 +208,12 @@ def _make_city(
     owner: str = "wei",
     city_id: str = "test_city",
     garrison: int = 2000,
+    generals: list = None,
 ) -> City:
     """创建测试用城市"""
     lc = CITY_LEVELS[3]
+    if generals is None:
+        generals = []
     return City(
         id=city_id,
         name=f"城-{city_id}",
@@ -223,6 +226,7 @@ def _make_city(
         population=30000,
         morale=70,
         garrison=garrison,
+        generals=generals,
         position=HexCoord(0, 0),
         neighbors=[],
     )
@@ -231,6 +235,7 @@ def _make_city(
 def _make_general(
     general_id: str = "test_gen",
     command: int = 80,
+    bravery: int = 60,
 ) -> General:
     """创建测试用将领"""
     return General(
@@ -239,8 +244,44 @@ def _make_general(
         faction="caocao",
         command=command,
         politics=50,
-        bravery=60,
+        bravery=bravery,
         intelligence=55,
         loyalty=70,
         location="test_city",
     )
+
+
+class TestDefenderStatsFromGenerals:
+    """防守方属性从驻城将领计算"""
+
+    def test_defender_command_from_generals(self):
+        """驻城将领的统帅影响防守方平均统帅"""
+        scheduler = BattleScheduler(rng=GameRandom(seed=42))
+        army = _make_army(
+            faction="caocao", status=ArmyStatus.BESIEGING, to_city="city_shu",
+        )
+        city = _make_city(owner="liubei", city_id="city_shu", generals=["gen1", "gen2"])
+        gen1 = _make_general(general_id="gen1", command=80)
+        gen2 = _make_general(general_id="gen2", command=60)
+
+        battles = scheduler.detect_battles(
+            armies={"a1": army}, cities={"city_shu": city},
+            map_system=MapSystem(), generals={"gen1": gen1, "gen2": gen2},
+        )
+        assert battles[0].defender_avg_command == 70.0  # (80+60)/2
+
+    def test_defender_bravery_from_generals(self):
+        """驻城将领的勇武影响防守方平均勇武"""
+        scheduler = BattleScheduler(rng=GameRandom(seed=42))
+        army = _make_army(
+            faction="caocao", status=ArmyStatus.BESIEGING, to_city="city_shu",
+        )
+        city = _make_city(owner="liubei", city_id="city_shu", generals=["gen_a", "gen_b"])
+        gen_a = _make_general(general_id="gen_a", bravery=90)
+        gen_b = _make_general(general_id="gen_b", bravery=50)
+
+        battles = scheduler.detect_battles(
+            armies={"a1": army}, cities={"city_shu": city},
+            map_system=MapSystem(), generals={"gen_a": gen_a, "gen_b": gen_b},
+        )
+        assert battles[0].defender_avg_bravery == 70.0  # (90+50)/2
