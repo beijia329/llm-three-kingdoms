@@ -440,7 +440,7 @@ def _make_game_data() -> dict:
                 "wall_hp": 2000, "wall_max_hp": 2000,
                 "gold": 1000, "food": 1000, "population": 30000,
                 "morale": 70, "garrison": 2000,
-                "position": {"q": 0, "r": 0}, "neighbors": ["city_liubei_1"],
+                "position": {"q": 33, "r": 20}, "neighbors": ["city_liubei_1"],
                 "generals": ["general_caocao_1"],
             },
             {
@@ -448,7 +448,7 @@ def _make_game_data() -> dict:
                 "wall_hp": 2000, "wall_max_hp": 2000,
                 "gold": 1000, "food": 1000, "population": 30000,
                 "morale": 70, "garrison": 2000,
-                "position": {"q": 100, "r": 0}, "neighbors": ["city_caocao_1", "city_sunjian_1"],
+                "position": {"q": 40, "r": 20}, "neighbors": ["city_caocao_1", "city_sunjian_1"],
                 "generals": ["general_liubei_1"],
             },
             {
@@ -456,7 +456,7 @@ def _make_game_data() -> dict:
                 "wall_hp": 2000, "wall_max_hp": 2000,
                 "gold": 1000, "food": 1000, "population": 30000,
                 "morale": 70, "garrison": 2000,
-                "position": {"q": 200, "r": 0}, "neighbors": ["city_liubei_1"],
+                "position": {"q": 35, "r": 22}, "neighbors": ["city_liubei_1"],
                 "generals": ["general_sunjian_1"],
             },
         ],
@@ -491,3 +491,84 @@ def _make_initialized_engine() -> GameEngine:
     data = _make_game_data()
     engine.init_game(data)
     return engine
+
+
+class TestMapGeneratorIntegration:
+    """MapGenerator 接入 GameEngine 集成测试"""
+
+    def test_engine_generates_hex_map_from_map_generator(self):
+        """引擎初始化后应通过 MapGenerator 生成有效的 HexMap"""
+        engine = GameEngine(seed=42)
+        data = _make_game_data()
+        engine.init_game(data)
+
+        assert engine.hex_map is not None, (
+            "hex_map should not be None after init_game()"
+        )
+        tiles = list(engine.hex_map.iter_tiles())
+        assert len(tiles) > 0, "hex_map should have tiles"
+        # 所有 tile 应有合法的 terrain
+        from game.tile import TerrainType
+        for tile in tiles:
+            assert isinstance(tile.terrain, TerrainType), (
+                f"Tile at {tile.coord} has invalid terrain: {tile.terrain}"
+            )
+
+    def test_engine_hex_map_has_15_terrain_types(self):
+        """生成的 HexMap 应包含多种 15-terrain 系统中的地形"""
+        engine = GameEngine(seed=42)
+        data = _make_game_data()
+        engine.init_game(data)
+
+        terrains = {t.terrain for t in engine.hex_map.iter_tiles()}
+        # 至少应有水有陆有山
+        from game.tile import TerrainType
+        assert any(
+            t in (TerrainType.WATER, TerrainType.DEEP_WATER) for t in terrains
+        ), f"Should have water terrain, got: {terrains}"
+        assert any(
+            t in (TerrainType.GRASS, TerrainType.PLAIN, TerrainType.GRASSLAND)
+            for t in terrains
+        ), f"Should have flat land, got: {terrains}"
+
+    def test_engine_hex_map_deterministic(self):
+        """相同 seed 应生成相同 HexMap"""
+        engine1 = GameEngine(seed=42)
+        engine2 = GameEngine(seed=42)
+        data1 = _make_game_data()
+        data2 = _make_game_data()
+        engine1.init_game(data1)
+        engine2.init_game(data2)
+
+        tiles1 = sorted(
+            engine1.hex_map.iter_tiles(), key=lambda t: t.coord.to_tuple()
+        )
+        tiles2 = sorted(
+            engine2.hex_map.iter_tiles(), key=lambda t: t.coord.to_tuple()
+        )
+
+        assert len(tiles1) == len(tiles2)
+        for t1, t2 in zip(tiles1, tiles2):
+            assert t1.terrain == t2.terrain, (
+                f"Terrain mismatch at {t1.coord}: {t1.terrain} vs {t2.terrain}"
+            )
+
+    def test_engine_different_seeds_produce_different_hex_maps(self):
+        """不同 seed 应生成不同的 HexMap"""
+        engine1 = GameEngine(seed=42)
+        engine2 = GameEngine(seed=999)
+        data = _make_game_data()
+        engine1.init_game(data)
+        engine2.init_game(data)
+
+        t1 = [
+            t.terrain for t in sorted(
+                engine1.hex_map.iter_tiles(), key=lambda x: x.coord.to_tuple()
+            )
+        ]
+        t2 = [
+            t.terrain for t in sorted(
+                engine2.hex_map.iter_tiles(), key=lambda x: x.coord.to_tuple()
+            )
+        ]
+        assert t1 != t2, "Different seeds should produce different hex maps"

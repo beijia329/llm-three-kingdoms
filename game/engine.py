@@ -234,33 +234,48 @@ class GameEngine:
         self._init_hex_map(data)
 
     def _init_hex_map(self, data: Dict[str, Any]) -> None:
-        """初始化六角格地图"""
+        """初始化六角格地图（使用 MapGenerator 程序化生成）
+
+        使用 MapGenerator 生成完整六角格地图（15 种地形），
+        城市坐标仍从 hex_map.json 读取（Phase 2 再做公平起始位置分配）。
+        """
         try:
-            from game.data_loader import load_hex_map_data
+            from game.map_generator import MapGenerator
             from game.hex_map import HexMap
             from game.hex_grid import HexCoord
             from game.tile import Tile, TerrainType
             from game.influence_system import InfluenceSystem
+            from game.data_loader import load_hex_map_data
 
-            hex_data = load_hex_map_data()
-            self.hex_map = HexMap(
-                width=hex_data["width"],
-                height=hex_data["height"],
+            # 使用 MapGenerator 程序化生成地形
+            map_gen = MapGenerator(rng=self.rng)
+            self.hex_map = map_gen.generate(
+                width=120,
+                height=90,
             )
-            for t in hex_data.get("terrain", []):
-                self.hex_map.add_tile(Tile(
-                    coord=HexCoord(t["q"], t["r"]),
-                    terrain=TerrainType(t["terrain"]),
-                    elevation=t.get("elevation", 0),
-                    gold_yield=t.get("gold_yield", 0),
-                    food_yield=t.get("food_yield", 0),
-                    pop_yield=t.get("pop_yield", 0),
-                ))
 
-            # 绑定城市位置到 HexMap
-            for city_id, pos in hex_data.get("city_positions", {}).items():
-                if city_id in self.cities:
-                    self.cities[city_id].position = HexCoord(pos["q"], pos["r"])
+            # 从 JSON 读取城市坐标（仍需要）
+            try:
+                hex_data = load_hex_map_data()
+                for city_id, pos in hex_data.get("city_positions", {}).items():
+                    if city_id in self.cities:
+                        self.cities[city_id].position = HexCoord(pos["q"], pos["r"])
+            except Exception:
+                logger.warning("城市坐标加载失败，城市位置使用默认值")
+
+            # 验证所有城市位置是否可通行（生成地图可能将城市放在水/山/峰上）
+            for city in self.cities.values():
+                coord = city.position
+                tile = self.hex_map.get_tile(coord)
+                if tile is None or not tile.is_passable():
+                    nearest = self._find_nearest_passable(coord)
+                    if nearest is not None:
+                        logger.info(
+                            "城市 %s 位置从 %s 修正为 %s（原地形 %s 不可通行）",
+                            city.id, coord, nearest,
+                            tile.terrain.value if tile else "无",
+                        )
+                        city.position = nearest
 
             # 初始化地块归属和产出
             self._initialize_territories()
@@ -268,11 +283,45 @@ class GameEngine:
             # 初始化影响力系统
             self._influence_system = InfluenceSystem()
 
-            logger.info("HexMap 加载完成: %d 格", len(list(self.hex_map.iter_tiles())))
+            logger.info("HexMap 生成完成: %d 格", len(list(self.hex_map.iter_tiles())))
         except Exception as e:
-            logger.warning("HexMap 加载失败: %s，使用降级模式", e)
+            logger.warning("HexMap 生成失败: %s，使用降级模式", e)
             self.hex_map = None
             self._influence_system = None
+
+    def _find_nearest_passable(self, coord: 'HexCoord') -> 'Optional[HexCoord]':
+        """从给定坐标开始 BFS 搜索最近的可通行地块
+
+        用于城市位置落入水/山/峰时，自动修正到最近的可通行格。
+
+        Args:
+            coord: 原始坐标
+
+        Returns:
+            最近的可通行格坐标，未找到则返回 None
+        """
+        from collections import deque
+        from game.hex_grid import HexCoord, hex_neighbors
+
+        if self.hex_map is None:
+            return None
+
+        visited: set = {coord.to_tuple()}
+        queue: deque = deque([coord])
+
+        while queue:
+            current = queue.popleft()
+            tile = self.hex_map.get_tile(current)
+            if tile is not None and tile.is_passable():
+                return current
+            for neighbor in hex_neighbors(current):
+                key = neighbor.to_tuple()
+                if key not in visited:
+                    visited.add(key)
+                    tile = self.hex_map.get_tile(neighbor)
+                    if tile is not None:
+                        queue.append(neighbor)
+        return None
 
     def _initialize_territories(self) -> None:
         """初始化城市控制区地块的归属和产出"""
