@@ -534,8 +534,9 @@ class GameLog(BaseModel):
 
 ---
 
-> **文档版本**：v1.1
+> **文档版本**：v2.2
 > **创建日期**：2026-06-23
-> **最后更新**：2026-06-23
+> **最后更新**：2026-06-24
 > **相关文档**：data-models.md, architecture.md
+> **v2.2更新**：势力枚举3方→12方，命令示例 faction key 更新
 > **v1.1更新**：补充Explore的general参数和Rumor的spy_general参数

@@ -559,5 +559,5 @@ python -m tests.balance.run_simulation --games 100
 
 ---
 
-> **文档版本**：v1.0
+> **文档版本**：v2.2
 > **创建日期**：2026-06-23

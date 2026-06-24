@@ -332,9 +332,9 @@ class GameObservation(BaseModel):
 
 ```python
 # 游戏规则
-MAX_TURNS = 24
-NUM_FACTIONS = 3
-STARTING_CITIES_PER_FACTION = 5
+MAX_TURNS = 192       # 184→232年，每季度1回合
+NUM_FACTIONS = 12     # 184年黄巾之乱12方诸侯
+STARTING_CITIES_PER_FACTION = 0  # 不固定，按实际历史分配（1~2城）
 
 # 经济
 GOLD_PER_POPULATION = 0.01  # 每人每回合产金
@@ -360,7 +360,7 @@ CAPTURE_SURRENDER_BASE = 30  # 投降基础概率(%)
 
 ---
 
-> **文档版本**：v1.1
-> **最后更新**：2026-06-23
+> **文档版本**：v2.2
+> **最后更新**：2026-06-24
 > **相关文档**：command-pattern.md, architecture.md
-> **v1.1更新**：统一命令模型命名规范，与 command-pattern.md 保持一致
+> **v2.2更新**：势力枚举3方→12方，MAX_TURNS 24→192，城市数 15→22

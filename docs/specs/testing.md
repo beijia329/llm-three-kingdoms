@@ -440,7 +440,7 @@ pytest -n auto
 
 ---
 
-> **文档版本**：v1.1
+> **文档版本**：v2.2
 > **创建日期**：2026-06-23
 > **更新日期**：2026-06-23
 > **相关文档**：development-tasks.md, architecture.md
