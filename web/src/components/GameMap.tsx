@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Application, Container, Graphics } from 'pixi.js'
+import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js'
 import type { GameState, HexCoord } from '../types'
-import { TERRAIN_COLORS, UI_COLORS, hexToNumber } from '../theme'
+import { TERRAIN_COLORS, UI_COLORS, FACTION_COLORS, hexToNumber } from '../theme'
 import { HEX_SIZE, axialToPixel, hexNeighbors, hexPoints } from '../utils/hex'
-import { computeTiles, createTileSprite, preloadTiles } from '../utils/tiles'
 import { CityMarker } from './map/CityMarker'
 import { ArmyMarker } from './map/ArmyMarker'
-import type { TileInfo } from '../utils/tiles'
 
 interface GameMapProps {
   state: GameState | null
@@ -30,9 +28,6 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   const [isDragging, setIsDragging] = useState(false)
   const dragStartRef = useRef<{ x: number; y: number } | null>(null)
   const cameraStartRef = useRef<{ x: number; y: number } | null>(null)
-
-  const [tilesReady, setTilesReady] = useState(false)
-  const tilesRef = useRef<TileInfo[]>([])
 
   // 初始化 Pixi Application
   useEffect(() => {
@@ -68,13 +63,6 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const c = cameraRef.current
       camera.position.set(c.x, c.y)
       camera.scale.set(c.zoom)
-
-      // 预加载瓦片
-      const tiles = computeTiles(6)
-      tilesRef.current = tiles
-      preloadTiles(tiles).then(() => {
-        if (!cancelled) setTilesReady(true)
-      })
     }
 
     init()
@@ -96,16 +84,6 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 
     const camera = pixiCameraRef.current
     camera.removeChildren()
-
-    // 0. 瓦片底图
-    if (tilesReady) {
-      const tileContainer = new Container()
-      tilesRef.current.forEach((tile) => {
-        const sprite = createTileSprite(tile)
-        if (sprite) tileContainer.addChild(sprite)
-      })
-      camera.addChild(tileContainer)
-    }
 
     // 1. 绘制地块
     const tilesGraphics = new Graphics()
@@ -129,16 +107,28 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const { x, y } = axialToPixel(coord, HEX_SIZE)
       const tile = tileMap.get(key)
       const terrain = tile?.terrain || 'plain'
-      const colors = TERRAIN_COLORS[terrain] || TERRAIN_COLORS.plain
+      const provinceId = tile?.province_id || null
       const points = hexPoints(x, y, HEX_SIZE)
 
-      const faction = tile?.faction || getFactionAt(state, coord)
-      let fill = colors.fill
-      if (faction && faction !== 'neutral') {
-        fill = blendColor(colors.fill, hexToNumber(factionColor(faction)), 0.20)
+      // 基础色：州郡颜色（统一板块），无州郡则用地形色
+      let fill: number
+      if (provinceId && state.provinces?.[provinceId]?.color) {
+        fill = hexToNumber(state.provinces[provinceId].color)
+        // 地形微调：亮度偏移（保持州郡统一感）
+        const terrainBrightness = getTerrainBrightness(terrain)
+        fill = adjustBrightness(fill, terrainBrightness)
+      } else {
+        const colors = TERRAIN_COLORS[terrain] || TERRAIN_COLORS.plain
+        fill = colors.fill
       }
 
-      tilesGraphics.poly(points).fill(fill).stroke({ color: 0x3a3a3a, width: 2 })
+      // 势力着色
+      const faction = tile?.faction || getFactionAt(state, coord)
+      if (faction && faction !== 'neutral') {
+        fill = blendColor(fill, hexToNumber(factionColor(faction)), 0.35)
+      }
+
+      tilesGraphics.poly(points).fill(fill)
     })
 
     camera.addChild(tilesGraphics)
@@ -195,7 +185,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       }
     })
 
-    const provinceColor = 0xb4aa8c // 淡金色
+    const provinceColor = 0xd4c090 // 亮金色（更明显）
     Object.values(provinceHexes).forEach((hexList) => {
       const coordSet = new Set(hexList.map((h) => `${h.q},${h.r}`))
       hexList.forEach((c) => {
@@ -212,30 +202,50 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
             provinceGraphics
               .moveTo(x1, y1)
               .lineTo(x2, y2)
-              .stroke({ color: provinceColor, width: 2 })
+              .stroke({ color: provinceColor, width: 3 })
           }
         }
       })
     })
     camera.addChild(provinceGraphics)
 
-    // 4. 绘制水域（空白 hex）
-    const waterGraphics = new Graphics()
-    const waterColor = 0x1a2a4a
-    const hw = state.hex_map?.width || 120
-    const hh = state.hex_map?.height || 90
-    for (let q = 0; q < hw; q++) {
-      for (let r = 0; r < hh; r++) {
-        const key = `${q},${r}`
-        if (!coords.has(key)) {
-          const { x: wx, y: wy } = axialToPixel({ q, r }, HEX_SIZE)
-          const wPoints = hexPoints(wx, wy, HEX_SIZE)
-          waterGraphics.poly(wPoints).fill(waterColor)
-        }
-      }
-    }
-    camera.addChild(waterGraphics)
-  }, [state, tilesReady])
+    // 3.5 州郡名称标注
+    const labelGraphics = new Graphics()
+    const labelTexts: { x: number; y: number; text: string; isCity: boolean }[] = []
+    // 州名：计算每个 province 的中心
+    Object.entries(provinceHexes).forEach(([provId, hexList]) => {
+      if (hexList.length === 0) return
+      const cx = hexList.reduce((s, h) => s + axialToPixel(h, HEX_SIZE).x, 0) / hexList.length
+      const cy = hexList.reduce((s, h) => s + axialToPixel(h, HEX_SIZE).y, 0) / hexList.length
+      const provName = state.provinces?.[provId]?.name || provId
+      labelTexts.push({ x: cx, y: cy, text: provName, isCity: false })
+    })
+    // 城名
+    Object.values(state.cities).forEach((city) => {
+      const { x, y } = axialToPixel(city.position, HEX_SIZE)
+      labelTexts.push({ x, y: y + HEX_SIZE * 1.2, text: city.name, isCity: true })
+    })
+    // 渲染标注
+    labelTexts.forEach(({ x, y, text, isCity }) => {
+      const fontSize = isCity ? 10 : 13
+      const label = new Text({
+        text,
+        style: new TextStyle({
+          fontSize,
+          fontFamily: 'Noto Sans SC, sans-serif',
+          fill: isCity ? 0xe8d8b0 : 0xfff8e0,
+          stroke: { color: 0x1a1a2e, width: isCity ? 2 : 3 },
+          fontWeight: isCity ? 'normal' : 'bold',
+          align: 'center',
+        }),
+      })
+      label.anchor.set(0.5)
+      label.position.set(x, y)
+      camera.addChild(label)
+    })
+    camera.addChild(labelGraphics)
+
+  }, [state])
 
   // 相机同步：统一更新 PixiJS + DOM Overlay
   const syncCamera = (next: Camera) => {
@@ -439,5 +449,25 @@ function blendColor(base: number, tint: number, alpha: number): number {
   const r = Math.round(br * (1 - alpha) + tr * alpha)
   const g = Math.round(bg * (1 - alpha) + tg * alpha)
   const b = Math.round(bb * (1 - alpha) + tb * alpha)
+  return (r << 16) | (g << 8) | b
+}
+
+function getTerrainBrightness(terrain: string): number {
+  // 地形亮度偏移：山/林=暗，平原/沙漠=亮
+  const bright: Record<string, number> = {
+    grass: 0.05, grassland: 0.08, plain: 0.10, desert: 0.12,
+    snow: 0.15, tundra: 0.05,
+    forest: -0.05, dense_forest: -0.10,
+    hill: -0.02, mountain: -0.08, peak: -0.12,
+    marsh: -0.03,
+    water: -0.05, deep_water: -0.10, river: 0.0,
+  }
+  return bright[terrain] || 0.0
+}
+
+function adjustBrightness(color: number, amount: number): number {
+  const r = Math.min(255, Math.max(0, ((color >> 16) & 0xff) + Math.round(amount * 255)))
+  const g = Math.min(255, Math.max(0, ((color >> 8) & 0xff) + Math.round(amount * 255)))
+  const b = Math.min(255, Math.max(0, (color & 0xff) + Math.round(amount * 255)))
   return (r << 16) | (g << 8) | b
 }

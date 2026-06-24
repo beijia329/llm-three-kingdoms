@@ -142,6 +142,17 @@ class GameManager:
             "tiles": hex_tiles,
         }
 
+        # 州郡元数据（名称、首府）
+        provinces_data: Dict[str, Dict[str, Any]] = {}
+        for prov in self.engine.provinces.values():
+            provinces_data[prov.id] = {
+                "name": prov.name,
+                "capital_city_id": prov.capital_city_id,
+                "color": prov.color,
+                "cities": prov.cities,
+            }
+        data["provinces"] = provinces_data
+
         # 外交数据
         if self.engine._diplomacy_relation_system is not None:
             relations = self.engine._diplomacy_relation_system.get_all_relations()

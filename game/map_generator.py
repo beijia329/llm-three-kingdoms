@@ -68,6 +68,45 @@ def _build_terrain_candidates() -> Dict[Tuple[str, str, str], List[TerrainType]]
 _TERRAIN_CANDIDATES = _build_terrain_candidates()
 
 
+# 现代省名 → 三国古州郡 ID 映射
+_MODERN_TO_ANCIENT: Dict[str, str] = {
+    "北京市": "jizhou",
+    "天津市": "jizhou",
+    "河北省": "jizhou",
+    "山西省": "bingzhou",
+    "内蒙古自治区": "liangzhou",
+    "辽宁省": "youzhou",
+    "吉林省": "youzhou",
+    "黑龙江省": "youzhou",
+    "上海市": "yangzhou",
+    "江苏省": "xuzhou",
+    "浙江省": "yangzhou",
+    "安徽省": "yangzhou",
+    "福建省": "yangzhou",
+    "江西省": "yangzhou",
+    "山东省": "qingzhou",
+    "河南省": "yuzhou",
+    "湖北省": "jingzhou",
+    "湖南省": "jingzhou",
+    "广东省": "jiaozhou",
+    "广西壮族自治区": "jiaozhou",
+    "海南省": "jiaozhou",
+    "重庆市": "yizhou",
+    "四川省": "yizhou",
+    "贵州省": "yizhou",
+    "云南省": "yizhou",
+    "西藏自治区": "yizhou",
+    "陕西省": "sili",
+    "甘肃省": "liangzhou",
+    "青海省": "liangzhou",
+    "宁夏回族自治区": "liangzhou",
+    "新疆维吾尔自治区": "liangzhou",
+    "台湾省": "yangzhou",
+    "香港特别行政区": "jiaozhou",
+    "澳门特别行政区": "jiaozhou",
+}
+
+
 # ---------------------------------------------------------------------------
 # MapGenerator
 # ---------------------------------------------------------------------------
@@ -93,9 +132,6 @@ class MapGenerator:
             rng: 确定性随机数生成器，所有随机操作通过它进行
         """
         self._rng: GameRandom = rng
-        # 从主 rng 派生子状态，用于不同的噪声分量
-        # 保存当前调用计数，为湿度噪声预留独立种子
-        self._humidity_offset: int = int(rng.random() * 10000) + 1
 
     def generate(self, width: int, height: int) -> HexMap:
         """生成完整的六角格地图
@@ -110,8 +146,8 @@ class MapGenerator:
         # Step 1: 生成高度图
         height_map = self._generate_height_map(width, height)
 
-        # Step 1.5: 大陆形状（中心加权，边缘向水）
-        height_map = self._apply_continent_shape(height_map, width, height)
+        # Step 1.5: 中国版图遮罩（替换大陆形状）
+        height_map, province_map = self._apply_china_mask(height_map, width, height)
 
         # Step 2: 海陆划分
         sea_level: float = 0.40
@@ -121,7 +157,7 @@ class MapGenerator:
         temp_map = self._assign_temperature_band(height_map, land_mask, width, height)
 
         # Step 4: 地形放置
-        hex_map = self._place_terrain(height_map, land_mask, temp_map, width, height, sea_level)
+        hex_map = self._place_terrain(height_map, land_mask, temp_map, width, height, sea_level, province_map)
 
         # Step 5: 填充未分配格
         self._fill_unassigned(hex_map, width, height)
@@ -317,6 +353,120 @@ class MapGenerator:
         return result
 
     # ------------------------------------------------------------------
+    # Step 1.6: 中国版图遮罩（替代大陆形状）
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _load_china_geojson() -> List[Dict[str, Any]]:
+        """加载中国省界数据
+
+        Returns:
+            省份列表，每项含 name, center, coordinates
+        """
+        import json
+        import os
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+        path = os.path.join(data_dir, "china_provinces.json")
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("features", [])
+
+    @staticmethod
+    def _point_in_polygon(px: float, py: float, polygon: List[List[float]]) -> bool:
+        """射线法判断点是否在多边形内
+
+        Args:
+            px, py: 待测点坐标
+            polygon: 多边形顶点列表 [[x,y], ...]
+
+        Returns:
+            True 如果点在多边形内
+        """
+        n = len(polygon)
+        inside = False
+        j = n - 1
+        for i in range(n):
+            xi, yi = polygon[i][0], polygon[i][1]
+            xj, yj = polygon[j][0], polygon[j][1]
+            if ((yi > py) != (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi):
+                inside = not inside
+            j = i
+        return inside
+
+    @staticmethod
+    def _hex_to_lonlat(q: int, r: int, width: int, height: int) -> Tuple[float, float]:
+        """六角格坐标 → 经纬度
+
+        Args:
+            q, r: 轴向坐标
+            width, height: 地图尺寸
+
+        Returns:
+            (longitude, latitude)
+        """
+        lon_min, lon_max = 95.0, 125.0
+        lat_min, lat_max = 22.0, 45.0
+        lon = lon_min + (q / max(width - 1, 1)) * (lon_max - lon_min)
+        lat = lat_max - (r / max(height - 1, 1)) * (lat_max - lat_min)
+        return lon, lat
+
+    @staticmethod
+    def _apply_china_mask(
+        height_map: List[List[float]],
+        width: int,
+        height: int,
+    ) -> Tuple[List[List[float]], Dict[Tuple[int, int], str]]:
+        """中国版图遮罩：境内=陆地，境外=水域
+
+        加载真实中国省界数据，判断每个六角格是否在中国境内。
+        境外格子高度强制设为 0（水域），境内保持原有高度。
+        同时为境内格子分配 province_id。
+
+        Args:
+            height_map: 原始高度图
+            width: 地图宽度
+            height: 地图高度
+
+        Returns:
+            (修正后的高度图, {(q,r): province_name} 映射)
+        """
+        provinces = MapGenerator._load_china_geojson()
+        province_map: Dict[Tuple[int, int], str] = {}
+
+        result: List[List[float]] = [[0.0] * width for _ in range(height)]
+
+        for r in range(height):
+            for q in range(width):
+                lon, lat = MapGenerator._hex_to_lonlat(q, r, width, height)
+                h = height_map[r][q]
+
+                # 检查是否在任一省份内
+                in_china = False
+                for prov in provinces:
+                    modern_name = prov.get("name", "")
+                    ancient_id = _MODERN_TO_ANCIENT.get(modern_name, modern_name)
+                    polygons = prov.get("coordinates", [])
+                    for polygon in polygons:
+                        for ring in polygon:
+                            if len(ring) < 3:
+                                continue
+                            if MapGenerator._point_in_polygon(lon, lat, ring):
+                                in_china = True
+                                province_map[(q, r)] = ancient_id
+                                break
+                        if in_china:
+                            break
+                    if in_china:
+                        break
+
+                if in_china:
+                    result[r][q] = h
+                else:
+                    result[r][q] = 0.0  # 境外 → 水域
+
+        return result, province_map
+
+    # ------------------------------------------------------------------
     # Step 3: 纬度温度带映射 + 海拔修正
     # ------------------------------------------------------------------
 
@@ -393,6 +543,7 @@ class MapGenerator:
         width: int,
         height: int,
         sea_level: float,
+        province_map: Dict[Tuple[int, int], str],
     ) -> HexMap:
         """主地形放置：水格标记 + 陆地扩散
 
@@ -414,7 +565,12 @@ class MapGenerator:
         for r in range(height):
             for q in range(width):
                 coord = HexCoord(q, r)
-                tile = Tile(coord=coord, terrain=TerrainType.PLAIN)
+                prov_name = province_map.get((q, r))
+                tile = Tile(
+                    coord=coord,
+                    terrain=TerrainType.PLAIN,
+                    province_id=prov_name,
+                )
                 hex_map.add_tile(tile)
 
         # ---- 4a: 标记水域 ----

@@ -125,6 +125,14 @@ export interface GameState {
   faction_relations?: FactionRelation[]
   messages?: DiplomacyMessage[]
   turn_logs?: TurnLog[]
+  provinces?: Record<string, ProvinceInfo>
+}
+
+export interface ProvinceInfo {
+  name: string
+  capital_city_id: string | null
+  color: string
+  cities: string[]
 }
 
 export interface WebSocketMessage {
