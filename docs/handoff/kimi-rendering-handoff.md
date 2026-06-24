@@ -43,8 +43,7 @@
 
 第 3 层 — 海洋水域
   条件：tile.province_id 为空，且 terrain 为 "water" 或 "deep_water"
-  颜色：water=浅海蓝 #4499cc，deep_water=深海蓝 #226688
-  说明：东海、南海、太平洋全部蓝色
+  颜色：**全部浅蓝色 #4499cc**（不区分浅海深海）
 
 第 4 层 — 境外未探索陆地
   条件：以上都不满足（即 province_id 为空、非水域）
