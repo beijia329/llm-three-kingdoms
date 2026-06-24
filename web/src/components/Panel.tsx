@@ -84,8 +84,15 @@ function FactionList({
             }}
             onClick={() => setSelectedFaction(row.fid)}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isSelected ? '#e8e0d0' : '#96918a' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: `#${color.toString(16).padStart(6, '0')}` }} />
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isSelected ? '#e8e0d0' : '#b8b3aa' }}>
+              <span style={{
+                width: '12px',
+                height: '12px',
+                borderRadius: '3px',
+                backgroundColor: `#${color.toString(16).padStart(6, '0')}`,
+                border: '1px solid rgba(232, 224, 208, 0.4)',
+                boxShadow: '0 0 2px rgba(0,0,0,0.5)',
+              }} />
               {row.name}
             </span>
             <span style={{ color: '#e8e0d0' }}>{row.cities}</span>

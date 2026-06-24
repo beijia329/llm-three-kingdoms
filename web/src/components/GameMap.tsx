@@ -19,7 +19,8 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<Application | null>(null)
   const cameraRef = useRef<Container | null>(null)
-  const [camera, setCamera] = useState<Camera>({ x: -900, y: -500, zoom: 0.3 })
+  // 初始相机以中国大陆城市群为中心 (q≈68, r≈45, zoom=0.3)
+  const [camera, setCamera] = useState<Camera>({ x: -960, y: -230, zoom: 0.3 })
   const [isDragging, setIsDragging] = useState(false)
   const dragStartRef = useRef<{ x: number; y: number } | null>(null)
   const cameraStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -55,7 +56,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       cameraRef.current = camera
       app.stage.addChild(camera)
 
-      camera.position.set(-900, -500)
+      camera.position.set(-960, -230)
       camera.scale.set(0.3)
     }
 

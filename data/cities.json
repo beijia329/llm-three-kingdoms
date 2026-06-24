@@ -61,7 +61,10 @@
       "q": 30,
       "r": 27
     },
-    "neighbors": []
+    "neighbors": [
+      "tianshui",
+      "changan"
+    ]
   },
   {
     "id": "tianshui",
@@ -83,7 +86,8 @@
       "jian_ge",
       "hanzhong",
       "changan",
-      "chengdu"
+      "chengdu",
+      "wuwei"
     ]
   },
   {

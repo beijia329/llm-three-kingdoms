@@ -32,7 +32,7 @@ export function TopBar({ state, connected }: TopBarProps) {
     <div style={styles.container}>
       <div style={styles.left}>
         <span style={styles.title}>
-          第 {state.turn}{mode} 回合 | {state.year}年 {season} | 184年 黄巾之乱
+          第 {state.turn}{mode} 回合 | {state.year}年 {season} | 黄巾之乱
         </span>
         <div style={styles.stats}>
           {topFactions.map(([fid, s]) => (
