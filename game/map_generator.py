@@ -488,7 +488,8 @@ class MapGenerator:
                     result[r][q] = h
                     province_map[(q, r)] = ancient_id
                 else:
-                    result[r][q] = 0.0  # 境外 → 水域
+                    # 境外：保留原始高度（陆地=未探索，水域=海洋）
+                    result[r][q] = h
 
         return result, province_map
 
