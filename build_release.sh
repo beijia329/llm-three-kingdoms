@@ -1,11 +1,11 @@
 #!/bin/bash
-# 乱斗三国 v2.2 发布包构建脚本
+# 乱斗三国 v2.3 发布包构建脚本
 # 用法: bash build_release.sh
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT="llm-sanguo"
-VERSION="2.2.0"
+VERSION="2.3.0"
 RELEASE_NAME="${PROJECT}-v${VERSION}"
 RELEASE_DIR="$SCRIPT_DIR/release"
 DIST_DIR="$RELEASE_DIR/$RELEASE_NAME"

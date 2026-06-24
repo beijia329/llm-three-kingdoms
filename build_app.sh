@@ -1,5 +1,5 @@
 #!/bin/bash
-# 乱斗三国 v2.2 — 构建 macOS 自安装 .app
+# 乱斗三国 v2.3 — 构建 macOS 自安装 .app
 # 首次双击自动 pip install，之后点击即玩
 set -e
 
