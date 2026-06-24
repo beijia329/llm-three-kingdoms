@@ -245,7 +245,7 @@ class GameEngine:
             from game.hex_grid import HexCoord
             from game.tile import Tile, TerrainType
             from game.influence_system import InfluenceSystem
-            from game.data_loader import load_hex_map_data
+            from game.data_loader import load_city_positions
 
             # 使用 MapGenerator 程序化生成地形
             map_gen = MapGenerator(rng=self.rng)
@@ -254,10 +254,10 @@ class GameEngine:
                 height=90,
             )
 
-            # 从 JSON 读取城市坐标（仍需要）
+            # 从独立坐标文件读取城市位置
             try:
-                hex_data = load_hex_map_data()
-                for city_id, pos in hex_data.get("city_positions", {}).items():
+                city_positions = load_city_positions()
+                for city_id, pos in city_positions.items():
                     if city_id in self.cities:
                         self.cities[city_id].position = HexCoord(pos["q"], pos["r"])
             except Exception:
