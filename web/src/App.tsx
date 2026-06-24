@@ -5,7 +5,7 @@ import { Panel } from './components/Panel'
 import { TopBar } from './components/TopBar'
 import { useGame } from './hooks/useGame'
 
-type TabKey = 'factions' | 'city' | 'generals' | 'log'
+type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log'
 
 function App() {
   const { state, connected, auto, nextTurn, toggleAuto } = useGame()
@@ -27,6 +27,12 @@ function App() {
       } else if (e.key === '3') {
         setTab('generals')
       } else if (e.key === '4') {
+        setTab('diplomacy')
+      } else if (e.key === '5') {
+        setTab('data')
+      } else if (e.key === '6') {
+        setTab('events')
+      } else if (e.key === '7') {
         setTab('log')
       }
     }

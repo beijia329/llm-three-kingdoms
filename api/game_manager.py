@@ -138,6 +138,48 @@ class GameManager:
             "height": self.engine.hex_map.height if self.engine.hex_map else 0,
             "tiles": hex_tiles,
         }
+
+        # 外交数据
+        if self.engine._diplomacy_relation_system is not None:
+            relations = self.engine._diplomacy_relation_system.get_all_relations()
+            data["faction_relations"] = [
+                {
+                    "faction_a": r.faction_a,
+                    "faction_b": r.faction_b,
+                    "status": r.status.value,
+                    "trust": r.trust,
+                    "truce_end_turn": r.truce_end_turn,
+                    "alliance_end_turn": r.alliance_end_turn,
+                }
+                for r in relations.values()
+            ]
+        else:
+            data["faction_relations"] = []
+
+        # 外交消息
+        data["messages"] = [
+            {
+                "id": m.id,
+                "from_faction": m.from_faction,
+                "to_faction": m.to_faction,
+                "content": m.content,
+                "turn": m.turn,
+                "is_read": m.is_read,
+            }
+            for m in self.engine.messages
+        ]
+
+        # 回合日志
+        data["turn_logs"] = [
+            {
+                "turn": tl.turn,
+                "battles_fought": sum(1 for e in tl.events if isinstance(e, dict) and e.get("type") == "battle"),
+                "armies_moved": sum(1 for e in tl.events if isinstance(e, dict) and e.get("type") == "army_moved"),
+                "cities_captured": [e.get("city_id") for e in tl.events if isinstance(e, dict) and e.get("type") == "city_captured"],
+            }
+            for tl in self.engine.turn_logs[-10:]
+        ]
+
         return data
 
     # ============================================================

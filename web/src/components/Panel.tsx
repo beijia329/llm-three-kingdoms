@@ -1,7 +1,8 @@
-import type { GameEvent, GameState } from '../types'
+import type { GameEvent, GameState, General } from '../types'
 import { FACTION_COLORS, FACTIONS } from '../theme'
+import { DiplomacyPanel } from './DiplomacyPanel'
 
-type TabKey = 'factions' | 'city' | 'generals' | 'log'
+type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log'
 
 interface PanelProps {
   state: GameState | null
@@ -16,6 +17,9 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'factions', label: '势力', icon: 'fa-chess-king' },
   { key: 'city', label: '城市', icon: 'fa-city' },
   { key: 'generals', label: '武将', icon: 'fa-user-shield' },
+  { key: 'diplomacy', label: '外交', icon: 'fa-handshake' },
+  { key: 'data', label: '数据', icon: 'fa-chart-bar' },
+  { key: 'events', label: '事件', icon: 'fa-calendar-day' },
   { key: 'log', label: '战报', icon: 'fa-scroll' },
 ]
 
@@ -51,6 +55,9 @@ export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, set
         {tab === 'factions' && <FactionList state={state} selectedFaction={selectedFaction} setSelectedFaction={setSelectedFaction} />}
         {tab === 'city' && <CityDetail state={state} cityId={selectedCityId} />}
         {tab === 'generals' && <GeneralList state={state} />}
+        {tab === 'diplomacy' && <DiplomacyPanel state={state} />}
+        {tab === 'data' && <DataPanel state={state} />}
+        {tab === 'events' && <EventsPanel state={state} />}
         {tab === 'log' && <EventLog events={state.events} />}
       </div>
     </div>
@@ -292,6 +299,93 @@ function EventLog({ events }: { events: GameEvent[] }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function DataPanel({ state }: { state: GameState }) {
+  const allGenerals = Object.values(state.generals).filter(g => !g.is_captured)
+  const allCities = Object.values(state.cities)
+  const topCommanders = [...allGenerals].sort((a, b) => b.command - a.command).slice(0, 10)
+  const topPoliticians = [...allGenerals].sort((a, b) => b.politics - a.politics).slice(0, 10)
+  const topBrave = [...allGenerals].sort((a, b) => b.bravery - a.bravery).slice(0, 10)
+  const topIntel = [...allGenerals].sort((a, b) => b.intelligence - a.intelligence).slice(0, 10)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ ...styles.card }}>
+        <div style={{ color: '#d4a84b', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>
+          <i className="fa-solid fa-ranking-star" style={{ marginRight: '6px' }}></i>武将排行榜
+        </div>
+        <RankList title="统帅 Top 5" items={topCommanders.slice(0, 5)} attr="command" color="#c85046" />
+        <RankList title="政治 Top 5" items={topPoliticians.slice(0, 5)} attr="politics" color="#64a0d2" />
+        <RankList title="勇武 Top 5" items={topBrave.slice(0, 5)} attr="bravery" color="#c85046" />
+        <RankList title="智力 Top 5" items={topIntel.slice(0, 5)} attr="intelligence" color="#d4a84b" />
+      </div>
+
+      <div style={{ ...styles.card }}>
+        <div style={{ color: '#d4a84b', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>
+          <i className="fa-solid fa-city" style={{ marginRight: '6px' }}></i>城池统计
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <StatBox label="总城池" value={allCities.length} />
+          <StatBox label="总武将" value={allGenerals.length} />
+          <StatBox label="总兵力" value={allCities.reduce((s, c) => s + c.garrison, 0)} />
+          <StatBox label="总人口" value={allCities.reduce((s, c) => s + c.population, 0)} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RankList({ title, items, attr, color }: { title: string; items: General[]; attr: string; color: string }) {
+  return (
+    <div style={{ marginBottom: '10px' }}>
+      <div style={{ fontSize: '11px', color: '#96918a', marginBottom: '4px' }}>{title}</div>
+      {items.map((g, i) => (
+        <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '12px' }}>
+          <span style={{ color: '#e8e0d0' }}>{i + 1}. {g.name}</span>
+          <span style={{ color }}>{(g as any)[attr]}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function StatBox({ label, value }: { label: string; value: number }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
+      <div style={{ fontSize: '11px', color: '#96918a', marginBottom: '2px' }}>{label}</div>
+      <div style={{ fontSize: '15px', color: '#e8e0d0', fontWeight: 600 }}>{value.toLocaleString()}</div>
+    </div>
+  )
+}
+
+function EventsPanel({ state }: { state: GameState }) {
+  const turnLogs = state.turn_logs || []
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ color: '#d4a84b', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
+        <i className="fa-solid fa-calendar-day" style={{ marginRight: '6px' }}></i>回合事件
+      </div>
+      {turnLogs.length === 0 && (
+        <div style={{ fontSize: '12px', color: '#666', textAlign: 'center', padding: '20px 0' }}>暂无回合记录</div>
+      )}
+      {turnLogs.slice().reverse().map((tl) => (
+        <div key={tl.turn} style={{ ...styles.card, padding: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span style={{ fontSize: '13px', color: '#e8e0d0', fontWeight: 600 }}>第 {tl.turn} 回合</span>
+            <span style={{ fontSize: '11px', color: '#96918a' }}>{state.year}年</span>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+            <span style={{ color: '#c85046' }}><i className="fa-solid fa-khanda" style={{ marginRight: '3px' }}></i>{tl.battles_fought} 战斗</span>
+            <span style={{ color: '#5ab464' }}><i className="fa-solid fa-person-military-rifle" style={{ marginRight: '3px' }}></i>{tl.armies_moved} 行军</span>
+            {tl.cities_captured.length > 0 && (
+              <span style={{ color: '#d4a84b' }}><i className="fa-solid fa-chess-rook" style={{ marginRight: '3px' }}></i>{tl.cities_captured.length} 城陷</span>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

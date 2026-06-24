@@ -78,6 +78,31 @@ export interface HexTile {
   owner_city_id: string | null
 }
 
+export interface FactionRelation {
+  faction_a: string
+  faction_b: string
+  status: 'war' | 'neutral' | 'alliance' | 'truce'
+  trust: number
+  truce_end_turn?: number
+  alliance_end_turn?: number
+}
+
+export interface DiplomacyMessage {
+  id: string
+  from_faction: string
+  to_faction: string
+  content: string
+  turn: number
+  is_read: boolean
+}
+
+export interface TurnLog {
+  turn: number
+  battles_fought: number
+  armies_moved: number
+  cities_captured: string[]
+}
+
 export interface GameState {
   turn: number
   max_turns: number
@@ -96,6 +121,9 @@ export interface GameState {
     height: number
     tiles: HexTile[]
   }
+  faction_relations?: FactionRelation[]
+  messages?: DiplomacyMessage[]
+  turn_logs?: TurnLog[]
 }
 
 export interface WebSocketMessage {

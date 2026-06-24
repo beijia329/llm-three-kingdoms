@@ -23,8 +23,14 @@ export function useGame(): UseGameReturn {
     const ws = new WebSocket(WS_URL)
     wsRef.current = ws
 
-    ws.onopen = () => setConnected(true)
-    ws.onclose = () => setConnected(false)
+    ws.onopen = () => {
+      setConnected(true)
+      ;(window as any).__gameWS = ws
+    }
+    ws.onclose = () => {
+      setConnected(false)
+      ;(window as any).__gameWS = null
+    }
     ws.onerror = (err) => console.error('WebSocket error:', err)
 
     ws.onmessage = (event) => {
