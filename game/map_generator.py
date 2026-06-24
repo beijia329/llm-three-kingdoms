@@ -153,6 +153,12 @@ class MapGenerator:
         sea_level: float = 0.40
         land_mask = self._make_land(height_map, width, height, sea_level)
 
+        # 水域不分配省界（内陆湖/近海仅地形色，不归属任何州）
+        province_map = {
+            k: v for k, v in province_map.items()
+            if land_mask[k[1]][k[0]]
+        }
+
         # Step 3: 温度带映射
         temp_map = self._assign_temperature_band(height_map, land_mask, width, height)
 
@@ -480,6 +486,7 @@ class MapGenerator:
 
                 if in_china:
                     result[r][q] = h
+                    province_map[(q, r)] = ancient_id
                 else:
                     result[r][q] = 0.0  # 境外 → 水域
 

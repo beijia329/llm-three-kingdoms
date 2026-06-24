@@ -105,10 +105,8 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       for (let r = -FOG_MARGIN; r < hh + FOG_MARGIN; r++) {
         const key = `${q},${r}`
         const tile = tileMap.get(key)
-        // 境外 = 超出网格 或 水域且无 province
-        const isOutside = q < 0 || q >= hw || r < 0 || r >= hh ||
-          (tile && tile.province_id === null &&
-           (tile.terrain === 'water' || tile.terrain === 'deep_water'))
+        // 境外 = 仅超出网格的虚拟格（网格内一律用地形色）
+        const isOutside = q < 0 || q >= hw || r < 0 || r >= hh
         if (isOutside) {
           const { x: fx, y: fy } = axialToPixel({ q, r }, HEX_SIZE)
           fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x888c94)
