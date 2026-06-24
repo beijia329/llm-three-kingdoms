@@ -74,6 +74,121 @@ def test_tile_terrain_types():
     assert TerrainType.DESERT in terrains
 
 
+class TestFifteenTerrainTypes:
+    """15 种地形类型扩展测试（Phase 1 地图生成器）"""
+
+    ALL_15_TERRAINS = [
+        "grass", "grassland", "plain", "forest", "dense_forest",
+        "hill", "mountain", "peak", "desert", "marsh",
+        "tundra", "snow", "water", "deep_water", "river",
+    ]
+
+    def test_all_15_terrains_exist_in_enum(self):
+        """全部 15 种地形枚举值应存在且字符串值一致"""
+        for name in self.ALL_15_TERRAINS:
+            member = getattr(TerrainType, name.upper(), None)
+            assert member is not None, f"TerrainType.{name.upper()} missing"
+            assert member.value == name, (
+                f"TerrainType.{name.upper()}.value should be '{name}', "
+                f"got '{member.value}'"
+            )
+
+    def test_terrain_type_count(self):
+        """枚举成员数应为 15"""
+        assert len(list(TerrainType)) == 15
+
+    def test_grass_variants(self):
+        """grassy 类地形应有区分"""
+        assert TerrainType.GRASS.value == "grass"
+        assert TerrainType.GRASSLAND.value == "grassland"
+        assert TerrainType.PLAIN.value == "plain"
+        assert TerrainType.GRASS != TerrainType.GRASSLAND
+
+    def test_forest_variants(self):
+        """森林类地形应有区分"""
+        assert TerrainType.FOREST.value == "forest"
+        assert TerrainType.DENSE_FOREST.value == "dense_forest"
+        assert TerrainType.FOREST != TerrainType.DENSE_FOREST
+
+    def test_elevation_variants(self):
+        """海拔类地形应有完整梯度"""
+        assert TerrainType.HILL.value == "hill"
+        assert TerrainType.MOUNTAIN.value == "mountain"
+        assert TerrainType.PEAK.value == "peak"
+
+    def test_cold_variants(self):
+        """寒冷类地形应有区分"""
+        assert TerrainType.TUNDRA.value == "tundra"
+        assert TerrainType.SNOW.value == "snow"
+
+    def test_water_variants(self):
+        """水域地形应有区分"""
+        assert TerrainType.WATER.value == "water"
+        assert TerrainType.DEEP_WATER.value == "deep_water"
+        assert TerrainType.RIVER.value == "river"
+
+
+class TestIsPassable:
+    """is_passable() 15 种地形通行规则测试"""
+
+    def _tile_with(self, terrain: TerrainType) -> Tile:
+        return Tile(coord=HexCoord(0, 0), terrain=terrain)
+
+    def test_plain_traversable(self):
+        """草地/平原/草原均可通行"""
+        for t in (TerrainType.GRASS, TerrainType.GRASSLAND, TerrainType.PLAIN):
+            assert self._tile_with(t).is_passable() is True, (
+                f"{t.value} should be passable"
+            )
+
+    def test_forest_traversable(self):
+        """森林均可通行（但移动消耗高）"""
+        for t in (TerrainType.FOREST, TerrainType.DENSE_FOREST):
+            assert self._tile_with(t).is_passable() is True, (
+                f"{t.value} should be passable"
+            )
+
+    def test_hill_traversable(self):
+        """丘陵可通行"""
+        assert self._tile_with(TerrainType.HILL).is_passable() is True
+
+    def test_mountain_impassable(self):
+        """山脉不可通行"""
+        assert self._tile_with(TerrainType.MOUNTAIN).is_passable() is False
+
+    def test_peak_impassable(self):
+        """山峰不可通行"""
+        assert self._tile_with(TerrainType.PEAK).is_passable() is False
+
+    def test_water_impassable(self):
+        """水域不可通行（陆地行军视角）"""
+        assert self._tile_with(TerrainType.WATER).is_passable() is False
+
+    def test_deep_water_impassable(self):
+        """深海不可通行"""
+        assert self._tile_with(TerrainType.DEEP_WATER).is_passable() is False
+
+    def test_river_passable(self):
+        """河流可通行但减速"""
+        assert self._tile_with(TerrainType.RIVER).is_passable() is True
+
+    def test_desert_passable(self):
+        """沙漠可通行"""
+        assert self._tile_with(TerrainType.DESERT).is_passable() is True
+
+    def test_marsh_passable(self):
+        """沼泽可通行"""
+        assert self._tile_with(TerrainType.MARSH).is_passable() is True
+
+    def test_tundra_passable(self):
+        """冻土可通行"""
+        assert self._tile_with(TerrainType.TUNDRA).is_passable() is True
+
+    def test_snow_passable(self):
+        """雪地可通行"""
+        assert self._tile_with(TerrainType.SNOW).is_passable() is True
+
+
 def test_tile_elevation_default():
     """海拔默认为 0"""
     tile = Tile(coord=HexCoord(0, 0), terrain=TerrainType.PLAIN)

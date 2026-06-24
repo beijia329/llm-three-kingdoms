@@ -14,14 +14,23 @@ from game.hex_grid import HexCoord
 
 
 class TerrainType(str, Enum):
-    """地形类型枚举"""
+    """地形类型枚举（15 种，Phase 1 地图生成器）"""
 
+    GRASS = "grass"
+    GRASSLAND = "grassland"
     PLAIN = "plain"
     FOREST = "forest"
+    DENSE_FOREST = "dense_forest"
     HILL = "hill"
     MOUNTAIN = "mountain"
-    RIVER = "river"
+    PEAK = "peak"
     DESERT = "desert"
+    MARSH = "marsh"
+    TUNDRA = "tundra"
+    SNOW = "snow"
+    WATER = "water"
+    DEEP_WATER = "deep_water"
+    RIVER = "river"
 
 
 class Tile(BaseModel):
@@ -62,5 +71,17 @@ class Tile(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def is_passable(self) -> bool:
-        """判断该地块军队是否可以通行"""
-        return self.terrain != TerrainType.MOUNTAIN
+        """判断该地块军队是否可以通行
+
+        不可通行的地形：
+        - MOUNTAIN / PEAK：山脉/山峰
+        - WATER / DEEP_WATER：水域（陆地行军视角）
+
+        RIVER 可通行但减速（移动成本在常量中定义）。
+        """
+        return self.terrain not in (
+            TerrainType.MOUNTAIN,
+            TerrainType.PEAK,
+            TerrainType.WATER,
+            TerrainType.DEEP_WATER,
+        )
