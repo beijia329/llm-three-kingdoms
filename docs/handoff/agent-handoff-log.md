@@ -348,6 +348,19 @@ Phase 1 目标：扩展地形数据模型（6→15 种） + 实现基本地图�
 - **方向向量**：pointy-topped axial 坐标映射
 - **测试结果**：477 单元测试全部通过
 
+### MapGenerator 接入 GameEngine（同日）
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `game/engine.py` | 修改 | `_init_hex_map()` 改用 MapGenerator 替代静态 JSON；新增 `_find_nearest_passable()` |
+| `tests/unit/test_engine.py` | 修改 | +4 项集成测试；城市坐标更新为主大陆位置 |
+| `施工指南.md` | 修改 | 新增接入日志 |
+
+- **生成管线**：`MapGenerator(rng=self.rng).generate(120, 90)` → 15 种地形的地图
+- **城市安全**：BFS 搜索最近可通行格，确保城市不在水/山/峰上
+- **确定性**：`GameEngine(seed=42)` → 完全相同的地图
+- **测试结果**：487 单元 + 集成测试全部通过
+
 ### 下阶段 Phase 2
 
 - Voronoi 大陆形状（自然海岸线）
