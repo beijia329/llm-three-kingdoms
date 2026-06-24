@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LLM三国志 Web 启动器
+"""乱斗三国 Web 启动器
 
 一键启动后端 FastAPI 与前端 Vite 开发服务器，并自动打开浏览器。
 
@@ -31,7 +31,7 @@ FRONTEND_URL = f"http://localhost:{FRONTEND_PORT}"
 
 def parse_args() -> argparse.Namespace:
     """解析命令行参数"""
-    parser = argparse.ArgumentParser(description="启动 LLM三国志 Web 服务")
+    parser = argparse.ArgumentParser(description="启动 乱斗三国 Web 服务")
     parser.add_argument("--seed", type=int, default=42, help="随机种子")
     parser.add_argument("--max-turns", type=int, default=192, help="最大回合数")
     parser.add_argument("--mode", choices=["standard", "infinite"], default="standard", help="游戏模式")
@@ -139,7 +139,7 @@ def main() -> None:
 
     print("")
     print("=" * 50)
-    print("  LLM三国志 Web 服务已启动")
+    print("  乱斗三国 Web 服务已启动")
     print("=" * 50)
     print(f"  后端: http://localhost:{BACKEND_PORT}")
     if not args.no_frontend:

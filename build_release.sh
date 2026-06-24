@@ -1,5 +1,5 @@
 #!/bin/bash
-# LLM三国志 v2.2 发布包构建脚本
+# 乱斗三国 v2.2 发布包构建脚本
 # 用法: bash build_release.sh
 set -e
 
@@ -9,10 +9,10 @@ VERSION="2.2.0"
 RELEASE_NAME="${PROJECT}-v${VERSION}"
 RELEASE_DIR="$SCRIPT_DIR/release"
 DIST_DIR="$RELEASE_DIR/$RELEASE_NAME"
-APP_NAME="LLM三国志"
+APP_NAME="乱斗三国"
 
 echo "========================================"
-echo "  LLM三国志 v${VERSION} 发布包构建"
+echo "  乱斗三国 v${VERSION} 发布包构建"
 echo "========================================"
 echo ""
 
@@ -59,9 +59,11 @@ cat > "$APP_DIR/Contents/Info.plist" << 'PLIST'
     <key>CFBundleIdentifier</key>
     <string>com.llm-sanguo.launcher</string>
     <key>CFBundleName</key>
-    <string>LLM三国志</string>
+    <string>乱斗三国</string>
     <key>CFBundleDisplayName</key>
-    <string>LLM三国志</string>
+    <string>乱斗三国</string>
+    <key>CFBundleIconFile</key>
+    <string>app_icon</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -96,7 +98,7 @@ fi
 
 # 首次运行：安装依赖
 if [ ! -d "$VENV_DIR" ]; then
-    osascript -e 'display notification "首次启动，正在安装依赖..." with title "LLM三国志" subtitle "约需 1-2 分钟"'
+    osascript -e 'display notification "首次启动，正在安装依赖..." with title "乱斗三国" subtitle "约需 1-2 分钟"'
     
     PYTHON=""
     for py in python3.12 python3.11 python3.10 python3; do
@@ -107,7 +109,7 @@ if [ ! -d "$VENV_DIR" ]; then
     done
     
     if [ -z "$PYTHON" ]; then
-        osascript -e 'display dialog "需要 Python 3.10+\n\n安装方法:\n  brew install python@3.12" with title "LLM三国志" buttons {"OK"} default button "OK" with icon stop'
+        osascript -e 'display dialog "需要 Python 3.10+\n\n安装方法:\n  brew install python@3.12" with title "乱斗三国" buttons {"OK"} default button "OK" with icon stop'
         exit 1
     fi
     
@@ -119,14 +121,14 @@ if [ ! -d "$VENV_DIR" ]; then
         while kill -0 $PIP_PID 2>/dev/null; do sleep 2; done
         wait $PIP_PID
         if [ $? -eq 0 ]; then
-            osascript -e 'display notification "安装完成，正在启动..." with title "LLM三国志"'
+            osascript -e 'display notification "安装完成，正在启动..." with title "乱斗三国"'
             cd "$PROJECT_DIR"
             nohup "$VENV_DIR/bin/python" -m uvicorn api.server:app --host 0.0.0.0 --port $PORT --log-level warning > "$LOG_FILE" 2>&1 &
             echo $! > "$PID_FILE"
             sleep 2
             open "http://localhost:$PORT"
         else
-            osascript -e 'display dialog "依赖安装失败，请检查网络连接后重试" with title "LLM三国志" buttons {"OK"} with icon stop'
+            osascript -e 'display dialog "依赖安装失败，请检查网络连接后重试" with title "乱斗三国" buttons {"OK"} with icon stop'
             rm -rf "$VENV_DIR"
         fi
     ) &
@@ -155,6 +157,9 @@ open "http://localhost:$PORT"
 LAUNCHER
 chmod +x "$APP_DIR/Contents/MacOS/launcher"
 
+# 复制图标
+cp "$SCRIPT_DIR/assets/app_icon.icns" "$APP_DIR/Contents/Resources/app_icon.icns"
+
 # 把项目文件复制进 App 内
 echo "[5/6] 打包项目文件到 App..."
 mkdir -p "$APP_DIR/Contents/project"
@@ -171,10 +176,10 @@ rm -rf "$DIST_DIR/game" "$DIST_DIR/players" "$DIST_DIR/renderer" \
 
 # 创建简单的启动说明
 cat > "$DIST_DIR/使用说明.txt" << 'README'
-LLM三国志 v2.2 — 使用方法
+乱斗三国 v2.2 — 使用方法
 ============================
 
-【macOS】双击 LLM三国志.app
+【macOS】双击 乱斗三国.app
   - 首次启动自动安装 Python 依赖（1-2分钟）
   - 之后双击秒开，浏览器自动打开
 
@@ -206,5 +211,5 @@ echo "  大小: $SIZE"
 echo ""
 echo "  使用方法:"
 echo "    unzip ${RELEASE_NAME}.zip"
-echo "    双击 LLM三国志.app"
+echo "    双击 乱斗三国.app"
 echo "========================================"

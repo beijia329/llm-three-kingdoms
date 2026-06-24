@@ -110,7 +110,7 @@ def hex_to_rgb(hex_color: str) -> tuple:
 class GameRenderer:
     """文明风格游戏渲染器"""
 
-    def __init__(self, engine: GameEngine, title: str = "LLM三国志") -> None:
+    def __init__(self, engine: GameEngine, title: str = "乱斗三国") -> None:
         """初始化渲染器
 
         Args:

@@ -1,10 +1,10 @@
 #!/bin/bash
-# LLM三国志 v2.2 — 构建 macOS 自安装 .app
+# 乱斗三国 v2.2 — 构建 macOS 自安装 .app
 # 首次双击自动 pip install，之后点击即玩
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="LLM三国志"
+APP_NAME="乱斗三国"
 APP_DIR="$SCRIPT_DIR/release/${APP_NAME}.app"
 VENV_DIR="$HOME/.llm-sanguo/venv"
 PROJECT_DIR="$SCRIPT_DIR"
@@ -34,9 +34,11 @@ cat > "$APP_DIR/Contents/Info.plist" << 'PLIST'
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>LLM三国志</string>
+    <string>乱斗三国</string>
     <key>CFBundleDisplayName</key>
-    <string>LLM三国志</string>
+    <string>乱斗三国</string>
+    <key>CFBundleIconFile</key>
+    <string>app_icon</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -58,7 +60,7 @@ PLIST
 # ============================================================
 cat > "$APP_DIR/Contents/MacOS/launcher" << 'LAUNCHER'
 #!/bin/bash
-# LLM三国志 自安装启动器
+# 乱斗三国 自安装启动器
 # - 首次运行：创建 venv + pip install（显示进度）
 # - 后续运行：直接启动（秒开）
 set -e
@@ -72,7 +74,7 @@ PORT=8000
 
 # ---- 检测已有实例 ----
 if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
-    osascript -e 'display notification "服务器已在运行中" with title "LLM三国志" subtitle "http://localhost:'$PORT'"'
+    osascript -e 'display notification "服务器已在运行中" with title "乱斗三国" subtitle "http://localhost:'$PORT'"'
     open "http://localhost:$PORT"
     exit 0
 fi
@@ -80,7 +82,7 @@ fi
 # ---- 首次运行：安装依赖 ----
 if [ ! -d "$VENV_DIR" ]; then
     # 用 osascript 显示进度对话框
-    osascript -e 'display notification "首次启动，正在安装依赖..." with title "LLM三国志" subtitle "约需 1-2 分钟"'
+    osascript -e 'display notification "首次启动，正在安装依赖..." with title "乱斗三国" subtitle "约需 1-2 分钟"'
     
     # 查找系统 Python 3
     PYTHON=""
@@ -92,7 +94,7 @@ if [ ! -d "$VENV_DIR" ]; then
     done
     
     if [ -z "$PYTHON" ]; then
-        osascript -e 'display dialog "需要 Python 3.10+\n\n请先安装: brew install python@3.12" with title "LLM三国志" buttons {"OK"} default button "OK" with icon stop'
+        osascript -e 'display dialog "需要 Python 3.10+\n\n请先安装: brew install python@3.12" with title "乱斗三国" buttons {"OK"} default button "OK" with icon stop'
         exit 1
     fi
     
@@ -109,7 +111,7 @@ if [ ! -d "$VENV_DIR" ]; then
             sleep 2
         done
         # 安装完成，启动服务
-        osascript -e 'display notification "依赖安装完成，正在启动..." with title "LLM三国志"'
+        osascript -e 'display notification "依赖安装完成，正在启动..." with title "乱斗三国"'
         "$VENV_DIR/bin/python" -m uvicorn api.server:app --host 0.0.0.0 --port $PORT --log-level warning &
         echo $! > "$PID_FILE"
         sleep 2
@@ -144,12 +146,15 @@ done
 # 打开浏览器
 open "http://localhost:$PORT"
 
-osascript -e 'display notification "服务已启动" with title "LLM三国志" subtitle "http://localhost:'$PORT'"'
+osascript -e 'display notification "服务已启动" with title "乱斗三国" subtitle "http://localhost:'$PORT'"'
 LAUNCHER
 
 # 替换项目路径
 sed -i '' "s|__PROJECT_DIR__|$PROJECT_DIR|g" "$APP_DIR/Contents/MacOS/launcher"
 chmod +x "$APP_DIR/Contents/MacOS/launcher"
+
+# 复制图标
+cp "$SCRIPT_DIR/assets/app_icon.icns" "$APP_DIR/Contents/Resources/app_icon.icns"
 
 # ============================================================
 # 3. 复制到桌面

@@ -12,7 +12,7 @@ export function TopBar({ state, connected }: TopBarProps) {
       <div style={styles.container}>
         <span style={styles.title}>
           <i className="fa-solid fa-dragon" style={{ marginRight: '8px', color: '#d4a84b' }}></i>
-          LLM三国志 - 加载中...
+          乱斗三国 - 加载中...
         </span>
       </div>
     )

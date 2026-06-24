@@ -40,8 +40,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="LLM三国志 Web 服务",
-    description="为 LLM三国志 提供 WebSocket 游戏状态流与 REST API",
+    title="乱斗三国 Web 服务",
+    description="为 乱斗三国 提供 WebSocket 游戏状态流与 REST API",
     version="2.2.0",
     lifespan=lifespan,
 )
@@ -197,7 +197,7 @@ else:
     @app.get("/")
     async def root() -> Dict[str, Any]:
         return {
-            "message": "LLM三国志 Web 服务运行中",
+            "message": "乱斗三国 Web 服务运行中",
             "docs": "/docs",
             "state": "/api/state",
         }

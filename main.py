@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LLM三国志 - 程序入口
+"""乱斗三国 - 程序入口
 
 运行方式：
     python main.py                          # CLI自动对战
@@ -41,7 +41,7 @@ logger = logging.getLogger("main")
 def parse_args() -> argparse.Namespace:
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description="LLM三国志 - 多模型策略对战平台"
+        description="乱斗三国 - 多模型策略对战平台"
     )
     parser.add_argument(
         "--mode",
@@ -74,7 +74,7 @@ def run_ai_vs_ai(
         model: LLM模型名称
         api_key: API密钥
     """
-    title = "LLM三国志 - LLM vs CLI 对战" if use_llm else "LLM三国志 - AI vs AI 自动对战"
+    title = "乱斗三国 - LLM vs CLI 对战" if use_llm else "乱斗三国 - AI vs AI 自动对战"
     print("=" * 60)
     print(f"  {title}")
     print("=" * 60)
@@ -202,9 +202,9 @@ def run_gui_mode(
             players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
 
     if human_faction and human_faction in FACTIONS:
-        title = f"LLM三国志 — 扮演{FACTIONS[human_faction]}"
+        title = f"乱斗三国 — 扮演{FACTIONS[human_faction]}"
     else:
-        title = "LLM三国志 — 184年黄巾之乱"
+        title = "乱斗三国 — 184年黄巾之乱"
     
     from renderer.game_renderer import GameRenderer
     renderer = GameRenderer(engine, title=title)
@@ -251,7 +251,7 @@ def run_infinite_mode(
             players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
 
     from renderer.game_renderer import GameRenderer
-    renderer = GameRenderer(engine, title="LLM三国志 - 无限模式")
+    renderer = GameRenderer(engine, title="乱斗三国 - 无限模式")
     renderer.run(players=players, auto_run=True)
 
 
