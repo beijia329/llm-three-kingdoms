@@ -85,95 +85,89 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     const camera = pixiCameraRef.current
     camera.removeChildren()
 
-    // 1. 绘制地块
-    const tilesGraphics = new Graphics()
+    // === 渲染层 ===
+    // 构建 tileMap + coords
     const tileMap = new Map<string, { terrain: string; faction: string | null; province_id: string | null }>()
     const coords = new Set<string>()
-
     state.hex_map?.tiles?.forEach((t: HexCoord & { terrain: string; faction: string | null; province_id: string | null }) => {
-      const key = `${t.q},${t.r}`
-      tileMap.set(key, { terrain: t.terrain, faction: t.faction, province_id: t.province_id })
-      coords.add(key)
+      const key = `${t.q},${t.r}`; tileMap.set(key, { terrain: t.terrain, faction: t.faction, province_id: t.province_id }); coords.add(key)
     })
-
     Object.values(state.cities).forEach((c) => coords.add(`${c.position.q},${c.position.r}`))
-    Object.values(state.armies).forEach((a) => {
-      if (a.current_hex) coords.add(`${a.current_hex.q},${a.current_hex.r}`)
-    })
+    Object.values(state.armies).forEach((a) => { if (a.current_hex) coords.add(`${a.current_hex.q},${a.current_hex.r}`) })
 
+    // 0. 未探索外围（中国境外灰色迷雾）
+    const fogGraphics = new Graphics()
+    const hw = state.hex_map?.width || 120
+    const hh = state.hex_map?.height || 90
+    for (let q = 0; q < hw; q++) {
+      for (let r = 0; r < hh; r++) {
+        const key = `${q},${r}`
+        if (!coords.has(key)) {
+          const { x: fx, y: fy } = axialToPixel({ q, r }, HEX_SIZE)
+          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x2a2a3a)
+        }
+      }
+    }
+    camera.addChild(fogGraphics)
+
+    // 1. 地块（势力色为主，地形微调）
+    const tilesGraphics = new Graphics()
     coords.forEach((key) => {
       const [q, r] = key.split(',').map(Number)
       const coord: HexCoord = { q, r }
-      const { x, y } = axialToPixel(coord, HEX_SIZE)
       const tile = tileMap.get(key)
       const terrain = tile?.terrain || 'plain'
       const provinceId = tile?.province_id || null
+      const faction = tile?.faction || getFactionAt(state, coord)
+      const { x, y } = axialToPixel(coord, HEX_SIZE)
       const points = hexPoints(x, y, HEX_SIZE)
 
-      // 基础色：州郡颜色（统一板块），无州郡则用地形色
+      // 基础色：势力色优先，无势力则用州郡色，否则地形色
       let fill: number
-      if (provinceId && state.provinces?.[provinceId]?.color) {
-        fill = hexToNumber(state.provinces[provinceId].color)
-        // 地形微调：亮度偏移（保持州郡统一感）
-        const terrainBrightness = getTerrainBrightness(terrain)
-        fill = adjustBrightness(fill, terrainBrightness)
-      } else {
-        const colors = TERRAIN_COLORS[terrain] || TERRAIN_COLORS.plain
-        fill = colors.fill
-      }
-
-      // 势力着色
-      const faction = tile?.faction || getFactionAt(state, coord)
       if (faction && faction !== 'neutral') {
-        fill = blendColor(fill, hexToNumber(factionColor(faction)), 0.35)
+        fill = hexToNumber(factionColor(faction))
+        fill = adjustBrightness(fill, getTerrainBrightness(terrain))
+      } else if (provinceId && state.provinces?.[provinceId]?.color) {
+        fill = hexToNumber(state.provinces[provinceId].color)
+        fill = adjustBrightness(fill, getTerrainBrightness(terrain))
+      } else {
+        fill = (TERRAIN_COLORS[terrain] || TERRAIN_COLORS.plain).fill
       }
-
       tilesGraphics.poly(points).fill(fill)
     })
-
     camera.addChild(tilesGraphics)
 
-    // 2. 绘制势力边界
-    const borderGraphics = new Graphics()
-    const drawnEdges = new Set<string>()
+    // 2. 势力边界（最粗，势力色）
+    const factionBorderGraphics = new Graphics()
+    const drawnFactionEdges = new Set<string>()
     coords.forEach((key) => {
       const [q, r] = key.split(',').map(Number)
       const coord: HexCoord = { q, r }
       const tile = tileMap.get(key)
       const faction = tile?.faction || getFactionAt(state, coord)
       if (!faction || faction === 'neutral') return
-
-      const neighbors = hexNeighbors(coord)
-      neighbors.forEach((nb) => {
+      hexNeighbors(coord).forEach((nb) => {
         const nbKey = `${nb.q},${nb.r}`
         if (!coords.has(nbKey)) return
-        const nbTile = tileMap.get(nbKey)
-        const nbFaction = nbTile?.faction || getFactionAt(state, nb)
+        const nbFaction = tileMap.get(nbKey)?.faction || getFactionAt(state, nb)
         if (nbFaction === faction) return
-
         const edgeKey = [key, nbKey].sort().join('|')
-        if (drawnEdges.has(edgeKey)) return
-        drawnEdges.add(edgeKey)
-
+        if (drawnFactionEdges.has(edgeKey)) return
+        drawnFactionEdges.add(edgeKey)
         const p1 = axialToPixel(coord, HEX_SIZE)
         const p2 = axialToPixel(nb, HEX_SIZE)
-        const mx = (p1.x + p2.x) / 2
-        const my = (p1.y + p2.y) / 2
-        const dx = p2.x - p1.x
-        const dy = p2.y - p1.y
-        const len = Math.sqrt(dx * dx + dy * dy) || 1
-        const nx = (-dy / len) * HEX_SIZE * 0.55
-        const ny = (dx / len) * HEX_SIZE * 0.55
-
-        borderGraphics
-          .moveTo(mx + nx, my + ny)
-          .lineTo(mx - nx, my - ny)
-          .stroke({ color: hexToNumber(factionColor(faction)), width: 3 })
+        const mx = (p1.x + p2.x) / 2; const my = (p1.y + p2.y) / 2
+        const dx = p2.x - p1.x; const dy = p2.y - p1.y
+        const len = Math.sqrt(dx*dx+dy*dy) || 1
+        const nx = (-dy/len) * HEX_SIZE * 0.55
+        const ny = (dx/len) * HEX_SIZE * 0.55
+        factionBorderGraphics.moveTo(mx+nx, my+ny).lineTo(mx-nx, my-ny)
+          .stroke({ color: hexToNumber(factionColor(faction)), width: 5 })
       })
     })
-    camera.addChild(borderGraphics)
+    camera.addChild(factionBorderGraphics)
 
-    // 3. 绘制 Province 边界
+    // 3. 州郡边界（中等粗细，淡金色虚线感）
     const provinceGraphics = new Graphics()
     const provinceHexes: Record<string, HexCoord[]> = {}
     coords.forEach((key) => {
@@ -184,75 +178,72 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
         provinceHexes[tile.province_id].push({ q, r })
       }
     })
-
-    const provinceColor = 0xd4c090 // 亮金色（更明显）
     Object.values(provinceHexes).forEach((hexList) => {
       const coordSet = new Set(hexList.map((h) => `${h.q},${h.r}`))
       hexList.forEach((c) => {
         const { x: cx, y: cy } = axialToPixel(c, HEX_SIZE)
-        const hPoints = hexPoints(cx, cy, HEX_SIZE)
+        const hPts = hexPoints(cx, cy, HEX_SIZE)
         for (let i = 0; i < 6; i++) {
-          const nbQ = c.q + [1, 1, 0, -1, -1, 0][i]
-          const nbR = c.r + [0, -1, -1, 0, 1, 1][i]
+          const nbQ = c.q + [1,1,0,-1,-1,0][i]; const nbR = c.r + [0,-1,-1,0,1,1][i]
           if (!coordSet.has(`${nbQ},${nbR}`)) {
-            const x1 = hPoints[i * 2]
-            const y1 = hPoints[i * 2 + 1]
-            const x2 = hPoints[((i + 1) % 6) * 2]
-            const y2 = hPoints[((i + 1) % 6) * 2 + 1]
-            provinceGraphics
-              .moveTo(x1, y1)
-              .lineTo(x2, y2)
-              .stroke({ color: provinceColor, width: 3 })
+            const x1 = hPts[i*2]; const y1 = hPts[i*2+1]
+            const x2 = hPts[((i+1)%6)*2]; const y2 = hPts[((i+1)%6)*2+1]
+            // 虚线效果：分段绘制
+            const segs = 3
+            for (let s = 0; s < segs; s++) {
+              const t0 = s / segs; const t1 = (s + 0.6) / segs
+              provinceGraphics.moveTo(x1+(x2-x1)*t0, y1+(y2-y1)*t0)
+                .lineTo(x1+(x2-x1)*t1, y1+(y2-y1)*t1)
+                .stroke({ color: 0xc8b878, width: 2, alpha: 0.7 })
+            }
           }
         }
       })
     })
     camera.addChild(provinceGraphics)
 
-    // 3.5 州郡名称标注
-    const labelGraphics = new Graphics()
-    const labelTexts: { x: number; y: number; text: string; isCity: boolean }[] = []
-    // 州名：计算每个 province 的中心
+    // 4. 标注层次：州名（大） > 城名（中） > 势力名（旗标）
     Object.entries(provinceHexes).forEach(([provId, hexList]) => {
       if (hexList.length === 0) return
       const cx = hexList.reduce((s, h) => s + axialToPixel(h, HEX_SIZE).x, 0) / hexList.length
       const cy = hexList.reduce((s, h) => s + axialToPixel(h, HEX_SIZE).y, 0) / hexList.length
       const provName = state.provinces?.[provId]?.name || provId
-      labelTexts.push({ x: cx, y: cy, text: provName, isCity: false })
-    })
-    // 城名
-    Object.values(state.cities).forEach((city) => {
-      const { x, y } = axialToPixel(city.position, HEX_SIZE)
-      labelTexts.push({ x, y: y + HEX_SIZE * 1.2, text: city.name, isCity: true })
-    })
-    // 渲染标注
-    labelTexts.forEach(({ x, y, text, isCity }) => {
-      const fontSize = isCity ? 10 : 13
       const label = new Text({
-        text,
+        text: provName,
         style: new TextStyle({
-          fontSize,
-          fontFamily: 'Noto Sans SC, sans-serif',
-          fill: isCity ? 0xe8d8b0 : 0xfff8e0,
-          stroke: { color: 0x1a1a2e, width: isCity ? 2 : 3 },
-          fontWeight: isCity ? 'normal' : 'bold',
-          align: 'center',
+          fontSize: 16, fontFamily: 'Noto Sans SC, sans-serif',
+          fill: 0xe8d8a0, stroke: { color: 0x1a1a2e, width: 4 },
+          fontWeight: 'bold', align: 'center',
         }),
       })
-      label.anchor.set(0.5)
-      label.position.set(x, y)
+      label.anchor.set(0.5); label.position.set(cx, cy)
       camera.addChild(label)
     })
-    camera.addChild(labelGraphics)
+    Object.values(state.cities).forEach((city) => {
+      const { x, y } = axialToPixel(city.position, HEX_SIZE)
+      const faction = city.faction
+      const factionName = state.faction_stats?.[faction]?.name || ''
+      const label = new Text({
+        text: `⚔ ${city.name}`,
+        style: new TextStyle({
+          fontSize: 12, fontFamily: 'Noto Sans SC, sans-serif',
+          fill: 0xffffff, stroke: { color: 0x1a1a2e, width: 3 },
+          fontWeight: 'bold',
+        }),
+      })
+      label.anchor.set(0.5); label.position.set(x, y + HEX_SIZE * 1.3)
+      camera.addChild(label)
+    })
 
   }, [state])
 
-  // 中国版图像素边界（防止摄像机出界露出空白）
+  // 地图像素边界（包含未探索外围 10 格缓冲区）
+  const PAD = 10
   const CHINA_PIXEL_BOUNDS = {
-    xMin: -HEX_SIZE * 2,
-    xMax: HEX_SIZE * (Math.sqrt(3) * 119 + Math.sqrt(3) / 2 * 89) + HEX_SIZE * 2,
-    yMin: -HEX_SIZE * 2,
-    yMax: HEX_SIZE * (1.5 * 89) + HEX_SIZE * 2,
+    xMin: -HEX_SIZE * (2 + PAD),
+    xMax: HEX_SIZE * (Math.sqrt(3) * 119 + Math.sqrt(3) / 2 * 89) + HEX_SIZE * (2 + PAD),
+    yMin: -HEX_SIZE * (2 + PAD),
+    yMax: HEX_SIZE * (1.5 * 89) + HEX_SIZE * (2 + PAD),
   }
 
   const clampCamera = (cam: Camera, viewW: number, viewH: number): Camera => {
