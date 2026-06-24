@@ -5,20 +5,24 @@
  * 目标：建立统一的视觉语言，支撑未来素材替换
  */
 
-// === 势力色板 ===
+// === 势力色板（按 184 年初关系：联盟暖色系，对立冷/亮色系，无蓝） ===
 export const FACTION_COLORS: Record<string, string> = {
-  han: '#FFD700',
-  zhangjiao: '#FFD700',
-  dongzhuo: '#8B0000',
-  yuanshao: '#FF6600',
-  caocao: '#6b3020',
-  liubei: '#228B22',
-  sunjian: '#CC0000',
-  liubiao: '#8B6914',
-  liuyan: '#6B3FA0',
-  gongsunzan: '#d4c8a0',
-  mateng: '#4B0082',
-  yuanshu: '#C71585',
+  zhangjiao: '#FFD700',       // 黄巾 — 亮金（与全天下对立）
+  // 汉室联盟 — 暖色系（金/红/棕/绿）
+  han: '#DAA520',             // 汉室 — 深金
+  caocao: '#6b3020',          // 曹操 — 深红褐（汉室嫡系）
+  liubei: '#2d7a3a',          // 刘备 — 森林绿（仁德）
+  sunjian: '#8B2020',         // 孙坚 — 暗红（勇猛）
+  yuanshao: '#CC7733',        // 袁绍 — 铜橙（盟主）
+  gongsunzan: '#c4b090',      // 公孙瓒 — 米褐（北疆）
+  mateng: '#5a3070',          // 马腾 — 深紫（西凉，暖调）
+  // 董卓 — 冷暗（未来篡逆，与联盟对立）
+  dongzhuo: '#3a3040',
+  // 中立观望 — 中间色
+  liubiao: '#7a6040',         // 刘表 — 棕
+  liuyan: '#5a5070',          // 刘焉 — 灰紫
+  // 袁术 — 玫红（袁绍之弟，关联但对立）
+  yuanshu: '#b04060',
   neutral: '#666666',
 }
 
@@ -38,18 +42,18 @@ export const FACTIONS: Record<string, string> = {
 }
 
 export const FACTION_GLOW: Record<string, string> = {
-  han: 'rgba(255, 215, 0, 0.5)',
   zhangjiao: 'rgba(255, 215, 0, 0.5)',
-  dongzhuo: 'rgba(139, 0, 0, 0.5)',
-  yuanshao: 'rgba(255, 102, 0, 0.5)',
+  han: 'rgba(218, 165, 32, 0.5)',
   caocao: 'rgba(107, 48, 32, 0.5)',
-  liubei: 'rgba(34, 139, 34, 0.5)',
-  sunjian: 'rgba(204, 0, 0, 0.5)',
-  liubiao: 'rgba(139, 105, 20, 0.5)',
-  liuyan: 'rgba(107, 63, 160, 0.5)',
-  gongsunzan: 'rgba(212, 200, 160, 0.5)',
-  mateng: 'rgba(75, 0, 130, 0.5)',
-  yuanshu: 'rgba(199, 21, 133, 0.5)',
+  liubei: 'rgba(45, 122, 58, 0.5)',
+  sunjian: 'rgba(139, 32, 32, 0.5)',
+  yuanshao: 'rgba(204, 119, 51, 0.5)',
+  gongsunzan: 'rgba(196, 176, 144, 0.5)',
+  mateng: 'rgba(90, 48, 112, 0.5)',
+  dongzhuo: 'rgba(58, 48, 64, 0.5)',
+  liubiao: 'rgba(122, 96, 64, 0.5)',
+  liuyan: 'rgba(90, 80, 112, 0.5)',
+  yuanshu: 'rgba(176, 64, 96, 0.5)',
   neutral: 'rgba(102, 102, 102, 0.5)',
 }
 

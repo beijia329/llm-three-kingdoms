@@ -452,12 +452,12 @@ function cityRadius(level: number): number {
 
 function factionColor(faction: string): string {
   const colors: Record<string, string> = {
-    han: '#FFD700', zhangjiao: '#FFD700',
-    dongzhuo: '#8B0000', yuanshao: '#FF6600',
-    caocao: '#6b3020', liubei: '#228B22',
-    sunjian: '#CC0000', liubiao: '#8B6914',
-    liuyan: '#6B3FA0', gongsunzan: '#d4c8a0',
-    mateng: '#4B0082', yuanshu: '#C71585',
+    zhangjiao: '#FFD700', han: '#DAA520',
+    caocao: '#6b3020', liubei: '#2d7a3a',
+    sunjian: '#8B2020', yuanshao: '#CC7733',
+    gongsunzan: '#c4b090', mateng: '#5a3070',
+    dongzhuo: '#3a3040', liubiao: '#7a6040',
+    liuyan: '#5a5070', yuanshu: '#b04060',
     neutral: '#666666',
   }
   return colors[faction] || '#666666'
