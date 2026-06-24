@@ -308,17 +308,6 @@
     "location": "changsha"
   },
   {
-    "id": "sun_ce",
-    "name": "孙策",
-    "faction": "sunjian",
-    "command": 88,
-    "politics": 55,
-    "bravery": 94,
-    "intelligence": 65,
-    "loyalty": 95,
-    "location": "chai_sang"
-  },
-  {
     "id": "han_dang",
     "name": "韩当",
     "faction": "sunjian",
@@ -451,17 +440,6 @@
     "location": "wuwei"
   },
   {
-    "id": "ma_chao",
-    "name": "马超",
-    "faction": "mateng",
-    "command": 88,
-    "politics": 35,
-    "bravery": 95,
-    "intelligence": 50,
-    "loyalty": 90,
-    "location": "wuwei"
-  },
-  {
     "id": "pang_de",
     "name": "庞德",
     "faction": "mateng",
@@ -515,5 +493,93 @@
     "intelligence": 35,
     "loyalty": 70,
     "location": "shouchun"
+  },
+  {
+    "id": "dian_wei",
+    "name": "典韦",
+    "faction": "caocao",
+    "command": 78,
+    "politics": 25,
+    "bravery": 94,
+    "intelligence": 40,
+    "loyalty": 95,
+    "location": "xuchang"
+  },
+  {
+    "id": "xu_chu",
+    "name": "许褚",
+    "faction": "caocao",
+    "command": 76,
+    "politics": 20,
+    "bravery": 96,
+    "intelligence": 35,
+    "loyalty": 95,
+    "location": "chenliu"
+  },
+  {
+    "id": "guo_jia",
+    "name": "郭嘉",
+    "faction": "caocao",
+    "command": 45,
+    "politics": 60,
+    "bravery": 20,
+    "intelligence": 96,
+    "loyalty": 90,
+    "location": "xuchang"
+  },
+  {
+    "id": "xu_rong",
+    "name": "徐荣",
+    "faction": "dongzhuo",
+    "command": 82,
+    "politics": 40,
+    "bravery": 78,
+    "intelligence": 60,
+    "loyalty": 80,
+    "location": "tianshui"
+  },
+  {
+    "id": "niu_fu",
+    "name": "牛辅",
+    "faction": "dongzhuo",
+    "command": 68,
+    "politics": 35,
+    "bravery": 65,
+    "intelligence": 45,
+    "loyalty": 70,
+    "location": "tianshui"
+  },
+  {
+    "id": "ju_shou",
+    "name": "沮授",
+    "faction": "yuanshao",
+    "command": 50,
+    "politics": 92,
+    "bravery": 30,
+    "intelligence": 90,
+    "loyalty": 95,
+    "location": "yecheng"
+  },
+  {
+    "id": "shen_pei",
+    "name": "审配",
+    "faction": "yuanshao",
+    "command": 55,
+    "politics": 85,
+    "bravery": 35,
+    "intelligence": 82,
+    "loyalty": 92,
+    "location": "yecheng"
+  },
+  {
+    "id": "han_sui",
+    "name": "韩遂",
+    "faction": "mateng",
+    "command": 80,
+    "politics": 55,
+    "bravery": 82,
+    "intelligence": 62,
+    "loyalty": 75,
+    "location": "wuwei"
   }
 ]

@@ -172,7 +172,7 @@ class HexMapRenderer:
         camera_offset: Tuple[float, float] = (0, 0),
         camera_zoom: float = 1.0,
     ) -> None:
-        """渲染 1-3 层：省份底图、六角格地形、势力边界
+        """渲染 1-4 层：六角格地形+水域、势力填充、province边界、势力边界
 
         Args:
             surface: Pygame Surface
@@ -182,10 +182,7 @@ class HexMapRenderer:
         if pygame is None:
             return
 
-        # 1. 省份底图
-        self._draw_boundaries(surface, camera_offset, camera_zoom)
-
-        # 2. 六角格地形
+        # 1. 六角格地形 + 水域 + 势力填充
         sw = surface.get_width()
         sh = surface.get_height()
         margin = self.hex_size * camera_zoom * 2
@@ -205,6 +202,11 @@ class HexMapRenderer:
                 tile = self.hex_map.get_tile(HexCoord(q, r))
                 if tile is not None:
                     self._draw_hex(surface, tile, camera_offset, camera_zoom)
+                else:
+                    self._draw_water_hex(surface, HexCoord(q, r), camera_offset, camera_zoom)
+
+        # 2. Province 边界
+        self._draw_province_borders(surface, camera_offset, camera_zoom)
 
         # 3. 势力边界
         self._draw_faction_borders(surface, camera_offset, camera_zoom)
@@ -216,7 +218,7 @@ class HexMapRenderer:
         camera_offset: Tuple[float, float],
         camera_zoom: float,
     ) -> None:
-        """绘制单个六角格"""
+        """绘制单个六角格（含地形+势力填充+边框）"""
         if pygame is None:
             return
 
@@ -228,10 +230,90 @@ class HexMapRenderer:
         terrain_val = tile.terrain.value if hasattr(tile.terrain, 'value') else str(tile.terrain)
         color_cfg = self.colors.get(terrain_val, {})
         fill_color = self._hex_to_rgb(color_cfg.get("fill", "#888888"))
-        border_color = self._hex_to_rgb(color_cfg.get("border", "#555555"))
+        border_color = self._hex_to_rgb(color_cfg.get("border", "#3a3a3a"))
 
         pygame.draw.polygon(surface, fill_color, points)
-        pygame.draw.polygon(surface, border_color, points, 1)
+
+        # 势力领土填充（20% 透明度叠加）
+        if tile.faction and tile.faction != "neutral":
+            faction_hex = FACTION_COLORS.get(tile.faction, "#888888")
+            faction_rgb = self._hex_to_rgb(faction_hex)
+            faction_surf = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+            pygame.draw.polygon(faction_surf, (*faction_rgb, 50), points)
+            surface.blit(faction_surf, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+        pygame.draw.polygon(surface, border_color, points, max(1, int(2 * camera_zoom)))
+
+    def _draw_water_hex(
+        self,
+        surface: object,
+        coord: HexCoord,
+        camera_offset: Tuple[float, float],
+        camera_zoom: float,
+    ) -> None:
+        """绘制水域六角格（空白区域）"""
+        if pygame is None:
+            return
+        x, y = axial_to_pixel(coord, self.hex_size * camera_zoom)
+        x += camera_offset[0]
+        y += camera_offset[1]
+        points = self._hex_points(x, y, self.hex_size * camera_zoom)
+        water_color = (26, 42, 74)  # #1a2a4a 深蓝水域
+        pygame.draw.polygon(surface, water_color, points)
+
+    # ============================================================
+    # 第 2.5 层：Province 边界
+    # ============================================================
+
+    def _draw_province_borders(
+        self,
+        surface: object,
+        camera_offset: Tuple[float, float] = (0, 0),
+        camera_zoom: float = 1.0,
+    ) -> None:
+        """绘制州边界——同州 hex 外轮廓"""
+        if pygame is None:
+            return
+
+        # 收集每个 province 的 hex 坐标集合
+        province_hexes: Dict[str, List[HexCoord]] = {}
+        for tile in self.hex_map.iter_tiles():
+            if tile.province_id:
+                province_hexes.setdefault(tile.province_id, []).append(tile.coord)
+
+        for prov_id, coords in province_hexes.items():
+            if len(coords) < 2:
+                continue
+            coord_set = set(c.to_tuple() for c in coords)
+
+            # 收集外轮廓边：对于每个 hex，检查 6 个邻居，如果邻居不在同 province，则该边是边界
+            border_segments = []
+            for c in coords:
+                cx, cy = axial_to_pixel(c, self.hex_size * camera_zoom)
+                cx += camera_offset[0]
+                cy += camera_offset[1]
+                size = self.hex_size * camera_zoom
+                hex_pts = self._hex_points(cx, cy, size)
+
+                for i in range(6):
+                    nb_q = c.q + [1, 1, 0, -1, -1, 0][i]
+                    nb_r = c.r + [0, -1, -1, 0, 1, 1][i]
+                    if (nb_q, nb_r) not in coord_set:
+                        # 这条边是 province 边界
+                        p1 = hex_pts[i]
+                        p2 = hex_pts[(i + 1) % 6]
+                        border_segments.append((p1, p2))
+
+            if not border_segments:
+                continue
+
+            # 绘制边界线段
+            prov_color = (180, 170, 140)  # 淡金色 province 边界
+            for p1, p2 in border_segments:
+                try:
+                    pygame.draw.line(surface, prov_color, p1, p2, max(1, int(2 * camera_zoom)))
+                except Exception:
+                    pass
 
     # ============================================================
     # 第 3 层：势力边界
@@ -293,11 +375,12 @@ class HexMapRenderer:
         color_hex = FACTION_COLORS.get(faction, "#888888")
         color = self._hex_to_rgb(color_hex)
         try:
+            line_width = max(2, int(4 * camera_zoom))
             pygame.draw.line(
                 surface, color,
                 (mx + nx, my + ny),
                 (mx - nx, my - ny),
-                3,
+                line_width,
             )
         except Exception:
             pass

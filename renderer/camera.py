@@ -108,7 +108,7 @@ class Camera:
                 if pressed[1]:  # 中键
                     self.move(-event.rel[0], -event.rel[1])
                     return True
-                return True
+                return False
 
             # 键盘平移
             if event.type == pygame.KEYDOWN:

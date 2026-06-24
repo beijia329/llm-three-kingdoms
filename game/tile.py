@@ -48,6 +48,7 @@ class Tile(BaseModel):
     elevation: int = Field(default=0, ge=0, description="海拔")
 
     owner_city_id: Optional[str] = Field(default=None, description="归属城市ID")
+    province_id: Optional[str] = Field(default=None, description="所属州ID")
     faction: Optional[str] = Field(default=None, description="实际控制势力")
 
     gold_yield: float = Field(default=0.0, ge=0, description="金钱产出")

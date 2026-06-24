@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections import deque
 from typing import Dict, List, Optional
 
-from game.models import City
+from game.models import City, Province
 
 
 class MapSystem:
@@ -24,11 +24,13 @@ class MapSystem:
 
     Attributes:
         _cities: 城市ID到City对象的映射
+        _provinces: 州ID到Province对象的映射
         _adjacency: 邻接表，city_id -> 相邻city_id列表
     """
 
     def __init__(self) -> None:
         self._cities: Dict[str, City] = {}
+        self._provinces: Dict[str, Province] = {}
         self._adjacency: Dict[str, List[str]] = {}
 
     # ============================================================
@@ -223,3 +225,62 @@ class MapSystem:
         for city in self._cities.values():
             counts[city.faction] = counts.get(city.faction, 0) + 1
         return counts
+
+    # ============================================================
+    # 州郡管理
+    # ============================================================
+
+    def add_province(self, province: Province) -> None:
+        """添加一个州到地图系统
+
+        Args:
+            province: 州对象
+        """
+        self._provinces[province.id] = province
+
+    def get_province(self, province_id: str) -> Optional[Province]:
+        """获取州对象
+
+        Args:
+            province_id: 州ID
+
+        Returns:
+            州对象，不存在返回 None
+        """
+        return self._provinces.get(province_id)
+
+    def get_all_provinces(self) -> Dict[str, Province]:
+        """获取所有州
+
+        Returns:
+            州ID到州对象的映射
+        """
+        return dict(self._provinces)
+
+    def get_province_cities(self, province_id: str) -> List[str]:
+        """获取指定州的所有城市ID
+
+        Args:
+            province_id: 州ID
+
+        Returns:
+            该州下辖的城市ID列表
+        """
+        province = self._provinces.get(province_id)
+        if province:
+            return list(province.cities)
+        return []
+
+    def get_city_province(self, city_id: str) -> Optional[str]:
+        """获取城市所属州ID
+
+        Args:
+            city_id: 城市ID
+
+        Returns:
+            州ID，城市不存在或未分配州则返回 None
+        """
+        city = self._cities.get(city_id)
+        if city:
+            return city.province_id
+        return None

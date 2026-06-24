@@ -126,8 +126,8 @@ class GameRenderer:
 
         # 相机
         from renderer.camera import Camera
-        self.camera = Camera(x=-900, y=-500, zoom=0.3)
-        self.camera.min_zoom = 0.08
+        self.camera = Camera(x=-900, y=-500, zoom=0.6)
+        self.camera.min_zoom = 0.15
         self.camera.max_zoom = 1.5
         self.camera.pan_speed = 18
 
@@ -581,6 +581,10 @@ class GameRenderer:
                             self.add_event(f"⚔ {fname} 从 {cmd.from_city} 出兵 {cmd.troops} → {cmd.to_city}", COLOR_RED)
                         elif cmd.type == "message":
                             self.add_event(f"✉ {fname} → {FACTIONS.get(cmd.to, cmd.to)}: {str(cmd.content)[:30]}", COLOR_BLUE)
+                            # 推送外交消息给目标势力
+                            target_player = players.get(cmd.to)
+                            if target_player:
+                                target_player.receive_message(faction, str(getattr(cmd, 'content', '')))
                         elif cmd.type == "recruit":
                             self.add_event(f"🔧 {fname} {cmd.city} 征兵 {cmd.troops}", COLOR_GREEN)
 

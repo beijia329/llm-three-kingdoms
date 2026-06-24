@@ -54,11 +54,13 @@ from game.models import (
     General,
     GameObservation,
     GameState,
+    Province,
     TurnLog,
 )
 from game.random import GameRandom
 from game.systems.city_system import CitySystem
 from game.systems.diplomacy_system import DiplomacySystem
+from game.systems.diplomacy_relation import DiplomacyRelationSystem
 from game.systems.general_system import GeneralSystem
 from game.systems.map_system import MapSystem
 from game.systems.resource_system import ResourceSystem
@@ -136,6 +138,7 @@ class GameEngine:
         self.cities: Dict[str, City] = {}
         self.armies: Dict[str, Army] = {}
         self.generals: Dict[str, General] = {}
+        self.provinces: Dict[str, Province] = {}
 
         # 子系统
         self.map: MapSystem = MapSystem()
@@ -143,6 +146,7 @@ class GameEngine:
         self._resource_system: ResourceSystem = ResourceSystem()
         self._general_system: GeneralSystem = GeneralSystem(rng=self.rng)
         self._diplomacy_system: DiplomacySystem = DiplomacySystem(rng=self.rng)
+        self._diplomacy_relation_system: Optional[DiplomacyRelationSystem] = None
         self._army_movement: ArmyMovementSystem = ArmyMovementSystem()
         self._battle_scheduler: BattleScheduler = BattleScheduler(rng=self.rng)
         self._battle_resolver: BattleResolver = BattleResolver(rng=self.rng)
@@ -183,7 +187,26 @@ class GameEngine:
             general = General(**gen_data)
             self.generals[general.id] = general
 
-        # 3. 加载地图拓扑（确保双向连接）
+        # 3. 加载州数据
+        for prov_data in data.get("provinces", []):
+            province = Province(**prov_data)
+            self.provinces[province.id] = province
+            self.map.add_province(province)
+
+        # 填充每个州的城市列表
+        for city in self.cities.values():
+            if city.province_id and city.province_id in self.provinces:
+                if city.id not in self.provinces[city.province_id].cities:
+                    self.provinces[city.province_id].cities.append(city.id)
+
+        # 4. 将领分配到城市（填充 city.generals）
+        for general in self.generals.values():
+            loc = general.location
+            if loc in self.cities:
+                if general.id not in self.cities[loc].generals:
+                    self.cities[loc].generals.append(general.id)
+
+        # 5. 加载地图拓扑（确保双向连接）
         topology = data.get("map_topology", {})
         for city_id, neighbors in topology.items():
             if city_id in self.cities:
@@ -192,13 +215,17 @@ class GameEngine:
                 self.map.add_city(self.cities[city_id])
 
         logger.info(
-            "游戏初始化完成: %d 城市, %d 将领, %d 势力",
-            len(self.cities), len(self.generals), NUM_FACTIONS,
+            "游戏初始化完成: %d 城市, %d 将领, %d 州, %d 势力",
+            len(self.cities), len(self.generals), len(self.provinces), NUM_FACTIONS,
         )
 
         # 初始化建国系统
         from game.kingdom_system import KingdomSystem
         self._kingdom_system = KingdomSystem()
+
+        # 初始化外交关系系统
+        from game.constants import FACTIONS
+        self._diplomacy_relation_system = DiplomacyRelationSystem(list(FACTIONS.keys()))
 
         # 4. 加载 HexMap（如果地图数据可用）
         self._init_hex_map(data)
@@ -256,6 +283,7 @@ class GameEngine:
                 tile = self.hex_map.get_tile(coord)
                 if tile is not None:
                     tile.owner_city_id = city.id
+                    tile.province_id = city.province_id
                     tile.faction = city.faction
                     yields = TERRAIN_YIELDS.get(tile.terrain.value, {})
                     tile.gold_yield = yields.get("gold", 0)
@@ -380,6 +408,15 @@ class GameEngine:
             return CommandResult(success=False, command_type="attack",
                                  description=f"无法到达 {cmd.to_city}")
 
+        # 外交检查：不能攻击同盟或停战中的势力
+        if self._diplomacy_relation_system is not None:
+            if not self._diplomacy_relation_system.can_attack(cmd.faction, to_city.faction):
+                status = self._diplomacy_relation_system.get_status(cmd.faction, to_city.faction)
+                return CommandResult(
+                    success=False, command_type="attack",
+                    description=f"无法攻击: 与 {to_city.faction} 处于 {status.value} 状态",
+                )
+
         # 计算六角格路径（如果 HexMap 可用）
         hex_path: list = []
         if self.hex_map is not None:
@@ -502,6 +539,28 @@ class GameEngine:
             content=cmd.content,
             turn=self.turn,
         )
+
+        # 更新外交信任度
+        if self._diplomacy_relation_system is not None:
+            self._diplomacy_relation_system.on_message_sent(
+                cmd.faction, cmd.to, is_positive=True
+            )
+
+        # 发布外交消息事件
+        from game.event_bus import DiplomacyMessageSentEvent
+        self.events.publish(
+            DiplomacyMessageSentEvent(
+                event_type="diplomacy_message_sent",
+                data={
+                    "message_id": result.message_id,
+                    "from_faction": cmd.faction,
+                    "to_faction": cmd.to,
+                    "content": cmd.content,
+                    "turn": self.turn,
+                },
+            )
+        )
+
         return CommandResult(
             success=result.success,
             command_type="message",
@@ -567,6 +626,12 @@ class GameEngine:
         self.season = Season.from_turn(self.turn)
         self.year = self.start_year + (self.turn - 1) // 4
 
+        # 0. 外交关系到期检查
+        if self._diplomacy_relation_system is not None:
+            expired = self._diplomacy_relation_system.update_turn(self.turn)
+            for fa, fb, new_status in expired:
+                logger.info("外交状态变更: %s <-> %s -> %s", fa, fb, new_status.value)
+
         # 1. 资源产出
         for city in self.cities.values():
             # 获取建国生产加成
@@ -582,6 +647,7 @@ class GameEngine:
                 resource_result = self._resource_system.calculate_resources(
                     city, tiles=tiles, season=getattr(self, 'season', 'spring'),
                     production_bonus=production_bonus,
+                    generals=self.generals,
                 )
                 city.gold += resource_result["gold_change"]
                 city.food += resource_result["food_change"]
@@ -591,7 +657,7 @@ class GameEngine:
                 city.food = max(0, city.food)
                 city.population = max(0, city.population)
             else:
-                self._city_system.update_city(city)
+                self._city_system.update_city(city, generals=self.generals)
             result["cities_updated"] += 1
 
         # 影响力扩散
@@ -722,8 +788,17 @@ class GameEngine:
             captured_city_id = result.captured_city or ctx.defender_city
             if captured_city_id and captured_city_id in self.cities:
                 city = self.cities[captured_city_id]
+                old_faction = city.faction
                 city.faction = ctx.attacker_faction
                 city.morale = max(20, city.morale - 20)  # 占领后民心下降
+
+                # 外交影响：占领城市降低信任度，双方变为交战状态
+                if self._diplomacy_relation_system is not None and old_faction != ctx.attacker_faction:
+                    self._diplomacy_relation_system.on_city_captured(ctx.attacker_faction, old_faction)
+                    self._diplomacy_relation_system.set_status(
+                        ctx.attacker_faction, old_faction,
+                        DiplomaticStatus.WAR, turn=self.turn
+                    )
 
                 # 合并幸存攻击方兵力入城守军
                 surviving_attackers = 0
@@ -953,6 +1028,11 @@ class GameEngine:
                     morale_estimate=morale_estimate,
                 ))
 
+        # 外交关系
+        faction_relations = []
+        if self._diplomacy_relation_system is not None:
+            faction_relations = self._diplomacy_relation_system.get_faction_relations(faction)
+
         return GameObservation(
             faction=faction,
             turn=self.turn,
@@ -967,6 +1047,7 @@ class GameEngine:
             },
             received_messages=self._diplomacy_system.get_messages_for_faction(faction),
             sent_messages=self._diplomacy_system.get_sent_messages(faction),
+            faction_relations=faction_relations,
             recent_events=[
                 {"turn": tl.turn, "summary": tl.events[-1] if tl.events else {}}
                 for tl in self.turn_logs[-5:]

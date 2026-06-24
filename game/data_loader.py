@@ -26,6 +26,7 @@ def load_game_data(data_dir: str = DATA_DIR) -> Dict[str, Any]:
     """
     cities_path = os.path.join(data_dir, "cities.json")
     generals_path = os.path.join(data_dir, "generals.json")
+    provinces_path = os.path.join(data_dir, "provinces.json")
 
     cities: List[Dict[str, Any]] = []
     if os.path.exists(cities_path):
@@ -43,6 +44,14 @@ def load_game_data(data_dir: str = DATA_DIR) -> Dict[str, Any]:
     else:
         logger.warning("将领数据文件不存在: %s", generals_path)
 
+    provinces: List[Dict[str, Any]] = []
+    if os.path.exists(provinces_path):
+        with open(provinces_path, "r", encoding="utf-8") as f:
+            provinces = json.load(f)
+        logger.info("加载 %d 个州数据", len(provinces))
+    else:
+        logger.warning("州数据文件不存在: %s", provinces_path)
+
     # 构建地图拓扑
     map_topology: Dict[str, List[str]] = {}
     for city in cities:
@@ -54,6 +63,7 @@ def load_game_data(data_dir: str = DATA_DIR) -> Dict[str, Any]:
     return {
         "cities": cities,
         "generals": generals,
+        "provinces": provinces,
         "map_topology": map_topology,
     }
 

@@ -70,6 +70,37 @@ class BattlePhase(str, Enum):
     ENDED = "ended"
 
 
+class DiplomaticStatus(str, Enum):
+    """外交状态枚举"""
+
+    WAR = "war"           # 交战
+    NEUTRAL = "neutral"   # 中立
+    ALLIANCE = "alliance" # 同盟
+    TRUCE = "truce"       # 停战
+
+
+class FactionRelation(BaseModel):
+    """势力关系数据模型
+
+    代表两个势力之间的外交关系状态。
+    """
+
+    faction_a: str = Field(description="势力A")
+    faction_b: str = Field(description="势力B")
+    status: DiplomaticStatus = Field(
+        default=DiplomaticStatus.NEUTRAL, description="外交状态"
+    )
+    trust: int = Field(
+        default=50, ge=0, le=100, description="信任度 0-100"
+    )
+    truce_end_turn: Optional[int] = Field(
+        default=None, description="停战结束回合"
+    )
+    alliance_end_turn: Optional[int] = Field(
+        default=None, description="同盟结束回合"
+    )
+
+
 # ============================================================
 # 城市模型
 # ============================================================
@@ -105,6 +136,9 @@ class City(BaseModel):
     # 将领
     generals: List[str] = Field(default_factory=list, description="驻守将领ID列表")
 
+    # 州郡
+    province_id: Optional[str] = Field(default=None, description="所属州ID")
+
     # 地图
     position: HexCoord = Field(description="六角格坐标")
     neighbors: List[str] = Field(default_factory=list, description="相邻城市ID列表")
@@ -114,6 +148,20 @@ class City(BaseModel):
     besieging_armies: List[str] = Field(default_factory=list, description="围城部队ID列表")
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+class Province(BaseModel):
+    """州数据模型
+
+    代表东汉十三州之一，下辖若干城市。
+    """
+
+    id: str = Field(description="州唯一ID")
+    name: str = Field(description="州名称")
+    capital_city_id: Optional[str] = Field(default=None, description="州治城市ID")
+    color: str = Field(default="#888888", description="州渲染颜色")
+    description: str = Field(default="", description="州简介")
+    cities: List[str] = Field(default_factory=list, description="下辖城市ID列表")
 
 
 class CityInfo(BaseModel):
@@ -127,6 +175,7 @@ class CityInfo(BaseModel):
     faction: str = Field(description="所属势力")
     level: int = Field(ge=1, le=5, description="城市等级 1-5")
     is_besieged: bool = Field(default=False, description="是否被围困")
+    province_id: Optional[str] = Field(default=None, description="所属州ID")
 
     # 以下字段仅在相邻或可见时填充
     garrison: Optional[int] = Field(None, description="守军数量（仅相邻城市可见）")
@@ -359,6 +408,9 @@ class GameObservation(BaseModel):
     sent_messages: List[DiplomacyMessage] = Field(
         default_factory=list, description="已发送的消息"
     )
+    faction_relations: List[FactionRelation] = Field(
+        default_factory=list, description="势力外交关系"
+    )
 
     # 历史事件（最近5回合）
     recent_events: List[Dict[str, Any]] = Field(
@@ -390,6 +442,7 @@ class BattleContext(BaseModel):
     attacker_initial_soldiers: int = Field(default=0, description="攻击方战斗前初始总兵力")
     attacker_avg_morale: float = Field(default=0.0, description="攻击方平均士气")
     attacker_avg_command: float = Field(default=0.0, description="攻击方平均统帅")
+    attacker_avg_bravery: float = Field(default=0.0, description="攻击方平均勇武")
 
     # 防守方
     defender_city: Optional[str] = Field(None, description="防守城市ID（攻城战）")
@@ -398,6 +451,7 @@ class BattleContext(BaseModel):
     defender_initial_soldiers: int = Field(default=0, description="防守方战斗前初始总兵力")
     defender_avg_morale: float = Field(default=0.0, description="防守方平均士气")
     defender_avg_command: float = Field(default=0.0, description="防守方平均统帅")
+    defender_avg_bravery: float = Field(default=0.0, description="防守方平均勇武")
 
     # 城墙耐久（攻城战，由 GameEngine 从城市数据填充）
     wall_hp: int = Field(default=0, description="城墙当前耐久")

@@ -124,6 +124,11 @@ def run_ai_vs_ai(
                 result = engine.execute_command(cmd)
                 if result.success:
                     print(f"  [{FACTIONS[faction]}] {result.description}")
+                    # 推送外交消息给目标势力
+                    if cmd.type == "message" and hasattr(cmd, 'to'):
+                        target_player = players.get(cmd.to)
+                        if target_player:
+                            target_player.receive_message(faction, str(getattr(cmd, 'content', '')))
                 else:
                     logger.debug("命令失败: %s - %s", cmd.type, result.description)
 

@@ -75,3 +75,60 @@
 - **Bundle ID 未改**：`com.llm-sanguo.launcher` 保持不变，避免破坏已有 macOS 安装的路径/权限。
 - **数据路径未改**：`~/.llm-sanguo/venv` 等本地数据目录保持不变，确保老用户升级无缝。
 - **npm 包名未改**：`llm-sanguo-web` 作为内部技术标识保留。
+
+---
+
+## 🐛 运行时问题排查（2026-06-24 补充）
+
+### 现象
+双击桌面 `乱斗三国.app` 后，浏览器显示 `{"detail":"Not Found"}`（FastAPI 404）。
+
+### 根因分析
+1. **旧后端进程未停**：在代码修改之前，已有 `uvicorn` 进程（PID 45928）在运行旧版 `api/server.py`（没有 `web/dist/` 中的新内容）。
+2. **App 的检测逻辑**：Launcher 脚本检测到 `~/.llm-sanguo/server.pid` 存在且进程存活时，直接 `open http://localhost:8000` 而不重启服务。
+3. **`web/dist/` 是旧构建产物**：旧的 `dist/index.html` 标题仍是 `LLM三国志 - Web`，且缺少 `favicon.png`。
+
+### 解决步骤
+1. 手动 `kill 45928` 停止旧进程
+2. 删除 `~/.llm-sanguo/server.pid`
+3. `cd web && npm run build` 重新构建前端（Vite 自动将 `public/favicon.png` 复制到 `dist/`）
+4. 重新双击 App → Launcher 重新启动 uvicorn → 浏览器正常加载前端页面
+
+### 验证结果
+```
+$ curl -s http://localhost:8000/ | grep title
+  <title>乱斗三国 - Web</title>
+
+$ curl -s http://localhost:8000/favicon.png | file -
+/dev/stdin: PNG image data, 222 x 222, 8-bit/color RGBA
+```
+
+### 教训
+- macOS App 的重启策略是"检测到旧进程则直接打开浏览器"，**代码修改后必须手动停止旧进程**或重启电脑。
+- `web/dist/` 被 `.gitignore` 忽略，发布前必须确保执行过 `npm run build`。
+
+---
+
+## 最终 Git 提交
+
+```
+commit 89271ea (feat/web-frontend)
+Author: dongsheng
+Date:   2026-06-24
+
+feat(brand): 游戏正式更名为乱斗三国 + 接入自定义图标
+
+- 全局替换对外显示名称：LLM三国志 → 乱斗三国
+- Web前端：favicon + 页面标题 + TopBar加载文本
+- macOS App：app_icon.icns（7尺寸）+ Info.plist图标声明
+- Python后端：main.py / run_web.py / api/server.py 标题与描述
+- Pygame渲染器：默认窗口标题
+- 构建脚本：build_app.sh + build_release.sh 名称/通知/图标复制
+- 文档：README / AGENTS / MAINTENANCE / 部署指南等同步更新
+- 保留历史文档（superpowers/、已过时手册）原样存档
+
+新增文件：
+- assets/app_icon.icns（macOS多尺寸图标）
+- web/public/favicon.png（Web标签页图标）
+- docs/tasks/2026-06-24-rename-to-luandou-sanguo.md（改动总结）
+```

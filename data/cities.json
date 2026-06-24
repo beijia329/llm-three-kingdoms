@@ -17,13 +17,15 @@
     },
     "neighbors": [
       "nanyang",
-      "chenliu",
-      "xuchang",
       "yecheng",
+      "xuchang",
+      "chenliu",
+      "xiangyang",
       "julu",
-      "bai_di",
-      "changan"
-    ]
+      "changan",
+      "bai_di"
+    ],
+    "province_id": "sili"
   },
   {
     "id": "julu",
@@ -45,8 +47,10 @@
       "yecheng",
       "chenliu",
       "ji",
-      "luoyang"
-    ]
+      "luoyang",
+      "xuchang"
+    ],
+    "province_id": "jizhou"
   },
   {
     "id": "wuwei",
@@ -65,9 +69,9 @@
       "r": 27
     },
     "neighbors": [
-      "tianshui",
-      "changan"
-    ]
+      "tianshui"
+    ],
+    "province_id": "liangzhou"
   },
   {
     "id": "tianshui",
@@ -91,7 +95,8 @@
       "changan",
       "chengdu",
       "wuwei"
-    ]
+    ],
+    "province_id": "liangzhou"
   },
   {
     "id": "yecheng",
@@ -112,10 +117,12 @@
     "neighbors": [
       "julu",
       "chenliu",
-      "luoyang",
       "xuchang",
+      "luoyang",
+      "nanyang",
       "ji"
-    ]
+    ],
+    "province_id": "jizhou"
   },
   {
     "id": "chenliu",
@@ -138,8 +145,10 @@
       "yecheng",
       "nanyang",
       "luoyang",
-      "julu"
-    ]
+      "julu",
+      "xiangyang"
+    ],
+    "province_id": "yanzhou"
   },
   {
     "id": "xuchang",
@@ -160,10 +169,13 @@
     "neighbors": [
       "chenliu",
       "nanyang",
-      "luoyang",
       "xiangyang",
-      "yecheng"
-    ]
+      "yecheng",
+      "luoyang",
+      "julu",
+      "jiangling"
+    ],
+    "province_id": "yuzhou"
   },
   {
     "id": "jian_ge",
@@ -182,11 +194,12 @@
       "r": 49
     },
     "neighbors": [
-      "chengdu",
       "hanzhong",
+      "chengdu",
       "tianshui",
       "changan"
-    ]
+    ],
+    "province_id": "yizhou"
   },
   {
     "id": "bai_di",
@@ -208,8 +221,11 @@
       "xiangyang",
       "nanyang",
       "jiangling",
-      "luoyang"
-    ]
+      "luoyang",
+      "changan",
+      "hanzhong"
+    ],
+    "province_id": "yizhou"
   },
   {
     "id": "changsha",
@@ -230,9 +246,9 @@
     "neighbors": [
       "jiangling",
       "chai_sang",
-      "he_fei",
-      "shouchun"
-    ]
+      "xiangyang"
+    ],
+    "province_id": "jingzhou"
   },
   {
     "id": "chai_sang",
@@ -252,10 +268,12 @@
     },
     "neighbors": [
       "he_fei",
-      "jianye",
       "shouchun",
-      "changsha"
-    ]
+      "jianye",
+      "changsha",
+      "jiangling"
+    ],
+    "province_id": "jingzhou"
   },
   {
     "id": "xiangyang",
@@ -277,8 +295,12 @@
       "nanyang",
       "jiangling",
       "xuchang",
-      "bai_di"
-    ]
+      "luoyang",
+      "bai_di",
+      "chenliu",
+      "changsha"
+    ],
+    "province_id": "jingzhou"
   },
   {
     "id": "jiangling",
@@ -300,8 +322,11 @@
       "xiangyang",
       "changsha",
       "nanyang",
-      "bai_di"
-    ]
+      "bai_di",
+      "xuchang",
+      "chai_sang"
+    ],
+    "province_id": "jingzhou"
   },
   {
     "id": "chengdu",
@@ -323,7 +348,8 @@
       "jian_ge",
       "hanzhong",
       "tianshui"
-    ]
+    ],
+    "province_id": "yizhou"
   },
   {
     "id": "hanzhong",
@@ -345,8 +371,10 @@
       "jian_ge",
       "changan",
       "tianshui",
-      "chengdu"
-    ]
+      "chengdu",
+      "bai_di"
+    ],
+    "province_id": "yizhou"
   },
   {
     "id": "ji",
@@ -367,7 +395,8 @@
     "neighbors": [
       "julu",
       "yecheng"
-    ]
+    ],
+    "province_id": "youzhou"
   },
   {
     "id": "changan",
@@ -390,8 +419,9 @@
       "jian_ge",
       "luoyang",
       "tianshui",
-      "wuwei"
-    ]
+      "bai_di"
+    ],
+    "province_id": "sili"
   },
   {
     "id": "nanyang",
@@ -414,9 +444,11 @@
       "xuchang",
       "chenliu",
       "luoyang",
-      "bai_di",
-      "jiangling"
-    ]
+      "jiangling",
+      "yecheng",
+      "bai_di"
+    ],
+    "province_id": "yuzhou"
   },
   {
     "id": "shouchun",
@@ -437,9 +469,9 @@
     "neighbors": [
       "he_fei",
       "jianye",
-      "chai_sang",
-      "changsha"
-    ]
+      "chai_sang"
+    ],
+    "province_id": "yangzhou"
   },
   {
     "id": "jianye",
@@ -462,7 +494,8 @@
       "shouchun",
       "chai_sang",
       "wu_jun"
-    ]
+    ],
+    "province_id": "yangzhou"
   },
   {
     "id": "wu_jun",
@@ -483,7 +516,8 @@
     "neighbors": [
       "jianye",
       "he_fei"
-    ]
+    ],
+    "province_id": "yangzhou"
   },
   {
     "id": "he_fei",
@@ -505,8 +539,8 @@
       "shouchun",
       "jianye",
       "chai_sang",
-      "wu_jun",
-      "changsha"
-    ]
+      "wu_jun"
+    ],
+    "province_id": "yangzhou"
   }
 ]

@@ -186,6 +186,7 @@ class BattleScheduler:
             attacker_total,
             attacker_avg_morale,
             attacker_avg_command,
+            attacker_avg_bravery,
         ) = self._calculate_force_stats(armies, all_generals)
 
         # 收集防守方军队（在目标城市的驻军和围城防守方）
@@ -197,12 +198,22 @@ class BattleScheduler:
         defender_total = target_city.garrison
         defender_avg_morale = 80.0  # 守军默认士气
         defender_avg_command = 50.0  # 默认统帅
+        defender_avg_bravery = 50.0  # 默认勇武
+
+        # 驻城将领属性
+        stationed_generals = [
+            all_generals[g_id] for g_id in target_city.generals
+            if g_id in all_generals
+        ]
+        if stationed_generals:
+            defender_avg_command = sum(g.command for g in stationed_generals) / len(stationed_generals)
+            defender_avg_bravery = sum(g.bravery for g in stationed_generals) / len(stationed_generals)
 
         # 加上防守方军队的兵力
         if defender_armies:
             def_stats = self._calculate_force_stats(defender_armies, all_generals)
             defender_total += def_stats[0]
-            # 加权平均士气
+            # 加权平均士气、统帅、勇武
             if defender_total > 0:
                 defender_avg_morale = (
                     target_city.garrison * defender_avg_morale
@@ -211,6 +222,10 @@ class BattleScheduler:
                 defender_avg_command = (
                     target_city.garrison * defender_avg_command
                     + def_stats[2] * def_stats[0]
+                ) / defender_total
+                defender_avg_bravery = (
+                    target_city.garrison * defender_avg_bravery
+                    + def_stats[3] * def_stats[0]
                 ) / defender_total
 
         # 生成战斗ID
@@ -226,11 +241,13 @@ class BattleScheduler:
             attacker_total_soldiers=attacker_total,
             attacker_avg_morale=attacker_avg_morale,
             attacker_avg_command=attacker_avg_command,
+            attacker_avg_bravery=attacker_avg_bravery,
             defender_city=target_city.id,
             defender_armies=[a.id for a in defender_armies],
             defender_total_soldiers=defender_total,
             defender_avg_morale=defender_avg_morale,
             defender_avg_command=defender_avg_command,
+            defender_avg_bravery=defender_avg_bravery,
             battle_type=BattleType.SIEGE,
             battle_phase=BattlePhase.SIEGE,
         )
@@ -239,7 +256,7 @@ class BattleScheduler:
     def _calculate_force_stats(
         armies: List[Army],
         generals: Dict[str, General],
-    ) -> Tuple[int, float, float]:
+    ) -> Tuple[int, float, float, float]:
         """计算军队集团的统计数据
 
         Args:
@@ -247,26 +264,30 @@ class BattleScheduler:
             generals: 将领字典
 
         Returns:
-            (总兵力, 平均士气, 平均统帅) 元组
+            (总兵力, 平均士气, 平均统帅, 平均勇武) 元组
         """
         total_soldiers = sum(a.soldiers for a in armies)
         if total_soldiers == 0:
-            return 0, 0.0, 0.0
+            return 0, 0.0, 0.0, 0.0
 
         weighted_morale = sum(a.morale * a.soldiers for a in armies)
         weighted_command = 0.0
+        weighted_bravery = 0.0
 
         for army in armies:
             gen = generals.get(army.general_id)
             if gen is not None:
                 weighted_command += gen.command * army.soldiers
+                weighted_bravery += gen.bravery * army.soldiers
             else:
                 weighted_command += 50.0 * army.soldiers  # 无将领时默认50
+                weighted_bravery += 50.0 * army.soldiers
 
         avg_morale = weighted_morale / total_soldiers
         avg_command = weighted_command / total_soldiers
+        avg_bravery = weighted_bravery / total_soldiers
 
-        return total_soldiers, avg_morale, avg_command
+        return total_soldiers, avg_morale, avg_command, avg_bravery
 
     @staticmethod
     def _collect_defender_armies(

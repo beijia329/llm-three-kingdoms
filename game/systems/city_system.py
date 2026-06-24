@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Dict, Optional
 
 from game.constants import (
     CITY_LEVELS,
@@ -19,7 +19,7 @@ from game.constants import (
 )
 from game.hex_grid import HexCoord, hex_distance
 from game.hex_map import HexMap
-from game.models import City
+from game.models import City, General
 from game.systems.resource_system import ResourceSystem
 
 
@@ -265,7 +265,9 @@ class CitySystem:
     # 城市更新（每回合调用）
     # ============================================================
 
-    def update_city(self, city: City) -> CityUpdateResult:
+    def update_city(
+        self, city: City, generals: Optional[Dict[str, General]] = None
+    ) -> CityUpdateResult:
         """更新城市状态（每回合调用）
 
         处理：
@@ -276,12 +278,13 @@ class CitySystem:
 
         Args:
             city: 要更新的城市
+            generals: 所有将领字典（ID -> General）
 
         Returns:
             更新结果
         """
         # 使用 ResourceSystem 计算资源变化
-        resource_result = self._resource_system.update_city_resources(city)
+        resource_result = self._resource_system.update_city_resources(city, generals=generals)
 
         # 应用资源变化
         city.gold += resource_result["gold_change"]

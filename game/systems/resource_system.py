@@ -26,8 +26,9 @@ from game.constants import (
     MAX_POPULATION_GROWTH_RATE,
     GARRISON_FOOD_COST_PER_SOLDIER,
     SEASON_FOOD_BONUS,
+    POLITICS_PRODUCTION_BONUS_RATE,
 )
-from game.models import City
+from game.models import City, General
 from game.tile import Tile
 
 
@@ -42,8 +43,37 @@ class ResourceSystem:
     # 金钱产出
     # ============================================================
 
+    @staticmethod
+    def _get_politics_bonus(
+        city: City,
+        generals: Optional[Dict[str, General]] = None,
+    ) -> float:
+        """计算政治属性对城市产出的加成倍率
+
+        公式：
+            politics_bonus = 1.0 + sum(g.politics) * POLITICS_PRODUCTION_BONUS_RATE
+
+        Args:
+            city: 城市对象
+            generals: 所有将领字典（ID -> General）
+
+        Returns:
+            政治加成倍率（无将领或无驻扎将领时返回 1.0）
+        """
+        if not generals or not city.generals:
+            return 1.0
+        total_politics = sum(
+            generals[g_id].politics
+            for g_id in city.generals
+            if g_id in generals
+        )
+        return 1.0 + total_politics * POLITICS_PRODUCTION_BONUS_RATE
+
     def calculate_gold_production(
-        self, city: City, tiles: Optional[List[Tile]] = None
+        self,
+        city: City,
+        tiles: Optional[List[Tile]] = None,
+        generals: Optional[Dict[str, General]] = None,
     ) -> int:
         """计算城市每回合金钱产出
 
@@ -74,7 +104,8 @@ class ResourceSystem:
             city.morale, MORALE_GOLD_PENALTY
         )
 
-        return int(total_before_morale * multiplier)
+        politics_bonus = self._get_politics_bonus(city, generals)
+        return int(total_before_morale * multiplier * politics_bonus)
 
     # ============================================================
     # 粮草产出
@@ -85,6 +116,7 @@ class ResourceSystem:
         city: City,
         tiles: Optional[List[Tile]] = None,
         season: Optional[str] = None,
+        generals: Optional[Dict[str, General]] = None,
     ) -> int:
         """计算城市每回合粮草产出
 
@@ -118,7 +150,8 @@ class ResourceSystem:
         )
         season_factor = SEASON_FOOD_BONUS.get(season, 1.0) if season else 1.0
 
-        return int(total_before_morale * multiplier * season_factor)
+        politics_bonus = self._get_politics_bonus(city, generals)
+        return int(total_before_morale * multiplier * season_factor * politics_bonus)
 
     # ============================================================
     # 民心倍率计算
@@ -157,7 +190,10 @@ class ResourceSystem:
     # ============================================================
 
     def calculate_population_growth(
-        self, city: City, tiles: Optional[List[Tile]] = None
+        self,
+        city: City,
+        tiles: Optional[List[Tile]] = None,
+        generals: Optional[Dict[str, General]] = None,
     ) -> int:
         """计算城市本回合人口增长
 
@@ -197,7 +233,9 @@ class ResourceSystem:
             growth_rate = min(growth_rate, MAX_POPULATION_GROWTH_RATE)
 
         tile_pop = sum(t.pop_yield for t in tiles) if tiles else 0.0
-        growth = int(city.population * growth_rate) + int(tile_pop)
+        base_growth = int(city.population * growth_rate) + int(tile_pop)
+        politics_bonus = self._get_politics_bonus(city, generals)
+        growth = int(base_growth * politics_bonus)
 
         # 不超过最大人口
         if growth > 0:
@@ -227,13 +265,16 @@ class ResourceSystem:
     # 城市资源更新（综合）
     # ============================================================
 
-    def update_city_resources(self, city: City) -> Dict[str, Any]:
+    def update_city_resources(
+        self, city: City, generals: Optional[Dict[str, General]] = None
+    ) -> Dict[str, Any]:
         """计算城市本回合所有资源变化（向后兼容，不使用地块）
 
         一次性计算金钱产出、粮草产出/消耗、人口增长。
 
         Args:
             city: 城市对象
+            generals: 所有将领字典（ID -> General）
 
         Returns:
             包含以下字段的字典：
@@ -241,7 +282,7 @@ class ResourceSystem:
             - food_change: 粮草变化（产出 - 消耗）
             - population_change: 人口变化
         """
-        return self.calculate_resources(city)
+        return self.calculate_resources(city, generals=generals)
 
     def calculate_resources(
         self,
@@ -249,6 +290,7 @@ class ResourceSystem:
         tiles: Optional[List[Tile]] = None,
         season: str = "spring",
         production_bonus: float = 0.0,
+        generals: Optional[Dict[str, General]] = None,
     ) -> Dict[str, Any]:
         """计算城市本回合所有资源变化（含地块和季节）
 
@@ -257,16 +299,17 @@ class ResourceSystem:
             tiles: 城市控制的地块列表
             season: 当前季节
             production_bonus: 建国/称帝的生产加成率（0.0 = 无加成，0.10 = +10%）
+            generals: 所有将领字典（ID -> General）
 
         Returns:
             包含 gold_change, food_change, population_change 的字典
         """
-        gold_change = self.calculate_gold_production(city, tiles=tiles)
+        gold_change = self.calculate_gold_production(city, tiles=tiles, generals=generals)
         food_production = self.calculate_food_production(
-            city, tiles=tiles, season=season
+            city, tiles=tiles, season=season, generals=generals
         )
         food_consumption = self.calculate_food_consumption(city)
-        population_change = self.calculate_population_growth(city, tiles=tiles)
+        population_change = self.calculate_population_growth(city, tiles=tiles, generals=generals)
 
         # 应用建国/称帝生产加成
         if production_bonus > 0:

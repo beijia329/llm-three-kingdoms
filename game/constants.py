@@ -350,6 +350,43 @@ RUMOR_BASE_SUCCESS_RATE: float = 0.50
 RUMOR_INTELLIGENCE_FACTOR: float = 0.005
 """每点智力增加0.5%流言成功率"""
 
+# 外交关系参数
+DIPLOMACY_TRUST_MAX: int = 100
+"""信任度上限"""
+
+DIPLOMACY_TRUST_MIN: int = 0
+"""信任度下限"""
+
+DIPLOMACY_TRUST_ALLIANCE_FORM: int = 10
+"""接受同盟时信任度变化"""
+
+DIPLOMACY_TRUST_ALLIANCE_PROPOSE: int = 5
+"""提出同盟时信任度变化"""
+
+DIPLOMACY_TRUST_ALLIANCE_REJECT: int = -5
+"""拒绝同盟时信任度变化"""
+
+DIPLOMACY_TRUST_DECLARE_WAR: int = -30
+"""宣战时信任度变化"""
+
+DIPLOMACY_TRUST_BREAK_ALLIANCE: int = -50
+"""破坏同盟时信任度变化"""
+
+DIPLOMACY_TRUST_CAPTURE_CITY: int = -20
+"""占领城市时信任度变化"""
+
+DIPLOMACY_TRUST_MESSAGE_POSITIVE: int = 2
+"""积极消息信任度变化"""
+
+DIPLOMACY_ALLIANCE_DURATION: int = 12
+"""同盟默认持续回合数（12回合=3年）"""
+
+DIPLOMACY_ALLIANCE_COMBAT_BONUS: float = 0.10
+"""同盟共同对敌战斗力加成10%"""
+
+DIPLOMACY_TRUCE_DURATION: int = 6
+"""停战默认持续回合数"""
+
 # ============================================================
 # 地图参数
 # ============================================================

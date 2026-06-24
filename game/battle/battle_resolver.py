@@ -50,6 +50,7 @@ from game.constants import (
     MORALE_BREAK_THRESHOLD,
     MAX_BATTLE_ROUNDS,
     COMMAND_COMBAT_BONUS_RATE,
+    BRAVERY_CRITICAL_CHANCE_RATE,
 )
 from game.models import (
     BattleContext,
@@ -301,8 +302,7 @@ class BattleResolver:
 
         return int(base * force_mult * command_bonus)
 
-    @staticmethod
-    def calculate_attacker_damage(context: BattleContext) -> int:
+    def calculate_attacker_damage(self, context: BattleContext) -> int:
         """计算攻击方巷战伤害
 
         公式：
@@ -318,15 +318,15 @@ class BattleResolver:
         Returns:
             对防守方造成的伤害
         """
-        return BattleResolver._calculate_damage(
+        return self._calculate_damage(
             soldiers=context.attacker_total_soldiers,
             avg_command=context.attacker_avg_command,
             avg_morale=context.attacker_avg_morale + context.attacker_morale_bonus,
+            avg_bravery=context.attacker_avg_bravery,
             terrain_bonus=1.0,  # 攻方
         )
 
-    @staticmethod
-    def calculate_defender_damage(context: BattleContext) -> int:
+    def calculate_defender_damage(self, context: BattleContext) -> int:
         """计算防守方巷战伤害（有城墙加成）
 
         公式：
@@ -342,26 +342,33 @@ class BattleResolver:
         Returns:
             对攻击方造成的伤害
         """
-        return BattleResolver._calculate_damage(
+        return self._calculate_damage(
             soldiers=context.defender_total_soldiers,
             avg_command=context.defender_avg_command,
             avg_morale=context.defender_avg_morale + context.defender_morale_bonus,
+            avg_bravery=context.defender_avg_bravery,
             terrain_bonus=1.0 + DEFENDER_WALL_BONUS,  # 1.3
         )
 
-    @staticmethod
     def _calculate_damage(
+        self,
         soldiers: int,
         avg_command: float,
         avg_morale: float,
+        avg_bravery: float,
         terrain_bonus: float,
     ) -> int:
         """计算单方伤害（内部方法）
+
+        新增勇武暴击：
+            crit_chance = min(0.5, avg_bravery * BRAVERY_CRITICAL_CHANCE_RATE)
+            触发暴击时伤害 × 1.5
 
         Args:
             soldiers: 本方兵力
             avg_command: 本方平均统帅
             avg_morale: 本方平均士气
+            avg_bravery: 本方平均勇武
             terrain_bonus: 地形加成
 
         Returns:
@@ -377,7 +384,14 @@ class BattleResolver:
         morale_bonus = avg_morale / 100.0
         morale_bonus = max(0.1, morale_bonus)  # 最低10%
 
-        return int(base * command_bonus * morale_bonus * terrain_bonus)
+        damage = base * command_bonus * morale_bonus * terrain_bonus
+
+        # 勇武暴击
+        crit_chance = min(0.5, avg_bravery * BRAVERY_CRITICAL_CHANCE_RATE)
+        if self._rng.random() < crit_chance:
+            damage = damage * 1.5
+
+        return int(damage)
 
     # ============================================================
     # 士气变化计算
