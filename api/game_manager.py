@@ -129,8 +129,7 @@ class GameManager:
                     "owner_city_id": tile.owner_city_id,
                 })
 
-        data["max_turns"] = self.engine.max_turns
-        data["year"] = self.engine.year
+        # max_turns / year 现在由 GameState 模型自动序列化（B-03 修复后）
         data["faction_stats"] = faction_stats
         data["events"] = list(self._events[-20:])
         data["human_faction"] = self.config.human_faction

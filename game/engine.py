@@ -569,13 +569,19 @@ class GameEngine:
 
         # 1. 资源产出
         for city in self.cities.values():
+            # 获取建国生产加成
+            production_bonus = 0.0
+            if self._kingdom_system is not None:
+                production_bonus = self._kingdom_system.get_production_bonus(city.faction)
+
             if self.hex_map is not None:
                 # 使用地块产出计算
                 territory = self._city_system.get_city_territory(city, self.hex_map)
                 tiles = [self.hex_map.get_tile(c) for c in territory]
                 tiles = [t for t in tiles if t is not None]
                 resource_result = self._resource_system.calculate_resources(
-                    city, tiles=tiles, season=getattr(self, 'season', 'spring')
+                    city, tiles=tiles, season=getattr(self, 'season', 'spring'),
+                    production_bonus=production_bonus,
                 )
                 city.gold += resource_result["gold_change"]
                 city.food += resource_result["food_change"]
@@ -649,6 +655,11 @@ class GameEngine:
                 # 传递实际城墙耐久（攻城战用）
                 ctx.wall_hp = defender_city.wall_hp
                 ctx.wall_max_hp = defender_city.wall_max_hp
+
+            # 设置建国/称帝士气加成
+            if self._kingdom_system is not None:
+                ctx.attacker_morale_bonus = self._kingdom_system.get_morale_bonus(ctx.attacker_faction)
+                ctx.defender_morale_bonus = self._kingdom_system.get_morale_bonus(ctx.defender_faction)
 
             battle_result = self._battle_resolver.resolve_battle(ctx)
             self._apply_battle_result(ctx, battle_result)
@@ -886,18 +897,40 @@ class GameEngine:
         visible_armies = []
         own_city_ids = {c.id for c in own_cities}
         own_army_hexes = {a.current_hex for a in own_armies if a.current_hex is not None}
+        # 己方城市相邻城市集合（用于可见性判断）
+        neighbor_city_ids: set = set()
+        for c in own_cities:
+            neighbor_city_ids.update(c.neighbors)
+        # 己方城市 hex 坐标集合（用于 hex 距离判断）
+        own_city_hexes: set = set()
+        if self.hex_map is not None:
+            for c in own_cities:
+                own_city_hexes.add(c.position)
+
         for army in self.armies.values():
             if army.faction == faction or army.soldiers <= 0:
                 continue
             visible = False
+
+            # 规则1: 同一 hex 上相遇必定可见
             if army.current_hex is not None and army.current_hex in own_army_hexes:
                 visible = True
+            # 规则2: 目标或来源为己方城市
             elif army.to_city in own_city_ids or army.from_city in own_city_ids:
                 visible = True
-            else:
-                # 与城市相邻的敌方军队可见
-                for oc in own_cities:
-                    if army.to_city in oc.neighbors or army.from_city in oc.neighbors:
+            # 规则3: 正在围城己方相邻城市的军队（敌方围城己方邻居，必然可见）
+            elif army.status == ArmyStatus.BESIEGING and army.to_city in neighbor_city_ids:
+                visible = True
+            # 规则4: 来源或目标为己方相邻城市（经过己方势力范围的军队）
+            elif army.to_city in neighbor_city_ids or army.from_city in neighbor_city_ids:
+                visible = True
+            # 规则5: Hex 距离判断（如果 hex_map 可用，在己方城市 hex 距离 ≤2 格内的军队可见）
+            elif self.hex_map is not None and army.current_hex is not None and own_city_hexes:
+                for own_hex in own_city_hexes:
+                    dq = abs(own_hex.q - army.current_hex.q)
+                    dr = abs(own_hex.r - army.current_hex.r)
+                    ds = abs((-own_hex.q - own_hex.r) - (-army.current_hex.q - army.current_hex.r))
+                    if max(dq, dr, ds) <= 2:
                         visible = True
                         break
             if visible:
@@ -952,6 +985,8 @@ class GameEngine:
         """
         return GameState(
             turn=self.turn,
+            max_turns=self.max_turns,
+            year=self.year,
             seed=self.seed,
             game_over=self.game_over,
             winner=self.winner,
@@ -969,6 +1004,8 @@ class GameEngine:
             state: 之前保存的游戏状态
         """
         self.turn = state.turn
+        self.max_turns = state.max_turns
+        self.year = state.year
         self.seed = state.seed
         self.game_over = state.game_over
         self.winner = state.winner

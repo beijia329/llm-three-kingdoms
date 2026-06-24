@@ -408,6 +408,10 @@ class BattleContext(BaseModel):
     battle_phase: BattlePhase = Field(default=BattlePhase.START, description="战斗阶段")
     round_count: int = Field(default=0, description="已进行回合数")
 
+    # 建国/称帝加成
+    attacker_morale_bonus: int = Field(default=0, description="攻击方建国士气加成")
+    defender_morale_bonus: int = Field(default=0, description="防守方建国士气加成")
+
     # 结果
     result: Optional[BattleResultType] = Field(None, description="战斗结果")
     attacker_casualties: int = Field(default=0, description="攻击方伤亡")
@@ -467,6 +471,8 @@ class GameState(BaseModel):
     """
 
     turn: int = Field(description="当前回合")
+    max_turns: int = Field(default=192, description="最大回合数")
+    year: int = Field(default=184, description="当前年份 (AD)")
     seed: int = Field(description="随机种子")
     game_over: bool = Field(default=False, description="游戏是否结束")
     winner: Optional[str] = Field(None, description="获胜方")

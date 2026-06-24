@@ -308,7 +308,7 @@ class BattleResolver:
         公式：
             base = attacker_soldiers × BASE_DAMAGE_RATE (0.1)
             command_bonus = 1 + (avg_command - 50) / 100
-            morale_bonus = avg_morale / 100
+            morale_bonus = (avg_morale + morale_bonus) / 100
             terrain_bonus = 1.0 (攻方无地形加成)
             damage = base × command_bonus × morale_bonus × terrain_bonus
 
@@ -321,7 +321,7 @@ class BattleResolver:
         return BattleResolver._calculate_damage(
             soldiers=context.attacker_total_soldiers,
             avg_command=context.attacker_avg_command,
-            avg_morale=context.attacker_avg_morale,
+            avg_morale=context.attacker_avg_morale + context.attacker_morale_bonus,
             terrain_bonus=1.0,  # 攻方
         )
 
@@ -332,7 +332,7 @@ class BattleResolver:
         公式：
             base = defender_soldiers × BASE_DAMAGE_RATE
             command_bonus = 1 + (avg_command - 50) / 100
-            morale_bonus = avg_morale / 100
+            morale_bonus = (avg_morale + morale_bonus) / 100
             terrain_bonus = 1.3 (守方城墙加成)
             damage = base × command_bonus × morale_bonus × terrain_bonus
 
@@ -345,7 +345,7 @@ class BattleResolver:
         return BattleResolver._calculate_damage(
             soldiers=context.defender_total_soldiers,
             avg_command=context.defender_avg_command,
-            avg_morale=context.defender_avg_morale,
+            avg_morale=context.defender_avg_morale + context.defender_morale_bonus,
             terrain_bonus=1.0 + DEFENDER_WALL_BONUS,  # 1.3
         )
 

@@ -248,6 +248,7 @@ class ResourceSystem:
         city: City,
         tiles: Optional[List[Tile]] = None,
         season: str = "spring",
+        production_bonus: float = 0.0,
     ) -> Dict[str, Any]:
         """计算城市本回合所有资源变化（含地块和季节）
 
@@ -255,6 +256,7 @@ class ResourceSystem:
             city: 城市对象
             tiles: 城市控制的地块列表
             season: 当前季节
+            production_bonus: 建国/称帝的生产加成率（0.0 = 无加成，0.10 = +10%）
 
         Returns:
             包含 gold_change, food_change, population_change 的字典
@@ -265,6 +267,11 @@ class ResourceSystem:
         )
         food_consumption = self.calculate_food_consumption(city)
         population_change = self.calculate_population_growth(city, tiles=tiles)
+
+        # 应用建国/称帝生产加成
+        if production_bonus > 0:
+            gold_change = int(gold_change * (1.0 + production_bonus))
+            food_production = int(food_production * (1.0 + production_bonus))
 
         return {
             "gold_change": gold_change,
