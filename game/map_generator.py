@@ -433,6 +433,25 @@ class MapGenerator:
         provinces = MapGenerator._load_china_geojson()
         province_map: Dict[Tuple[int, int], str] = {}
 
+        # 预计算每个省的经纬度边界框（加速剔除）
+        prov_bboxes: List[Tuple[str, float, float, float, float, List[Any]]] = []
+        for prov in provinces:
+            modern_name = prov.get("name", "")
+            ancient_id = _MODERN_TO_ANCIENT.get(modern_name, modern_name)
+            polygons = prov.get("coordinates", [])
+            # 计算边界框
+            min_lon, min_lat = 999.0, 999.0
+            max_lon, max_lat = -999.0, -999.0
+            for polygon in polygons:
+                for ring in polygon:
+                    for pt in ring:
+                        if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                            min_lon = min(min_lon, float(pt[0]))
+                            max_lon = max(max_lon, float(pt[0]))
+                            min_lat = min(min_lat, float(pt[1]))
+                            max_lat = max(max_lat, float(pt[1]))
+            prov_bboxes.append((ancient_id, min_lon, max_lon, min_lat, max_lat, polygons))
+
         result: List[List[float]] = [[0.0] * width for _ in range(height)]
 
         for r in range(height):
@@ -440,12 +459,12 @@ class MapGenerator:
                 lon, lat = MapGenerator._hex_to_lonlat(q, r, width, height)
                 h = height_map[r][q]
 
-                # 检查是否在任一省份内
+                # 检查是否在任一省份内（带边界框快速剔除）
                 in_china = False
-                for prov in provinces:
-                    modern_name = prov.get("name", "")
-                    ancient_id = _MODERN_TO_ANCIENT.get(modern_name, modern_name)
-                    polygons = prov.get("coordinates", [])
+                for ancient_id, min_lon, max_lon, min_lat, max_lat, polygons in prov_bboxes:
+                    # 边界框快速剔除
+                    if lon < min_lon or lon > max_lon or lat < min_lat or lat > max_lat:
+                        continue
                     for polygon in polygons:
                         for ring in polygon:
                             if len(ring) < 3:
