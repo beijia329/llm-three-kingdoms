@@ -127,12 +127,14 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const { x, y } = axialToPixel(coord, HEX_SIZE)
       const points = hexPoints(x, y, HEX_SIZE)
 
-      // 基础色：势力色优先，无势力则用地形色
+      // 基础色：势力=势力色，无主=统一大地色（仅亮度区分地形）
       let fill: number
       if (faction && faction !== 'neutral') {
         fill = hexToNumber(factionColor(faction))
       } else {
-        fill = (TERRAIN_COLORS[terrain] || TERRAIN_COLORS.plain).fill
+        // 无主土地：统一米色底，地形仅亮度微调
+        const base = 0xb8a878  // 统一米色
+        fill = adjustBrightness(base, getTerrainBrightness(terrain) * 0.3)
       }
       tilesGraphics.poly(points).fill(fill)
     })
