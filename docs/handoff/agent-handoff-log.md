@@ -337,6 +337,17 @@ Phase 1 目标：扩展地形数据模型（6→15 种） + 实现基本地图�
 - **TERRAIN_PROPERTIES**：仿 FreeCiv property[MG_COUNT]，模块加载时构建反向索引
 - **确定性**：所有随机操作通过 GameRandom，seed=42 两次生成完全一致
 
+### Phase 1 补充（同日）
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `game/hex_grid.py` | 修改 | 新增 Direction 枚举 + get_direction() + direction_opposite() |
+| `tests/unit/test_hex_grid.py` | 修改 | +12 项 Direction 测试（方向/步数/反向/回环） |
+
+- **Direction**：N/NE/SE/S/SW/NW 六方向，参考 Wesnoth `map_location::DIRECTION`
+- **方向向量**：pointy-topped axial 坐标映射
+- **测试结果**：477 单元测试全部通过
+
 ### 下阶段 Phase 2
 
 - Voronoi 大陆形状（自然海岸线）
