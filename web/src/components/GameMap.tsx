@@ -63,8 +63,6 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const c = cameraRef.current
       camera.position.set(c.x, c.y)
       camera.scale.set(c.zoom)
-      // 补偿 pointy-topped 六角格斜向偏移，让中国版图摆正
-      camera.rotation = 0.15
     }
 
     init()
@@ -249,15 +247,39 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 
   }, [state])
 
-  // 相机同步：统一更新 PixiJS + DOM Overlay
+  // 中国版图像素边界（防止摄像机出界露出空白）
+  const CHINA_PIXEL_BOUNDS = {
+    xMin: -HEX_SIZE * 2,
+    xMax: HEX_SIZE * (Math.sqrt(3) * 119 + Math.sqrt(3) / 2 * 89) + HEX_SIZE * 2,
+    yMin: -HEX_SIZE * 2,
+    yMax: HEX_SIZE * (1.5 * 89) + HEX_SIZE * 2,
+  }
+
+  const clampCamera = (cam: Camera, viewW: number, viewH: number): Camera => {
+    const z = Math.max(0.3, Math.min(1.2, cam.zoom))
+    // 视口在世界坐标中的范围
+    const vw = viewW / z
+    const vh = viewH / z
+    const bx = CHINA_PIXEL_BOUNDS
+    // 摄像机不能露出边界外的空白
+    const x = Math.min(bx.xMax - vw, Math.max(bx.xMin, cam.x))
+    const y = Math.min(bx.yMax - vh, Math.max(bx.yMin, cam.y))
+    return { x, y, zoom: z }
+  }
+
+  // 相机同步 + 约束
   const syncCamera = (next: Camera) => {
-    cameraRef.current = next
+    const container = containerRef.current
+    const vw = container?.clientWidth || 1200
+    const vh = container?.clientHeight || 800
+    const clamped = clampCamera(next, vw, vh)
+    cameraRef.current = clamped
     if (pixiCameraRef.current) {
-      pixiCameraRef.current.position.set(next.x, next.y)
-      pixiCameraRef.current.scale.set(next.zoom)
+      pixiCameraRef.current.position.set(clamped.x, clamped.y)
+      pixiCameraRef.current.scale.set(clamped.zoom)
     }
     if (overlayRef.current) {
-      overlayRef.current.style.transform = `translate(${next.x}px, ${next.y}px) scale(${next.zoom})`
+      overlayRef.current.style.transform = `translate(${clamped.x}px, ${clamped.y}px) scale(${clamped.zoom})`
     }
   }
 
