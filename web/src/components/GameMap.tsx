@@ -24,7 +24,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
 
   // 相机状态用 ref（不触发 React 重渲染，通过 DOM 操作同步）
-  const cameraRef = useRef<Camera>({ x: -960, y: -230, zoom: 0.6 })
+  const cameraRef = useRef<Camera>({ x: -4200, y: -600, zoom: 0.45 })
   const [isDragging, setIsDragging] = useState(false)
   const dragStartRef = useRef<{ x: number; y: number } | null>(null)
   const cameraStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -237,9 +237,11 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 
   }, [state])
 
-  // 地图像素边界（世界坐标）：0 → worldW, 0 → worldH
-  const worldW = HEX_SIZE * (Math.sqrt(3) * 119 + Math.sqrt(3) / 2 * 89)
-  const worldH = HEX_SIZE * (1.5 * 89)
+  // 地图像素边界（世界坐标）— 动态从 hex_map 读取
+  const hw = state?.hex_map?.width || 180
+  const hh = state?.hex_map?.height || 128
+  const worldW = HEX_SIZE * (Math.sqrt(3) * (hw - 1) + Math.sqrt(3) / 2 * (hh - 1))
+  const worldH = HEX_SIZE * (1.5 * (hh - 1))
   const PAD = HEX_SIZE * 15  // 外围未探索缓冲
 
   const clampCamera = (cam: Camera, viewW: number, viewH: number): Camera => {

@@ -247,11 +247,13 @@ class GameEngine:
             from game.influence_system import InfluenceSystem
             from game.data_loader import load_city_positions
 
+            from game.constants import HEX_MAP_WIDTH, HEX_MAP_HEIGHT
+
             # 使用 MapGenerator 程序化生成地形
             map_gen = MapGenerator(rng=self.rng)
             self.hex_map = map_gen.generate(
-                width=120,
-                height=90,
+                width=HEX_MAP_WIDTH,
+                height=HEX_MAP_HEIGHT,
             )
 
             # 从独立坐标文件读取城市位置

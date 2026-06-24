@@ -119,8 +119,8 @@ class HexMapRenderer:
 
     def _lonlat_to_screen(self, lon: float, lat: float) -> Tuple[float, float]:
         """经纬度 → 六角格屏幕像素坐标"""
-        q = (lon - 95.0) / 30.0 * (self.hex_map.width - 1)
-        r = (45.0 - lat) / 23.0 * (self.hex_map.height - 1)
+        q = (lon - 85.0) / 45.0 * (self.hex_map.width - 1)
+        r = (50.0 - lat) / 32.0 * (self.hex_map.height - 1)
         x = self.hex_size * (math.sqrt(3) * q + math.sqrt(3) / 2 * r)
         y = self.hex_size * (3.0 / 2 * r)
         return (x, y)
