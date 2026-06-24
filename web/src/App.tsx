@@ -13,7 +13,6 @@ function App() {
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null)
   const [selectedFaction, setSelectedFaction] = useState<string | null>(null)
 
-  // 键盘快捷键
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
@@ -35,7 +34,6 @@ function App() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [auto, nextTurn, toggleAuto])
 
-  // 选中城市时自动切换到城市标签
   const handleSelectCity = (cityId: string) => {
     setSelectedCityId(cityId)
     setTab('city')
@@ -48,7 +46,6 @@ function App() {
         <GameMap state={state} onSelectCity={handleSelectCity} />
         <EventTicker events={state?.events || []} />
 
-        {/* 下一回合按钮 */}
         <button
           style={{
             ...styles.nextButton,
@@ -58,13 +55,16 @@ function App() {
           onClick={() => !auto && nextTurn()}
           disabled={auto}
         >
-          <div style={{ color: '#d4a84b', fontSize: '16px', fontWeight: 600 }}>下一回合</div>
+          <i className="fa-solid fa-forward-step" style={{ color: '#d4a84b', fontSize: '16px' }}></i>
+          <div style={{ color: '#d4a84b', fontSize: '15px', fontWeight: 600 }}>下一回合</div>
           <div style={{ color: '#96918a', fontSize: '11px' }}>空格键 / A 自动</div>
         </button>
 
-        {/* 自动模式指示器 */}
         {auto && (
-          <div style={styles.autoIndicator}>▶ 自动推进中</div>
+          <div style={styles.autoIndicator}>
+            <i className="fa-solid fa-play" style={{ marginRight: '6px' }}></i>
+            自动推进中
+          </div>
         )}
       </div>
       <Panel
@@ -85,6 +85,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100vw',
     height: '100vh',
     backgroundColor: '#1a1a2e',
+    fontFamily: '"Noto Sans SC", "PingFang SC", sans-serif',
   },
   mapArea: {
     position: 'relative',
@@ -94,31 +95,36 @@ const styles: Record<string, React.CSSProperties> = {
   },
   nextButton: {
     position: 'absolute',
-    bottom: '12px',
-    right: '316px',
-    width: '140px',
-    height: '42px',
-    backgroundColor: 'rgba(18, 18, 34, 0.92)',
+    bottom: '14px',
+    right: '318px',
+    width: '150px',
+    height: '48px',
+    backgroundColor: 'rgba(26, 26, 46, 0.95)',
     border: '2px solid #d4a84b',
-    borderRadius: '6px',
+    borderRadius: '8px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '2px',
     zIndex: 10,
+    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+    backdropFilter: 'blur(4px)',
   },
   autoIndicator: {
     position: 'absolute',
-    bottom: '12px',
-    right: '470px',
-    padding: '8px 14px',
-    backgroundColor: 'rgba(18, 18, 34, 0.92)',
+    bottom: '14px',
+    right: '480px',
+    padding: '10px 16px',
+    backgroundColor: 'rgba(26, 26, 46, 0.95)',
     border: '1px solid #5ab464',
-    borderRadius: '6px',
+    borderRadius: '8px',
     color: '#5ab464',
-    fontSize: '13px',
+    fontSize: '14px',
     zIndex: 10,
+    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+    display: 'flex',
+    alignItems: 'center',
   },
 }
 
