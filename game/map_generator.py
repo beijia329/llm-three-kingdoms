@@ -25,8 +25,8 @@ from game.tile import Tile, TerrainType
 # 海拔到地形属性值的映射
 _ALTITUDE_THRESHOLDS = [
     (0.0, "deep"),
-    (0.30, "low"),
-    (0.60, "mid"),
+    (0.40, "low"),
+    (0.65, "mid"),
     (0.85, "high"),
     (0.95, "peak"),
 ]
@@ -622,10 +622,10 @@ class MapGenerator:
         width: int,
         height: int,
     ) -> str:
-        """基于高度图局部变化估算湿度
+        """基于高度值估算湿度
 
-        简化方案：使用局部高度梯度 + 邻近水格作为湿度信号。
-        高梯度区域（山脚）= 湿润，内陆平坦 = 干燥。
+        简化方案：用高度值 + 邻域方差作为湿度信号。
+        低地多水 = 湿润，高地 = 干燥。
 
         Args:
             height_map: 高度图
@@ -637,30 +637,28 @@ class MapGenerator:
         Returns:
             humidity 属性值字符串
         """
+        from game.hex_grid import HexCoord, hex_neighbors
+
         coord = HexCoord(q, r)
         h = height_map[r][q]
 
-        # 计算局部梯度和邻近高度方差
+        # 计算邻域高度均值和方差
         neigh_vals: List[float] = [h]
         for n in hex_neighbors(coord):
             nq, nr = n.q, n.r
             if 0 <= nq < width and 0 <= nr < height:
                 neigh_vals.append(height_map[nr][nq])
 
-        if len(neigh_vals) < 2:
-            return "normal"
-
         avg_h = sum(neigh_vals) / len(neigh_vals)
         variance = sum((v - avg_h) ** 2 for v in neigh_vals) / len(neigh_vals)
 
-        # 高方差（山地区域）→ 干燥
-        # 低方差 + 中等高度 → 可能湿润
-        if variance > 0.05:
-            return "dry"
-        elif variance > 0.02:
-            return "normal"
-        else:
+        # 低地多水 → 湿润，中海拔 → 正常，高地 → 干燥
+        if h < 0.35:
             return "wet"
+        elif h > 0.60:
+            return "dry"
+        else:
+            return "normal"
 
     @staticmethod
     def _pick_candidate_terrain(
@@ -702,9 +700,22 @@ class MapGenerator:
                 return TerrainType.PEAK
             return TerrainType.MOUNTAIN
 
-        # 中等海拔：hill（不再 fallback 到 mountain）
+        # 中等海拔：按湿度分配
         if altitude == "mid":
-            return TerrainType.HILL
+            if humidity == "wet":
+                return TerrainType.GRASSLAND  # 湿润丘陵 → 草原
+            elif humidity == "dry":
+                return TerrainType.HILL
+            else:
+                return TerrainType.HILL  # normal → 丘陵
+        # 低海拔：按湿度分配
+        if altitude == "low":
+            if humidity == "wet":
+                return TerrainType.GRASS
+            elif humidity == "dry":
+                return TerrainType.PLAIN
+            else:
+                return TerrainType.GRASSLAND  # normal → 草原
 
         # 低温宽松匹配
         if temperature in ("cold", "frozen"):

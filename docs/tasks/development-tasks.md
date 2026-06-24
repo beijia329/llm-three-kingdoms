@@ -583,15 +583,93 @@
 
 ---
 
-## 总计
+## 阶段八：六角格地图生成器升级（v2.3）
 
-- **总任务数**：33个
-- **预计总时间**：约34-38小时
-- **阶段数**：7个
+**目标**：扩展地形系统到 15 种，实现程序化地图生成器
+**执行原则**：取其精华（FreeCiv 数据模型 + 扩散法），按需逆向工程，严格 TDD
+
+### 任务8.1：扩展地形数据模型（6 → 15 种）
+- **描述**：将 TerrainType 从 6 种扩展到 15 种，新增 terrain property 权重系统
+- **文件**：`game/tile.py`, `game/constants.py`
+- **测试**：`tests/unit/test_tile.py`, `tests/unit/test_constants.py`
+- **产出**：
+  - 15 种 TerrainType 枚举
+  - 扩展 TERRAIN_MOVE_COST / TERRAIN_DEFENSE_BONUS / TERRAIN_YIELDS
+  - 新增 TERRAIN_PROPERTIES（仿 FreeCiv struct terrain 的 property[MG_COUNT]）
+- **验收标准**：
+  - [x] 所有 15 种地形有完整的移动/防御/产出/属性定义
+  - [x] Tile.is_passable() 正确反映新规则（MOUNTAIN+PEAK 不可通行，WATER/DEEP_WATER 不可通行）
+  - [x] 现有测试无回归失败
+  - [x] 新增测试通过
+- **预计时间**：45分钟
+- **前置依赖**：无（独立任务）
+- **状态**：✅ 已完成（2026-06-24）
+
+### 任务8.2：实现 MapGenerator 地图生成器
+- **描述**：实现程序化六角格地图生成器（噪声→海陆→气候→扩散放置）
+- **文件**：`game/map_generator.py`（新建）
+- **测试**：`tests/unit/test_map_generator.py`（新建）
+- **产出**：
+  - MapGenerator 类，接受 GameRandom 保证确定性
+  - `_generate_height_map()` — 多八度 value noise（自研，零外部依赖）
+  - `_apply_continent_shape()` — 中心加权大陆形状
+  - `_make_land()` — 海陆划分（海拔阈值）
+  - `_assign_temperature_band()` — 纬度+海拔→温度带
+  - `_place_terrain()` — 扩散法地形放置（FreeCiv place_terrain 精华提取）
+  - `_fill_unassigned()` — 未分配格填充
+- **验收标准**：
+  - [x] 生成指定尺寸的 HexMap，所有格子有 terrain
+  - [x] 地图有水有陆地
+  - [x] 气候带分布合理（南部热带、北部寒带）
+  - [x] 相同 seed 产生相同地图（确定性）
+  - [x] 深海（DEEP_WATER）存在
+  - [x] 高海拔有山/峰
+  - [x] 所有测试通过
+- **预计时间**：2小时
+- **前置依赖**：任务8.1
+- **状态**：✅ 已完成（2026-06-24）
+
+### 任务8.3：集成验证与回归测试
+- **描述**：运行全量测试，确保新功能不破坏现有系统
+- **产出**：
+  - `pytest tests/ -q` 全部通过
+  - 无回归失败
+- **验收标准**：
+  - [x] 全量单元测试通过
+  - [x] 集成测试通过
+  - [x] 代码符合 PEP 8 + 类型注解 + Google docstring
+  - [x] Engine 层无 pygame import
+  - [x] 所有随机数通过 GameRandom
+- **预计时间**：30分钟
+- **前置依赖**：任务8.2
+- **状态**：✅ 已完成（2026-06-24）
+
+### 任务8.4（追加）：Direction 枚举 + get_direction
+- **描述**：补充 hex_grid.py 方向枚举，参考 Wesnoth 设计
+- **文件**：`game/hex_grid.py`
+- **状态**：✅ 已完成
+
+### 任务8.5（追加）：MapGenerator 接入 GameEngine
+- **描述**：_init_hex_map() 改用 MapGenerator 替代静态 JSON
+- **文件**：`game/engine.py`, `data/city_positions.json`
+- **状态**：✅ 已完成
+
+### 任务8.6（追加）：地图生成质量优化
+- **描述**：大陆形状、海拔阈值、地形比例调优
+- **文件**：`game/map_generator.py`
+- **状态**：✅ 已完成（山/峰 43%→10%，陆地 34%→75%）
 
 ---
 
-> **文档版本**：v2.2
-> **最后更新**：2026-06-23
+## 总计
+
+- **总任务数**：36个
+- **预计总时间**：约37-41小时
+- **阶段数**：8个
+
+---
+
+> **文档版本**：v2.3
+> **最后更新**：2026-06-24
 > **注意**：任务按顺序执行，完成一个再开始下一个
-> **v1.1更新**：新增状态快照、状态校验、日志系统三个任务
+> **v2.3更新**：新增阶段八（六角格地图生成器升级），包含地形扩展、MapGenerator、集成验证三个任务
