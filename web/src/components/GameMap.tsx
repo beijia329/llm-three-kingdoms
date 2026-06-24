@@ -110,7 +110,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
            (tile.terrain === 'water' || tile.terrain === 'deep_water'))
         if (isOutside) {
           const { x: fx, y: fy } = axialToPixel({ q, r }, HEX_SIZE)
-          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x3a3a4a)
+          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x2a2a35)
         }
       }
     }
@@ -450,21 +450,15 @@ function cityRadius(level: number): number {
 
 function factionColor(faction: string): string {
   const colors: Record<string, string> = {
-    han: '#FFD700',
-    zhangjiao: '#FFFF00',
-    dongzhuo: '#8B0000',
-    yuanshao: '#FF6600',
-    caocao: '#0055A4',
-    liubei: '#00AA55',
-    sunjian: '#CC0000',
-    liubiao: '#8B4513',
-    liuyan: '#9370DB',
-    gongsunzan: '#FFFFFF',
-    mateng: '#4B0082',
-    yuanshu: '#FF1493',
-    neutral: '#888888',
+    han: '#FFD700', zhangjiao: '#FFD700',
+    dongzhuo: '#8B0000', yuanshao: '#FF6600',
+    caocao: '#1a3a80', liubei: '#228B22',
+    sunjian: '#CC0000', liubiao: '#8B6914',
+    liuyan: '#6B3FA0', gongsunzan: '#d4c8a0',
+    mateng: '#4B0082', yuanshu: '#C71585',
+    neutral: '#666666',
   }
-  return colors[faction] || '#888888'
+  return colors[faction] || '#666666'
 }
 
 function blendColor(base: number, tint: number, alpha: number): number {

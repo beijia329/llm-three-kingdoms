@@ -8,18 +8,18 @@
 // === 势力色板 ===
 export const FACTION_COLORS: Record<string, string> = {
   han: '#FFD700',
-  zhangjiao: '#FFFF00',
+  zhangjiao: '#FFD700',
   dongzhuo: '#8B0000',
   yuanshao: '#FF6600',
-  caocao: '#0055A4',
-  liubei: '#00AA55',
+  caocao: '#1a3a80',
+  liubei: '#228B22',
   sunjian: '#CC0000',
-  liubiao: '#8B4513',
-  liuyan: '#9370DB',
-  gongsunzan: '#FFFFFF',
+  liubiao: '#8B6914',
+  liuyan: '#6B3FA0',
+  gongsunzan: '#d4c8a0',
   mateng: '#4B0082',
-  yuanshu: '#FF1493',
-  neutral: '#888888',
+  yuanshu: '#C71585',
+  neutral: '#666666',
 }
 
 export const FACTIONS: Record<string, string> = {
@@ -39,37 +39,37 @@ export const FACTIONS: Record<string, string> = {
 
 export const FACTION_GLOW: Record<string, string> = {
   han: 'rgba(255, 215, 0, 0.5)',
-  zhangjiao: 'rgba(255, 255, 0, 0.5)',
+  zhangjiao: 'rgba(255, 215, 0, 0.5)',
   dongzhuo: 'rgba(139, 0, 0, 0.5)',
   yuanshao: 'rgba(255, 102, 0, 0.5)',
-  caocao: 'rgba(0, 85, 164, 0.5)',
-  liubei: 'rgba(0, 170, 85, 0.5)',
+  caocao: 'rgba(26, 58, 128, 0.5)',
+  liubei: 'rgba(34, 139, 34, 0.5)',
   sunjian: 'rgba(204, 0, 0, 0.5)',
-  liubiao: 'rgba(139, 69, 19, 0.5)',
-  liuyan: 'rgba(147, 112, 219, 0.5)',
-  gongsunzan: 'rgba(255, 255, 255, 0.5)',
+  liubiao: 'rgba(139, 105, 20, 0.5)',
+  liuyan: 'rgba(107, 63, 160, 0.5)',
+  gongsunzan: 'rgba(212, 200, 160, 0.5)',
   mateng: 'rgba(75, 0, 130, 0.5)',
-  yuanshu: 'rgba(255, 20, 147, 0.5)',
-  neutral: 'rgba(136, 136, 136, 0.5)',
+  yuanshu: 'rgba(199, 21, 133, 0.5)',
+  neutral: 'rgba(102, 102, 102, 0.5)',
 }
 
-// === 地形色板（文明6 风格低饱和度 / 15 种地形） ===
+// === 地形色板（陆=大地色系，海=亮蓝，雾=深灰） ===
 export const TERRAIN_COLORS: Record<string, { fill: number; border: number }> = {
-  grass:        { fill: 0x9bbf6e, border: 0x8aad5e },
-  grassland:    { fill: 0xa8b87a, border: 0x96a56c },
-  plain:        { fill: 0x8b9a6e, border: 0x7a8960 },
-  forest:       { fill: 0x4a6b3a, border: 0x3d5a30 },
-  dense_forest: { fill: 0x2d4a1e, border: 0x1f3512 },
-  hill:         { fill: 0x9b8e7a, border: 0x8a7e6c },
-  mountain:     { fill: 0x7a7a7a, border: 0x6a6a6a },
-  peak:         { fill: 0xb0ada6, border: 0x9e9b94 },
-  desert:       { fill: 0xc4b58a, border: 0xb0a27a },
-  marsh:        { fill: 0x5a6b3a, border: 0x4a5a2e },
-  tundra:       { fill: 0x9aacb0, border: 0x889a9e },
-  snow:         { fill: 0xd8e0e8, border: 0xc8d0d8 },
-  water:        { fill: 0x4a8fb8, border: 0x3e7a9e },
-  deep_water:   { fill: 0x2a5a80, border: 0x1e4868 },
-  river:        { fill: 0x5a9fc8, border: 0x4a8fb8 },
+  grass:        { fill: 0x8db85a, border: 0x7aa34e },
+  grassland:    { fill: 0xa0b86a, border: 0x8ea55a },
+  plain:        { fill: 0x9ea870, border: 0x8e9862 },
+  forest:       { fill: 0x4a7a3e, border: 0x3d6832 },
+  dense_forest: { fill: 0x2d5a1e, border: 0x1f4512 },
+  hill:         { fill: 0xa09070, border: 0x908060 },
+  mountain:     { fill: 0x7a7060, border: 0x6a6050 },
+  peak:         { fill: 0xb0a898, border: 0x9e9686 },
+  desert:       { fill: 0xc8b878, border: 0xb4a468 },
+  marsh:        { fill: 0x5a7a3a, border: 0x4a6a2e },
+  tundra:       { fill: 0xa0a890, border: 0x909680 },
+  snow:         { fill: 0xdce0e8, border: 0xccd0d8 },
+  water:        { fill: 0x3388cc, border: 0x2a70aa },
+  deep_water:   { fill: 0x1a5a88, border: 0x124868 },
+  river:        { fill: 0x55aadd, border: 0x4499cc },
 }
 
 // === UI 基础色 ===
