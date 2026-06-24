@@ -4,13 +4,29 @@
 每个格子用 (q, r) 表示，第三维 s = -q - r 隐式推导。
 
 参考: https://www.redblobgames.com/grids/hexagons/
+Wesnoth src/map/location.hpp — 方向枚举 / get_direction 设计
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import List, Tuple
+from enum import Enum
+from typing import Dict, List, Tuple
+
+
+class Direction(Enum):
+    """六角格六方向枚举（pointy-topped axial 坐标）
+
+    参考 Wesnoth map_location::DIRECTION 和 Red Blob Games 轴向方向定义。
+    """
+
+    N = "N"
+    NE = "NE"
+    SE = "SE"
+    S = "S"
+    SW = "SW"
+    NW = "NW"
 
 
 @dataclass(frozen=True)
@@ -42,6 +58,27 @@ class HexCoord:
     def to_tuple(self) -> Tuple[int, int]:
         """返回 (q, r) 元组"""
         return (self.q, self.r)
+
+
+# 方向到轴向偏移量的映射（pointy-topped 六角格）
+_DIRECTION_VECTORS: Dict[Direction, HexCoord] = {
+    Direction.N: HexCoord(0, -1),
+    Direction.NE: HexCoord(1, -1),
+    Direction.SE: HexCoord(1, 0),
+    Direction.S: HexCoord(0, 1),
+    Direction.SW: HexCoord(-1, 1),
+    Direction.NW: HexCoord(-1, 0),
+}
+
+# 相反方向映射
+_OPPOSITE_DIRECTION: Dict[Direction, Direction] = {
+    Direction.N: Direction.S,
+    Direction.NE: Direction.SW,
+    Direction.SE: Direction.NW,
+    Direction.S: Direction.N,
+    Direction.SW: Direction.NE,
+    Direction.NW: Direction.SE,
+}
 
 
 # 六角格 6 个方向向量
@@ -79,6 +116,45 @@ def hex_neighbors(center: HexCoord) -> List[HexCoord]:
         相邻 6 个格子的坐标列表
     """
     return [center + d for d in HEX_DIRECTIONS]
+
+
+def get_direction(direction: Direction, steps: int = 1) -> HexCoord:
+    """获取某方向的偏移向量
+
+    参考 Wesnoth map_location::get_direction() 设计。
+
+    Args:
+        direction: 六角格方向
+        steps: 步数（默认为 1，负数为反向）
+
+    Returns:
+        偏移坐标向量
+
+    Examples:
+        >>> get_direction(Direction.N, 2)
+        HexCoord(0, -2)
+        >>> get_direction(Direction.SE, -1)
+        HexCoord(-1, 0)
+    """
+    if steps == 0:
+        return HexCoord(0, 0)
+    if steps < 0:
+        direction = direction_opposite(direction)
+        steps = -steps
+    v = _DIRECTION_VECTORS[direction]
+    return HexCoord(v.q * steps, v.r * steps)
+
+
+def direction_opposite(direction: Direction) -> Direction:
+    """获取相反方向
+
+    Args:
+        direction: 当前方向
+
+    Returns:
+        相反方向
+    """
+    return _OPPOSITE_DIRECTION[direction]
 
 
 def axial_to_pixel(coord: HexCoord, size: float) -> Tuple[float, float]:
