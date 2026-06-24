@@ -187,6 +187,111 @@ class TestTerrainConstants:
         assert CITY_TERRITORY_RADIUS[5] == 3
 
 
+class TestFifteenTerrainConstants:
+    """15 种地形常量扩展测试（Phase 1 地图生成器）"""
+
+    ALL_15_TERRAIN_KEYS = [
+        "grass", "grassland", "plain", "forest", "dense_forest",
+        "hill", "mountain", "peak", "desert", "marsh",
+        "tundra", "snow", "water", "deep_water", "river",
+    ]
+
+    def test_terrain_move_cost_covers_15(self):
+        """TERRAIN_MOVE_COST 应覆盖全部 15 种地形"""
+        from game.constants import TERRAIN_MOVE_COST
+        for key in self.ALL_15_TERRAIN_KEYS:
+            assert key in TERRAIN_MOVE_COST, (
+                f"TERRAIN_MOVE_COST missing key: {key}"
+            )
+        assert len(TERRAIN_MOVE_COST) == 15
+
+    def test_terrain_move_cost_values(self):
+        """移动消耗值应在合理范围"""
+        from game.constants import TERRAIN_MOVE_COST
+        for key, val in TERRAIN_MOVE_COST.items():
+            if val == float("inf"):
+                continue  # mountain/peak/water are impassable
+            assert val >= 1.0, f"{key} move cost should be >= 1.0, got {val}"
+            assert val <= 4.0, f"{key} move cost should be <= 4.0, got {val}"
+
+    def test_terrain_defense_bonus_covers_15(self):
+        """TERRAIN_DEFENSE_BONUS 应覆盖全部 15 种地形"""
+        from game.constants import TERRAIN_DEFENSE_BONUS
+        for key in self.ALL_15_TERRAIN_KEYS:
+            assert key in TERRAIN_DEFENSE_BONUS, (
+                f"TERRAIN_DEFENSE_BONUS missing key: {key}"
+            )
+        assert len(TERRAIN_DEFENSE_BONUS) == 15
+
+    def test_terrain_defense_bonus_values(self):
+        """防御加成值应在合理范围 [-0.2, 0.5]"""
+        from game.constants import TERRAIN_DEFENSE_BONUS
+        for key, val in TERRAIN_DEFENSE_BONUS.items():
+            assert -0.3 <= val <= 0.5, (
+                f"{key} defense bonus {val} out of range [-0.3, 0.5]"
+            )
+
+    def test_terrain_yields_covers_15(self):
+        """TERRAIN_YIELDS 应覆盖全部 15 种地形"""
+        from game.constants import TERRAIN_YIELDS
+        for key in self.ALL_15_TERRAIN_KEYS:
+            assert key in TERRAIN_YIELDS, (
+                f"TERRAIN_YIELDS missing key: {key}"
+            )
+        assert len(TERRAIN_YIELDS) == 15
+
+    def test_terrain_yields_structure(self):
+        """每种地形的产出字典应有 gold/food/pop 三个键"""
+        from game.constants import TERRAIN_YIELDS
+        for key, yields in TERRAIN_YIELDS.items():
+            assert "gold" in yields, f"{key} yields missing 'gold'"
+            assert "food" in yields, f"{key} yields missing 'food'"
+            assert "pop" in yields, f"{key} yields missing 'pop'"
+            assert yields["gold"] >= 0, f"{key} gold should be >= 0"
+            assert yields["food"] >= 0, f"{key} food should be >= 0"
+            assert yields["pop"] >= 0, f"{key} pop should be >= 0"
+
+    def test_terrain_properties_exists(self):
+        """TERRAIN_PROPERTIES 应存在且覆盖全部 15 种地形"""
+        from game.constants import TERRAIN_PROPERTIES
+        assert TERRAIN_PROPERTIES is not None
+        assert len(TERRAIN_PROPERTIES) == 15
+        for key in self.ALL_15_TERRAIN_KEYS:
+            assert key in TERRAIN_PROPERTIES, (
+                f"TERRAIN_PROPERTIES missing key: {key}"
+            )
+
+    def test_terrain_properties_keys(self):
+        """每种地形的属性字典应有 4 个生成权重键"""
+        from game.constants import TERRAIN_PROPERTIES
+        REQUIRED_PROPS = {"altitude", "temperature", "humidity", "vegetation"}
+        for key, props in TERRAIN_PROPERTIES.items():
+            assert set(props.keys()) == REQUIRED_PROPS, (
+                f"{key} properties keys mismatch: {set(props.keys())}"
+            )
+
+    def test_terrain_properties_valid_values(self):
+        """属性值应在允许范围内"""
+        from game.constants import TERRAIN_PROPERTIES
+        VALID_ALTITUDE = {"deep", "low", "mid", "high", "peak"}
+        VALID_TEMPERATURE = {"tropical", "temperate", "cold", "frozen"}
+        VALID_HUMIDITY = {"wet", "normal", "dry"}
+        VALID_VEGETATION = {"none", "sparse", "dense"}
+        for key, props in TERRAIN_PROPERTIES.items():
+            assert props["altitude"] in VALID_ALTITUDE, (
+                f"{key} altitude '{props['altitude']}' invalid"
+            )
+            assert props["temperature"] in VALID_TEMPERATURE, (
+                f"{key} temperature '{props['temperature']}' invalid"
+            )
+            assert props["humidity"] in VALID_HUMIDITY, (
+                f"{key} humidity '{props['humidity']}' invalid"
+            )
+            assert props["vegetation"] in VALID_VEGETATION, (
+                f"{key} vegetation '{props['vegetation']}' invalid"
+            )
+
+
 class TestSeasonConstants:
     """季节常量测试"""
 

@@ -450,35 +450,87 @@ HEX_MAP_HEIGHT: int = 90
 # ============================================================
 
 TERRAIN_MOVE_COST: Dict[str, float] = {
+    "grass": 1.0,
+    "grassland": 1.0,
     "plain": 1.0,
     "forest": 1.5,
+    "dense_forest": 2.0,
     "hill": 2.0,
     "mountain": float("inf"),
-    "river": 2.0,
+    "peak": float("inf"),
     "desert": 1.5,
+    "marsh": 2.5,
+    "tundra": 1.5,
+    "snow": 2.0,
+    "water": float("inf"),
+    "deep_water": float("inf"),
+    "river": 2.0,
 }
 """地形移动消耗倍数"""
 
 TERRAIN_DEFENSE_BONUS: Dict[str, float] = {
+    "grass": 0.0,
+    "grassland": -0.05,
     "plain": 0.0,
     "forest": 0.10,
+    "dense_forest": 0.20,
     "hill": 0.20,
     "mountain": 0.40,
-    "river": 0.0,
+    "peak": 0.50,
     "desert": -0.10,
+    "marsh": 0.05,
+    "tundra": -0.05,
+    "snow": -0.10,
+    "water": 0.0,
+    "deep_water": 0.0,
+    "river": 0.0,
 }
 """地形防御加成率（0.10 = +10%）"""
 
 # 基础产出：仅金钱/粮草/人口
 TERRAIN_YIELDS: Dict[str, Dict[str, float]] = {
+    "grass": {"gold": 0.5, "food": 3.0, "pop": 1.5},
+    "grassland": {"gold": 0.0, "food": 2.5, "pop": 1.0},
     "plain": {"gold": 0.0, "food": 3.0, "pop": 1.0},
     "forest": {"gold": 0.0, "food": 1.5, "pop": 0.5},
+    "dense_forest": {"gold": 0.0, "food": 2.0, "pop": 0.3},
     "hill": {"gold": 1.5, "food": 0.5, "pop": 0.3},
-    "mountain": {"gold": 0.0, "food": 0.0, "pop": 0.0},
-    "river": {"gold": 0.5, "food": 2.0, "pop": 0.5},
+    "mountain": {"gold": 1.0, "food": 0.0, "pop": 0.0},
+    "peak": {"gold": 0.5, "food": 0.0, "pop": 0.0},
     "desert": {"gold": 0.0, "food": 0.2, "pop": 0.1},
+    "marsh": {"gold": 0.0, "food": 1.5, "pop": 0.3},
+    "tundra": {"gold": 0.0, "food": 0.5, "pop": 0.2},
+    "snow": {"gold": 0.0, "food": 0.0, "pop": 0.0},
+    "water": {"gold": 0.5, "food": 1.0, "pop": 0.0},
+    "deep_water": {"gold": 0.0, "food": 0.5, "pop": 0.0},
+    "river": {"gold": 0.5, "food": 2.0, "pop": 0.5},
 }
 """地形基础产出（每格每回合）"""
+
+# 参考 FreeCiv struct terrain property[MG_COUNT] 设计
+# 4 个生成权重属性，控制地图生成时的分布
+# altitude: "deep" | "low" | "mid" | "high" | "peak"
+# temperature: "tropical" | "temperate" | "cold" | "frozen"
+# humidity: "wet" | "normal" | "dry"
+# vegetation: "none" | "sparse" | "dense"
+TERRAIN_PROPERTIES: Dict[str, Dict[str, str]] = {
+    "grass":        {"altitude": "low",   "temperature": "temperate", "humidity": "wet",    "vegetation": "dense"},
+    "grassland":    {"altitude": "low",   "temperature": "temperate", "humidity": "normal", "vegetation": "sparse"},
+    "plain":        {"altitude": "low",   "temperature": "temperate", "humidity": "normal", "vegetation": "none"},
+    "forest":       {"altitude": "low",   "temperature": "temperate", "humidity": "wet",    "vegetation": "dense"},
+    "dense_forest": {"altitude": "low",   "temperature": "tropical",  "humidity": "wet",    "vegetation": "dense"},
+    "hill":         {"altitude": "mid",   "temperature": "temperate", "humidity": "normal", "vegetation": "sparse"},
+    "mountain":     {"altitude": "high",  "temperature": "temperate", "humidity": "dry",    "vegetation": "none"},
+    "peak":         {"altitude": "peak",  "temperature": "cold",      "humidity": "dry",    "vegetation": "none"},
+    "desert":       {"altitude": "low",   "temperature": "tropical",  "humidity": "dry",    "vegetation": "none"},
+    "marsh":        {"altitude": "low",   "temperature": "temperate", "humidity": "wet",    "vegetation": "dense"},
+    "tundra":       {"altitude": "low",   "temperature": "cold",      "humidity": "normal", "vegetation": "sparse"},
+    "snow":         {"altitude": "mid",   "temperature": "frozen",    "humidity": "normal", "vegetation": "none"},
+    "water":        {"altitude": "deep",  "temperature": "temperate", "humidity": "wet",    "vegetation": "none"},
+    "deep_water":   {"altitude": "deep",  "temperature": "temperate", "humidity": "wet",    "vegetation": "none"},
+    "river":        {"altitude": "low",   "temperature": "temperate", "humidity": "wet",    "vegetation": "none"},
+}
+"""地形生成权重属性（仿 FreeCiv struct terrain property[MG_COUNT]）"""
 
 CITY_TERRITORY_RADIUS: Dict[int, int] = {
     1: 1,
