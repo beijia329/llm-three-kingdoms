@@ -1,5 +1,5 @@
 #!/bin/bash
-# LLM三国志 v2.0 验证脚本
+# LLM三国志 v2.2 验证脚本
 # 用法: bash verify.sh
 set -e
 cd "$(dirname "$0")"
@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 PYTHON="${PYTHON:-/Library/Frameworks/Python.framework/Versions/3.12/bin/python3}"
 
 echo "========================================"
-echo "  LLM三国志 v2.0 验证"
+echo "  LLM三国志 v2.2 验证"
 echo "========================================"
 echo "使用解释器: $PYTHON"
 echo ""
