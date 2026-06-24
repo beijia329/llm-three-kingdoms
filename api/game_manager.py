@@ -169,7 +169,7 @@ class GameManager:
                 "turn": m.turn,
                 "is_read": m.is_read,
             }
-            for m in self.engine.messages
+            for m in self.engine._messages
         ]
 
         # 回合日志
