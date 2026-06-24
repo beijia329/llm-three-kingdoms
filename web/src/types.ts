@@ -76,6 +76,7 @@ export interface HexTile {
   terrain: string
   faction: string | null
   owner_city_id: string | null
+  province_id: string | null
 }
 
 export interface FactionRelation {

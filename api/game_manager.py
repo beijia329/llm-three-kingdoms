@@ -127,6 +127,7 @@ class GameManager:
                     "terrain": tile.terrain.value if hasattr(tile.terrain, 'value') else str(tile.terrain),
                     "faction": tile.faction,
                     "owner_city_id": tile.owner_city_id,
+                    "province_id": tile.province_id,
                 })
 
         # max_turns / year 现在由 GameState 模型自动序列化（B-03 修复后）

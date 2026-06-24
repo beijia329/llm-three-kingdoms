@@ -26,7 +26,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
 
   // 相机状态用 ref（不触发 React 重渲染，通过 DOM 操作同步）
-  const cameraRef = useRef<Camera>({ x: -960, y: -230, zoom: 0.3 })
+  const cameraRef = useRef<Camera>({ x: -960, y: -230, zoom: 0.6 })
   const [isDragging, setIsDragging] = useState(false)
   const dragStartRef = useRef<{ x: number; y: number } | null>(null)
   const cameraStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -109,12 +109,12 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 
     // 1. 绘制地块
     const tilesGraphics = new Graphics()
-    const tileMap = new Map<string, { terrain: string; faction: string | null }>()
+    const tileMap = new Map<string, { terrain: string; faction: string | null; province_id: string | null }>()
     const coords = new Set<string>()
 
-    state.hex_map?.tiles?.forEach((t: HexCoord & { terrain: string; faction: string | null }) => {
+    state.hex_map?.tiles?.forEach((t: HexCoord & { terrain: string; faction: string | null; province_id: string | null }) => {
       const key = `${t.q},${t.r}`
-      tileMap.set(key, { terrain: t.terrain, faction: t.faction })
+      tileMap.set(key, { terrain: t.terrain, faction: t.faction, province_id: t.province_id })
       coords.add(key)
     })
 
@@ -135,10 +135,10 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const faction = tile?.faction || getFactionAt(state, coord)
       let fill = colors.fill
       if (faction && faction !== 'neutral') {
-        fill = blendColor(colors.fill, hexToNumber(factionColor(faction)), 0.12)
+        fill = blendColor(colors.fill, hexToNumber(factionColor(faction)), 0.20)
       }
 
-      tilesGraphics.poly(points).fill(fill).stroke({ color: colors.border, width: 1 })
+      tilesGraphics.poly(points).fill(fill).stroke({ color: 0x3a3a3a, width: 2 })
     })
 
     camera.addChild(tilesGraphics)
@@ -182,6 +182,59 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       })
     })
     camera.addChild(borderGraphics)
+
+    // 3. 绘制 Province 边界
+    const provinceGraphics = new Graphics()
+    const provinceHexes: Record<string, HexCoord[]> = {}
+    coords.forEach((key) => {
+      const tile = tileMap.get(key)
+      if (tile?.province_id) {
+        provinceHexes[tile.province_id] = provinceHexes[tile.province_id] || []
+        const [q, r] = key.split(',').map(Number)
+        provinceHexes[tile.province_id].push({ q, r })
+      }
+    })
+
+    const provinceColor = 0xb4aa8c // 淡金色
+    Object.values(provinceHexes).forEach((hexList) => {
+      const coordSet = new Set(hexList.map((h) => `${h.q},${h.r}`))
+      hexList.forEach((c) => {
+        const { x: cx, y: cy } = axialToPixel(c, HEX_SIZE)
+        const hPoints = hexPoints(cx, cy, HEX_SIZE)
+        for (let i = 0; i < 6; i++) {
+          const nbQ = c.q + [1, 1, 0, -1, -1, 0][i]
+          const nbR = c.r + [0, -1, -1, 0, 1, 1][i]
+          if (!coordSet.has(`${nbQ},${nbR}`)) {
+            const x1 = hPoints[i * 2]
+            const y1 = hPoints[i * 2 + 1]
+            const x2 = hPoints[((i + 1) % 6) * 2]
+            const y2 = hPoints[((i + 1) % 6) * 2 + 1]
+            provinceGraphics
+              .moveTo(x1, y1)
+              .lineTo(x2, y2)
+              .stroke({ color: provinceColor, width: 2 })
+          }
+        }
+      })
+    })
+    camera.addChild(provinceGraphics)
+
+    // 4. 绘制水域（空白 hex）
+    const waterGraphics = new Graphics()
+    const waterColor = 0x1a2a4a
+    const hw = state.hex_map?.width || 120
+    const hh = state.hex_map?.height || 90
+    for (let q = 0; q < hw; q++) {
+      for (let r = 0; r < hh; r++) {
+        const key = `${q},${r}`
+        if (!coords.has(key)) {
+          const { x: wx, y: wy } = axialToPixel({ q, r }, HEX_SIZE)
+          const wPoints = hexPoints(wx, wy, HEX_SIZE)
+          waterGraphics.poly(wPoints).fill(waterColor)
+        }
+      }
+    }
+    camera.addChild(waterGraphics)
   }, [state, tilesReady])
 
   // 相机同步：统一更新 PixiJS + DOM Overlay
