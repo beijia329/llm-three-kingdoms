@@ -182,10 +182,43 @@ print('洛阳 gold:', engine._resource_system.calculate_resources(
    - 城市/军队标记与 province 颜色不冲突
 
 2. **外交命令扩展**：
-   - `ProposeAllianceCommand`、`DeclareWarCommand` 等正式命令
-   - CLI/LLM 玩家对 receive_message 的响应逻辑
+## 七、外交命令扩展（2026-06-24 追加）
 
-3. **测试覆盖**：
-   - 外交关系状态机单元测试
-   - 武将属性影响战斗的集成测试
-   - 州郡数据完整性校验脚本
+### 新提交
+`917bb3a` feat(diplomacy): ProposeAlliance + DeclareWar 命令
+`ef0a81a` fix(engine): DiplomaticStatus 导入修复 + 测试扩展
+`bdf22f0` test(diplomacy): 16 项单元测试
+
+### 新增命令模型（`game/models.py`）
+- `ProposeAllianceCommand`：提出同盟命令（to, duration）
+- `DeclareWarCommand`：宣战命令（to, reason）
+
+### 引擎执行（`game/engine.py`）
+- `_execute_propose_alliance`：验证目标→set_status(ALLIANCE)
+- `_execute_declare_war`：验证目标→set_status(WAR)
+- 导入 `DiplomaticStatus` 修复 `_apply_battle_result` 的 NameError
+- 修复 `DiplomacyMessageSentEvent` 构造（移除冗余 event_type/data 参数）
+
+### LLM 适配
+- **output_parser.py**：VALID_COMMAND_TYPES + required_params 添加新命令
+- **prompt_builder.py**：命令说明 + 外交关系渲染到 state prompt
+- **llm_player.py**：COMMAND_CLASSES/PARAM_MAPPING + receive_message 存入 MemoryManager.short_term
+
+### CLI 玩家外交响应（`players/cli_player.py`）
+- `receive_message`：识别结盟关键词
+- `get_commands`：响应结盟提议 + 主动宣战（aggression>0.6）
+- 利用 `faction_relations` 判断现有外交状态
+
+### Web API 适配（`api/game_manager.py`）
+- `_deserialize_command` 添加 propose_alliance/declare_war 分支
+
+### 测试覆盖
+- **test_diplomacy_relation.py**：16 项（新建）
+- **test_output_parser.py**：+4 项外交命令验证
+- **test_engine.py**：+3 项外交命令执行测试
+- **全部测试**：408 passed（新增 16 项）
+
+### 剩余低优先级 TODO
+1. 武将属性影响战斗/资源测试（battle/resource 集成测试）
+2. CLI/LLM 玩家对复杂外交场景的响应测试
+3. 州郡数据完整性校验脚本
