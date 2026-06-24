@@ -237,25 +237,26 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 
   }, [state])
 
-  // 地图像素边界（包含未探索外围 10 格缓冲区）
-  const PAD = 10
-  const CHINA_PIXEL_BOUNDS = {
-    xMin: -HEX_SIZE * (2 + PAD),
-    xMax: HEX_SIZE * (Math.sqrt(3) * 119 + Math.sqrt(3) / 2 * 89) + HEX_SIZE * (2 + PAD),
-    yMin: -HEX_SIZE * (2 + PAD),
-    yMax: HEX_SIZE * (1.5 * 89) + HEX_SIZE * (2 + PAD),
-  }
+  // 地图像素边界（世界坐标）：0 → worldW, 0 → worldH
+  const worldW = HEX_SIZE * (Math.sqrt(3) * 119 + Math.sqrt(3) / 2 * 89)
+  const worldH = HEX_SIZE * (1.5 * 89)
+  const PAD = HEX_SIZE * 15  // 外围未探索缓冲
 
   const clampCamera = (cam: Camera, viewW: number, viewH: number): Camera => {
     const z = Math.max(0.3, Math.min(1.2, cam.zoom))
-    // 视口在世界坐标中的范围
-    const vw = viewW / z
-    const vh = viewH / z
-    const bx = CHINA_PIXEL_BOUNDS
-    // 摄像机不能露出边界外的空白
-    const x = Math.min(bx.xMax - vw, Math.max(bx.xMin, cam.x))
-    const y = Math.min(bx.yMax - vh, Math.max(bx.yMin, cam.y))
-    return { x, y, zoom: z }
+    // 摄像机 cx 使得世界坐标 x 映射到屏幕 (x+cx)*z
+    // 可见范围: world x ∈ [-cx, (viewW/z)-cx]
+    // 约束: 左边界 world x = -PAD 可见 → cx ≤ PAD
+    //       右边界 world x = worldW+PAD 可见 → cx ≥ viewW/z - (worldW+PAD)
+    const cxMin = viewW / z - (worldW + PAD)
+    const cxMax = PAD
+    const cyMin = viewH / z - (worldH + PAD)
+    const cyMax = PAD
+    return {
+      x: Math.min(cxMax, Math.max(cxMin, cam.x)),
+      y: Math.min(cyMax, Math.max(cyMin, cam.y)),
+      zoom: z,
+    }
   }
 
   // 相机同步 + 约束
