@@ -38,6 +38,10 @@ try {
     }
   })
 
+  // 拦截外部瓦片请求，避免 networkidle 被卡
+  await page.route('https://*.basemaps.cartocdn.com/**', (route) => route.abort('blockedbyclient'))
+  await page.route('https://cdnjs.cloudflare.com/**', (route) => route.continue())
+
   console.log('访问 http://localhost:5173 ...')
   await page.goto('http://localhost:5173/', { waitUntil: 'networkidle' })
   await setTimeout(2000)

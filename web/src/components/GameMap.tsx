@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Application, Container, Graphics, Text } from 'pixi.js'
+import { Application, Container, Graphics } from 'pixi.js'
 import type { GameState, HexCoord } from '../types'
-import { FACTION_COLORS, TERRAIN_COLORS, UI_COLORS, hexToNumber } from '../utils/colors'
+import { TERRAIN_COLORS, UI_COLORS, hexToNumber } from '../theme'
 import { HEX_SIZE, axialToPixel, hexNeighbors, hexPoints } from '../utils/hex'
+import { computeTiles, createTileSprite, preloadTiles } from '../utils/tiles'
+import { CityMarker } from './map/CityMarker'
+import { ArmyMarker } from './map/ArmyMarker'
+import type { TileInfo } from '../utils/tiles'
 
 interface GameMapProps {
   state: GameState | null
@@ -18,12 +22,17 @@ interface Camera {
 export function GameMap({ state, onSelectCity }: GameMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<Application | null>(null)
-  const cameraRef = useRef<Container | null>(null)
-  // 初始相机以中国大陆城市群为中心 (q≈68, r≈45, zoom=0.3)
-  const [camera, setCamera] = useState<Camera>({ x: -960, y: -230, zoom: 0.3 })
+  const pixiCameraRef = useRef<Container | null>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+
+  // 相机状态用 ref（不触发 React 重渲染，通过 DOM 操作同步）
+  const cameraRef = useRef<Camera>({ x: -960, y: -230, zoom: 0.3 })
   const [isDragging, setIsDragging] = useState(false)
   const dragStartRef = useRef<{ x: number; y: number } | null>(null)
   const cameraStartRef = useRef<{ x: number; y: number } | null>(null)
+
+  const [tilesReady, setTilesReady] = useState(false)
+  const tilesRef = useRef<TileInfo[]>([])
 
   // 初始化 Pixi Application
   useEffect(() => {
@@ -53,11 +62,19 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       appRef.current = app
 
       const camera = new Container()
-      cameraRef.current = camera
+      pixiCameraRef.current = camera
       app.stage.addChild(camera)
 
-      camera.position.set(-960, -230)
-      camera.scale.set(0.3)
+      const c = cameraRef.current
+      camera.position.set(c.x, c.y)
+      camera.scale.set(c.zoom)
+
+      // 预加载瓦片
+      const tiles = computeTiles(6)
+      tilesRef.current = tiles
+      preloadTiles(tiles).then(() => {
+        if (!cancelled) setTilesReady(true)
+      })
     }
 
     init()
@@ -69,46 +86,43 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
         app = null
       }
       appRef.current = null
-      cameraRef.current = null
+      pixiCameraRef.current = null
     }
   }, [])
 
-  // 同步相机状态到 Pixi
+  // 渲染 PixiJS 层（地形 + 边界 + 瓦片底图）
   useEffect(() => {
-    const pixiCamera = cameraRef.current
-    if (!pixiCamera) return
-    pixiCamera.position.set(camera.x, camera.y)
-    pixiCamera.scale.set(camera.zoom)
-  }, [camera])
+    if (!state || !pixiCameraRef.current) return
 
-  // 渲染地图
-  useEffect(() => {
-    if (!state || !cameraRef.current) return
-
-    const camera = cameraRef.current
+    const camera = pixiCameraRef.current
     camera.removeChildren()
 
-    const { cities, armies } = state
+    // 0. 瓦片底图
+    if (tilesReady) {
+      const tileContainer = new Container()
+      tilesRef.current.forEach((tile) => {
+        const sprite = createTileSprite(tile)
+        if (sprite) tileContainer.addChild(sprite)
+      })
+      camera.addChild(tileContainer)
+    }
 
     // 1. 绘制地块
     const tilesGraphics = new Graphics()
     const tileMap = new Map<string, { terrain: string; faction: string | null }>()
     const coords = new Set<string>()
 
-    // 收集实际地块数据
     state.hex_map?.tiles?.forEach((t: HexCoord & { terrain: string; faction: string | null }) => {
       const key = `${t.q},${t.r}`
       tileMap.set(key, { terrain: t.terrain, faction: t.faction })
       coords.add(key)
     })
 
-    // 补充城市与军队所在位置确保可见
-    Object.values(cities).forEach((c) => coords.add(`${c.position.q},${c.position.r}`))
-    Object.values(armies).forEach((a) => {
+    Object.values(state.cities).forEach((c) => coords.add(`${c.position.q},${c.position.r}`))
+    Object.values(state.armies).forEach((a) => {
       if (a.current_hex) coords.add(`${a.current_hex.q},${a.current_hex.r}`)
     })
 
-    // 绘制六角格
     coords.forEach((key) => {
       const [q, r] = key.split(',').map(Number)
       const coord: HexCoord = { q, r }
@@ -118,11 +132,10 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const colors = TERRAIN_COLORS[terrain] || TERRAIN_COLORS.plain
       const points = hexPoints(x, y, HEX_SIZE)
 
-      // 势力颜色淡化填充
       const faction = tile?.faction || getFactionAt(state, coord)
       let fill = colors.fill
       if (faction && faction !== 'neutral') {
-        fill = blendColor(colors.fill, hexToNumber(FACTION_COLORS[faction] || '#888888'), 0.15)
+        fill = blendColor(colors.fill, hexToNumber(factionColor(faction)), 0.12)
       }
 
       tilesGraphics.poly(points).fill(fill).stroke({ color: colors.border, width: 1 })
@@ -165,105 +178,23 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
         borderGraphics
           .moveTo(mx + nx, my + ny)
           .lineTo(mx - nx, my - ny)
-          .stroke({ color: hexToNumber(FACTION_COLORS[faction] || '#888888'), width: 3 })
+          .stroke({ color: hexToNumber(factionColor(faction)), width: 3 })
       })
     })
     camera.addChild(borderGraphics)
+  }, [state, tilesReady])
 
-    // 3. 绘制城市
-    Object.values(cities).forEach((city) => {
-      const { x, y } = axialToPixel(city.position, HEX_SIZE)
-      const cityContainer = new Container()
-      cityContainer.position.set(x, y)
-
-      const color = hexToNumber(FACTION_COLORS[city.faction] || '#888888')
-      const radius = Math.max(4, Math.min(18, (5 + city.level * 1.8)))
-
-      const circle = new Graphics()
-      circle.circle(0, 0, radius).fill(color).stroke({ color: 0xe8e0d0, width: 2 })
-      cityContainer.addChild(circle)
-
-      if (city.is_besieged) {
-        const ring = new Graphics()
-        ring.circle(0, 0, radius + 4).stroke({ color: 0xc85046, width: 2 })
-        cityContainer.addChild(ring)
-      }
-
-      // 城市名
-      const nameText = new Text({
-        text: city.name,
-        style: { fontSize: 12, fill: '#e8e0d0', fontFamily: 'PingFang SC, Microsoft YaHei, sans-serif' },
-      })
-      nameText.anchor.set(0.5, 1)
-      nameText.position.set(0, -radius - 2)
-      cityContainer.addChild(nameText)
-
-      // 兵力条
-      const maxG = city.level * 1000
-      const ratio = Math.min(1, city.garrison / maxG)
-      const barW = 24
-      const barH = 4
-      const bar = new Graphics()
-      bar.rect(-barW / 2, radius + 3, barW, barH).fill(0x282836)
-      const hpColor = ratio > 0.5 ? 0x3cb464 : ratio > 0.2 ? 0xc8a032 : 0xc85046
-      bar.rect(-barW / 2, radius + 3, barW * ratio, barH).fill(hpColor)
-      cityContainer.addChild(bar)
-
-      // 点击区域
-      const hitArea = new Graphics()
-      hitArea.circle(0, 0, radius + 6).fill({ color: 0xffffff, alpha: 0.001 })
-      hitArea.eventMode = 'static'
-      hitArea.cursor = 'pointer'
-      hitArea.on('pointerdown', () => onSelectCity(city.id))
-      cityContainer.addChild(hitArea)
-
-      camera.addChild(cityContainer)
-    })
-
-    // 4. 绘制军队
-    Object.values(armies).forEach((army) => {
-      if (army.soldiers <= 0) return
-      const pos = army.current_hex
-        ? axialToPixel(army.current_hex, HEX_SIZE)
-        : cities[army.to_city]
-          ? axialToPixel(cities[army.to_city].position, HEX_SIZE)
-          : null
-      if (!pos) return
-
-      const armyContainer = new Container()
-      armyContainer.position.set(pos.x, pos.y)
-
-      const color = hexToNumber(FACTION_COLORS[army.faction] || '#888888')
-      const size = Math.max(4, Math.min(14, 7))
-
-      const triangle = new Graphics()
-      const points = army.status === 'retreating'
-        ? [0, size, -size * 0.9, -size * 0.6, size * 0.9, -size * 0.6]
-        : [0, -size, -size * 0.9, size * 0.6, size * 0.9, size * 0.6]
-      triangle.poly(points).fill(color).stroke({ color: 0xe8e0d0, width: 1 })
-      armyContainer.addChild(triangle)
-
-      const soldierText = new Text({
-        text: String(army.soldiers),
-        style: { fontSize: 10, fill: '#e8e0d0', fontFamily: 'sans-serif' },
-      })
-      soldierText.anchor.set(0.5, 1)
-      soldierText.position.set(0, -size - 1)
-      armyContainer.addChild(soldierText)
-
-      // 士气条
-      const ratio = Math.max(0, Math.min(1, army.morale / 100))
-      const barW = 18
-      const barH = 3
-      const moraleBar = new Graphics()
-      moraleBar.rect(-barW / 2, size + 2, barW, barH).fill(0x282836)
-      const moraleColor = ratio > 0.5 ? 0x3cb464 : ratio > 0.2 ? 0xc8a032 : 0xc85046
-      moraleBar.rect(-barW / 2, size + 2, barW * ratio, barH).fill(moraleColor)
-      armyContainer.addChild(moraleBar)
-
-      camera.addChild(armyContainer)
-    })
-  }, [state, onSelectCity])
+  // 相机同步：统一更新 PixiJS + DOM Overlay
+  const syncCamera = (next: Camera) => {
+    cameraRef.current = next
+    if (pixiCameraRef.current) {
+      pixiCameraRef.current.position.set(next.x, next.y)
+      pixiCameraRef.current.scale.set(next.zoom)
+    }
+    if (overlayRef.current) {
+      overlayRef.current.style.transform = `translate(${next.x}px, ${next.y}px) scale(${next.zoom})`
+    }
+  }
 
   // 鼠标/滚轮事件
   useEffect(() => {
@@ -276,16 +207,15 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const mouseX = e.clientX - rect.left
       const mouseY = e.clientY - rect.top
 
-      setCamera((prev) => {
-        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
-        const newZoom = Math.max(0.08, Math.min(1.5, prev.zoom * zoomFactor))
-        const wx = (mouseX - prev.x) / prev.zoom
-        const wy = (mouseY - prev.y) / prev.zoom
-        return {
-          x: mouseX - wx * newZoom,
-          y: mouseY - wy * newZoom,
-          zoom: newZoom,
-        }
+      const prev = cameraRef.current
+      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
+      const newZoom = Math.max(0.08, Math.min(1.5, prev.zoom * zoomFactor))
+      const wx = (mouseX - prev.x) / prev.zoom
+      const wy = (mouseY - prev.y) / prev.zoom
+      syncCamera({
+        x: mouseX - wx * newZoom,
+        y: mouseY - wy * newZoom,
+        zoom: newZoom,
       })
     }
 
@@ -293,18 +223,18 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       if (e.button !== 0) return
       setIsDragging(true)
       dragStartRef.current = { x: e.clientX, y: e.clientY }
-      cameraStartRef.current = { x: camera.x, y: camera.y }
+      cameraStartRef.current = { x: cameraRef.current.x, y: cameraRef.current.y }
     }
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging || !dragStartRef.current || !cameraStartRef.current) return
       const dx = e.clientX - dragStartRef.current.x
       const dy = e.clientY - dragStartRef.current.y
-      setCamera((prev) => ({
-        ...prev,
-        x: cameraStartRef.current!.x + dx,
-        y: cameraStartRef.current!.y + dy,
-      }))
+      syncCamera({
+        ...cameraRef.current,
+        x: cameraStartRef.current.x + dx,
+        y: cameraStartRef.current.y + dy,
+      })
     }
 
     const handleMouseUp = () => {
@@ -324,23 +254,94 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [camera.x, camera.y, isDragging])
+  }, [isDragging])
+
+  // 计算城市/军队的世界像素坐标
+  const cityMarkers = state
+    ? Object.values(state.cities).map((city) => {
+        const pos = axialToPixel(city.position, HEX_SIZE)
+        return { city, pos }
+      })
+    : []
+
+  const armyMarkers = state
+    ? Object.values(state.armies)
+        .filter((a) => a.soldiers > 0 && a.current_hex)
+        .map((army) => {
+          const pos = axialToPixel(army.current_hex!, HEX_SIZE)
+          return { army, pos }
+        })
+    : []
+
+  const cam = cameraRef.current
 
   return (
     <div
       ref={containerRef}
       style={{
+        position: 'relative',
         width: '100%',
         height: '100%',
         overflow: 'hidden',
         cursor: isDragging ? 'grabbing' : 'grab',
+        backgroundColor: UI_COLORS.bg,
       }}
-    />
+    >
+      {/* PixiJS Canvas 由 useEffect 插入 */}
+
+      {/* DOM Overlay 层：城市 + 军队标记 */}
+      <div
+        ref={overlayRef}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '1px',
+          height: '1px',
+          transform: `translate(${cam.x}px, ${cam.y}px) scale(${cam.zoom})`,
+          transformOrigin: '0 0',
+          pointerEvents: 'none',
+        }}
+      >
+        {cityMarkers.map(({ city, pos }) => (
+          <CityMarker
+            key={city.id}
+            city={city}
+            x={pos.x}
+            y={pos.y}
+            zoom={cam.zoom}
+            onClick={() => onSelectCity(city.id)}
+          />
+        ))}
+        {armyMarkers.map(({ army, pos }) => (
+          <ArmyMarker key={army.id} army={army} x={pos.x} y={pos.y} zoom={cam.zoom} />
+        ))}
+      </div>
+
+      {/* CSS 动画定义 */}
+      <style>{`
+        @keyframes city-pulse {
+          0%, 100% { filter: drop-shadow(0 0 4px rgba(200,80,70,0.6)); }
+          50% { filter: drop-shadow(0 0 12px rgba(200,80,70,0.9)); }
+        }
+        @keyframes siege-blink {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(0.85); }
+        }
+        @keyframes retreat-shake {
+          0%, 100% { transform: translate(0, 0); }
+          25% { transform: translate(-2px, 1px); }
+          50% { transform: translate(2px, -1px); }
+          75% { transform: translate(-1px, 2px); }
+        }
+      `}</style>
+    </div>
   )
 }
 
+// ---- 辅助函数 ----
+
 function getFactionAt(state: GameState, coord: HexCoord): string | null {
-  // 查找控制该地块的城市
   const city = Object.values(state.cities).find((c) => {
     const dq = Math.abs(c.position.q - coord.q)
     const dr = Math.abs(c.position.r - coord.r)
@@ -354,6 +355,25 @@ function cityRadius(level: number): number {
   if (level <= 1) return 1
   if (level <= 3) return 2
   return 3
+}
+
+function factionColor(faction: string): string {
+  const colors: Record<string, string> = {
+    han: '#FFD700',
+    zhangjiao: '#FFFF00',
+    dongzhuo: '#8B0000',
+    yuanshao: '#FF6600',
+    caocao: '#0055A4',
+    liubei: '#00AA55',
+    sunjian: '#CC0000',
+    liubiao: '#8B4513',
+    liuyan: '#9370DB',
+    gongsunzan: '#FFFFFF',
+    mateng: '#4B0082',
+    yuanshu: '#FF1493',
+    neutral: '#888888',
+  }
+  return colors[faction] || '#888888'
 }
 
 function blendColor(base: number, tint: number, alpha: number): number {

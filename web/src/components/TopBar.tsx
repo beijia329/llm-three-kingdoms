@@ -1,5 +1,5 @@
 import type { GameState } from '../types'
-import { FACTIONS } from '../utils/colors'
+import { FACTIONS } from '../theme'
 
 interface TopBarProps {
   state: GameState | null
@@ -10,7 +10,10 @@ export function TopBar({ state, connected }: TopBarProps) {
   if (!state) {
     return (
       <div style={styles.container}>
-        <span style={styles.title}>LLM三国志 - 加载中...</span>
+        <span style={styles.title}>
+          <i className="fa-solid fa-dragon" style={{ marginRight: '8px', color: '#d4a84b' }}></i>
+          LLM三国志 - 加载中...
+        </span>
       </div>
     )
   }
@@ -32,11 +35,13 @@ export function TopBar({ state, connected }: TopBarProps) {
     <div style={styles.container}>
       <div style={styles.left}>
         <span style={styles.title}>
-          第 {state.turn}{mode} 回合 | {state.year}年 {season} | 黄巾之乱
+          <i className="fa-solid fa-dragon" style={{ marginRight: '8px' }}></i>
+          第 {state.turn}{mode} 回合 | {state.year}年 {season}
         </span>
         <div style={styles.stats}>
           {topFactions.map(([fid, s]) => (
             <span key={fid} style={styles.statItem}>
+              <i className="fa-solid fa-chess-rook" style={{ marginRight: '3px', fontSize: '9px' }}></i>
               {FACTIONS[fid] || fid}{s.cities}城
             </span>
           ))}
@@ -44,7 +49,8 @@ export function TopBar({ state, connected }: TopBarProps) {
       </div>
       <div style={styles.right}>
         <span style={{ ...styles.indicator, color: connected ? '#5ab464' : '#c85046' }}>
-          {connected ? '● 已连接' : '● 未连接'}
+          <i className="fa-solid fa-circle" style={{ fontSize: '8px', marginRight: '5px' }}></i>
+          {connected ? '已连接' : '未连接'}
         </span>
       </div>
     </div>
@@ -54,18 +60,21 @@ export function TopBar({ state, connected }: TopBarProps) {
 const styles: Record<string, React.CSSProperties> = {
   container: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 'calc(100% - 300px)',
+    top: '12px',
+    left: '12px',
+    right: '324px',
     height: '50px',
-    background: 'rgba(18, 18, 34, 0.92)',
-    borderBottom: '1px solid #3c3c52',
+    background: 'rgba(18, 18, 34, 0.82)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '10px',
+    backdropFilter: 'blur(12px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '0 16px',
     boxSizing: 'border-box',
     zIndex: 10,
+    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
   },
   left: {
     display: 'flex',
@@ -74,8 +83,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     color: '#d4a84b',
-    fontSize: '16px',
+    fontSize: '15px',
     fontWeight: 600,
+    display: 'flex',
+    alignItems: 'center',
   },
   stats: {
     display: 'flex',
@@ -84,7 +95,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statItem: {
     color: '#96918a',
-    fontSize: '12px',
+    fontSize: '11px',
+    display: 'flex',
+    alignItems: 'center',
   },
   right: {
     display: 'flex',
@@ -92,5 +105,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   indicator: {
     fontSize: '12px',
+    display: 'flex',
+    alignItems: 'center',
   },
 }

@@ -56,8 +56,10 @@ function App() {
           disabled={auto}
         >
           <i className="fa-solid fa-forward-step" style={{ color: '#d4a84b', fontSize: '16px' }}></i>
-          <div style={{ color: '#d4a84b', fontSize: '15px', fontWeight: 600 }}>下一回合</div>
-          <div style={{ color: '#96918a', fontSize: '11px' }}>空格键 / A 自动</div>
+          <div style={{ color: '#d4a84b', fontSize: '14px', fontWeight: 600 }}>下一回合</div>
+          <div style={{ color: '#96918a', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <i className="fa-solid fa-keyboard" style={{ fontSize: '9px' }}></i>空格 / A
+          </div>
         </button>
 
         {auto && (
@@ -97,32 +99,33 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     bottom: '14px',
     right: '318px',
-    width: '150px',
-    height: '48px',
-    backgroundColor: 'rgba(26, 26, 46, 0.95)',
-    border: '2px solid #d4a84b',
-    borderRadius: '8px',
+    width: '140px',
+    height: '46px',
+    background: 'rgba(18, 18, 34, 0.82)',
+    border: '1px solid rgba(212, 168, 75, 0.5)',
+    borderRadius: '10px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '2px',
     zIndex: 10,
-    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-    backdropFilter: 'blur(4px)',
+    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
+    backdropFilter: 'blur(12px)',
   },
   autoIndicator: {
     position: 'absolute',
     bottom: '14px',
-    right: '480px',
+    right: '470px',
     padding: '10px 16px',
-    backgroundColor: 'rgba(26, 26, 46, 0.95)',
-    border: '1px solid #5ab464',
-    borderRadius: '8px',
+    background: 'rgba(18, 18, 34, 0.82)',
+    border: '1px solid rgba(90, 180, 100, 0.4)',
+    borderRadius: '10px',
     color: '#5ab464',
-    fontSize: '14px',
+    fontSize: '13px',
     zIndex: 10,
-    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
+    backdropFilter: 'blur(12px)',
     display: 'flex',
     alignItems: 'center',
   },

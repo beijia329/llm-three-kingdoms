@@ -1,5 +1,5 @@
-import type { GameState } from '../types'
-import { FACTION_COLORS, FACTIONS, hexToNumber } from '../utils/colors'
+import type { GameEvent, GameState } from '../types'
+import { FACTION_COLORS, FACTIONS } from '../theme'
 
 type TabKey = 'factions' | 'city' | 'generals' | 'log'
 
@@ -12,15 +12,21 @@ interface PanelProps {
   setSelectedFaction: (fid: string) => void
 }
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'factions', label: '1.势力' },
-  { key: 'city', label: '2.城市' },
-  { key: 'generals', label: '3.武将' },
-  { key: 'log', label: '4.战报' },
+const TABS: { key: TabKey; label: string; icon: string }[] = [
+  { key: 'factions', label: '势力', icon: 'fa-chess-king' },
+  { key: 'city', label: '城市', icon: 'fa-city' },
+  { key: 'generals', label: '武将', icon: 'fa-user-shield' },
+  { key: 'log', label: '战报', icon: 'fa-scroll' },
 ]
 
 export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, setSelectedFaction }: PanelProps) {
-  if (!state) return <div style={styles.container}><span style={styles.dim}>加载中...</span></div>
+  if (!state) return (
+    <div style={styles.container}>
+      <div style={styles.glassCard}>
+        <span style={styles.dim}><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }}></i>加载中...</span>
+      </div>
+    </div>
+  )
 
   return (
     <div style={styles.container}>
@@ -30,13 +36,14 @@ export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, set
             key={t.key}
             style={{
               ...styles.tab,
-              backgroundColor: tab === t.key ? '#3c3c52' : 'transparent',
+              backgroundColor: tab === t.key ? 'rgba(212, 168, 75, 0.15)' : 'transparent',
               color: tab === t.key ? '#d4a84b' : '#96918a',
-              borderColor: tab === t.key ? '#5a5a72' : 'transparent',
+              borderColor: tab === t.key ? 'rgba(212, 168, 75, 0.4)' : 'transparent',
             }}
             onClick={() => setTab(t.key)}
           >
-            {t.label}
+            <i className={`fa-solid ${t.icon}`} style={{ fontSize: '13px', marginBottom: '3px' }}></i>
+            <span style={{ fontSize: '12px' }}>{t.label}</span>
           </button>
         ))}
       </div>
@@ -64,40 +71,43 @@ function FactionList({
     .sort((a, b) => b.cities - a.cities || a.name.localeCompare(b.name, 'zh-CN'))
 
   return (
-    <div>
-      <div style={styles.headerRow}>
-        <span style={styles.dim}>势力</span>
-        <span style={styles.dim}>城</span>
-        <span style={styles.dim}>兵</span>
-        <span style={styles.dim}>金</span>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       {rows.map((row) => {
-        const color = hexToNumber(FACTION_COLORS[row.fid] || '#888888')
+        const color = FACTION_COLORS[row.fid] || '#888888'
         const isSelected = selectedFaction === row.fid
         return (
           <div
             key={row.fid}
             style={{
-              ...styles.row,
-              backgroundColor: isSelected ? 'rgba(212, 168, 75, 0.12)' : 'transparent',
+              ...styles.card,
+              borderLeft: `3px solid ${color}`,
+              backgroundColor: isSelected ? 'rgba(212, 168, 75, 0.1)' : 'rgba(255, 255, 255, 0.03)',
               cursor: 'pointer',
             }}
             onClick={() => setSelectedFaction(row.fid)}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isSelected ? '#e8e0d0' : '#b8b3aa' }}>
-              <span style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '3px',
-                backgroundColor: `#${color.toString(16).padStart(6, '0')}`,
-                border: '1px solid rgba(232, 224, 208, 0.4)',
-                boxShadow: '0 0 2px rgba(0,0,0,0.5)',
-              }} />
-              {row.name}
-            </span>
-            <span style={{ color: '#e8e0d0' }}>{row.cities}</span>
-            <span style={{ color: '#96918a' }}>{row.garrison}</span>
-            <span style={{ color: '#96918a' }}>{row.gold}</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isSelected ? '#e8e0d0' : '#b8b3aa', fontWeight: 600, fontSize: '14px' }}>
+                <i className="fa-solid fa-flag" style={{ color, fontSize: '12px' }}></i>
+                {row.name}
+              </span>
+              {row.cities >= 5 && <i className="fa-solid fa-crown" style={{ color: '#d4a84b', fontSize: '11px' }} title="称帝"></i>}
+              {row.cities >= 3 && row.cities < 5 && <i className="fa-solid fa-gem" style={{ color: '#64a0d2', fontSize: '11px' }} title="称王"></i>}
+            </div>
+            <div style={styles.statGrid}>
+              <span style={styles.statItem}>
+                <i className="fa-solid fa-chess-rook" style={{ color: '#d4a84b', fontSize: '10px', marginRight: '3px' }}></i>
+                {row.cities}城
+              </span>
+              <span style={styles.statItem}>
+                <i className="fa-solid fa-users" style={{ color: '#5ab464', fontSize: '10px', marginRight: '3px' }}></i>
+                {row.garrison}
+              </span>
+              <span style={styles.statItem}>
+                <i className="fa-solid fa-coins" style={{ color: '#d4a84b', fontSize: '10px', marginRight: '3px' }}></i>
+                {row.gold}
+              </span>
+            </div>
           </div>
         )
       })}
@@ -106,33 +116,88 @@ function FactionList({
 }
 
 function CityDetail({ state, cityId }: { state: GameState; cityId: string | null }) {
-  if (!cityId) return <span style={styles.dim}>点击地图城市查看详情</span>
+  if (!cityId) {
+    return (
+      <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
+        <i className="fa-solid fa-map-location-dot" style={{ fontSize: '28px', color: '#5a5a72', marginBottom: '10px' }}></i>
+        <div style={styles.dim}>点击地图城市查看详情</div>
+      </div>
+    )
+  }
   const city = state.cities[cityId]
-  if (!city) return <span style={styles.dim}>城市不存在</span>
+  if (!city) {
+    return (
+      <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
+        <i className="fa-solid fa-circle-question" style={{ fontSize: '28px', color: '#5a5a72', marginBottom: '10px' }}></i>
+        <div style={styles.dim}>城市不存在</div>
+      </div>
+    )
+  }
 
-  const color = hexToNumber(FACTION_COLORS[city.faction] || '#888888')
+  const color = FACTION_COLORS[city.faction] || '#888888'
   const gens = Object.values(state.generals).filter((g) => g.location === city.id)
 
   return (
-    <div>
-      <h3 style={{ color: `#${color.toString(16).padStart(6, '0')}`, margin: '0 0 12px' }}>{city.name}</h3>
-      <div style={styles.detailGrid}>
-        <span style={styles.dim}>势力</span><span>{FACTIONS[city.faction] || city.faction}</span>
-        <span style={styles.dim}>等级</span><span>{'★'.repeat(city.level)}</span>
-        <span style={styles.dim}>城墙</span><span>{city.wall_hp} / {city.wall_max_hp}</span>
-        <span style={styles.dim}>守军</span><span>{city.garrison}</span>
-        <span style={styles.dim}>金钱</span><span>{city.gold}</span>
-        <span style={styles.dim}>粮草</span><span>{city.food}</span>
-        <span style={styles.dim}>人口</span><span>{city.population}</span>
-        <span style={styles.dim}>民心</span><span>{city.morale}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div style={{ ...styles.card, borderLeft: `3px solid ${color}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <h3 style={{ color, margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <i className="fa-solid fa-city"></i>
+            {city.name}
+          </h3>
+          <div style={{ display: 'flex', gap: '2px' }}>
+            {Array.from({ length: city.level }).map((_, i) => (
+              <i key={i} className="fa-solid fa-star" style={{ color: '#d4a84b', fontSize: '10px' }}></i>
+            ))}
+          </div>
+        </div>
+
+        <div style={styles.detailGrid}>
+          <span style={styles.dim}><i className="fa-solid fa-flag" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>势力</span>
+          <span style={{ color: '#e8e0d0' }}>{FACTIONS[city.faction] || city.faction}</span>
+
+          <span style={styles.dim}><i className="fa-solid fa-shield-halved" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>城墙</span>
+          <span style={{ color: '#e8e0d0' }}>{city.wall_hp} / {city.wall_max_hp}</span>
+
+          <span style={styles.dim}><i className="fa-solid fa-users" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>守军</span>
+          <span style={{ color: '#e8e0d0' }}>{city.garrison}</span>
+
+          <span style={styles.dim}><i className="fa-solid fa-coins" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>金钱</span>
+          <span style={{ color: '#d4a84b' }}>{city.gold}</span>
+
+          <span style={styles.dim}><i className="fa-solid fa-bread-slice" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>粮草</span>
+          <span style={{ color: '#5ab464' }}>{city.food}</span>
+
+          <span style={styles.dim}><i className="fa-solid fa-people-group" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>人口</span>
+          <span style={{ color: '#e8e0d0' }}>{city.population}</span>
+
+          <span style={styles.dim}><i className="fa-solid fa-heart" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>民心</span>
+          <span style={{ color: city.morale > 70 ? '#5ab464' : city.morale > 40 ? '#d4a84b' : '#c85046' }}>{city.morale}</span>
+        </div>
+
+        {city.is_besieged && (
+          <div style={{ marginTop: '10px', padding: '8px 10px', backgroundColor: 'rgba(200, 80, 70, 0.15)', borderRadius: '6px', color: '#c85046', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <i className="fa-solid fa-triangle-exclamation"></i>
+            被围困中
+          </div>
+        )}
       </div>
-      {city.is_besieged && <div style={{ color: '#c85046', marginTop: '8px' }}>⚠ 被围困中</div>}
+
       {gens.length > 0 && (
-        <div style={{ marginTop: '12px' }}>
-          <div style={{ color: '#d4a84b', marginBottom: '6px' }}>驻守武将</div>
+        <div style={styles.card}>
+          <div style={{ color: '#d4a84b', marginBottom: '8px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <i className="fa-solid fa-user-shield"></i>
+            驻守武将
+          </div>
           {gens.map((g) => (
-            <div key={g.id} style={{ color: '#96918a', fontSize: '12px' }}>
-              {g.name} 统{g.command} 政{g.politics} 武{g.bravery} 智{g.intelligence}
+            <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '12px' }}>
+              <i className="fa-solid fa-user" style={{ color: '#96918a', fontSize: '10px' }}></i>
+              <span style={{ color: '#e8e0d0', minWidth: '50px' }}>{g.name}</span>
+              <span style={{ color: '#c85046' }}>统{g.command}</span>
+              <span style={{ color: '#64a0d2' }}>政{g.politics}</span>
+              <span style={{ color: '#c85046' }}>武{g.bravery}</span>
+              <span style={{ color: '#d4a84b' }}>智{g.intelligence}</span>
+              <span style={{ color: '#5ab464' }}>忠{g.loyalty}</span>
             </div>
           ))}
         </div>
@@ -154,21 +219,34 @@ function GeneralList({ state }: { state: GameState }) {
     .map(([fid]) => fid)
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       {factionOrder.map((fid) => {
         const gens = byFaction[fid]
         if (!gens || gens.length === 0) return null
-        const color = hexToNumber(FACTION_COLORS[fid] || '#888888')
+        const color = FACTION_COLORS[fid] || '#888888'
         return (
-          <div key={fid} style={{ marginBottom: '12px' }}>
-            <div style={{ color: `#${color.toString(16).padStart(6, '0')}`, fontWeight: 600 }}>
-              ■ {FACTIONS[fid] || fid}
+          <div key={fid} style={{ ...styles.card, borderLeft: `3px solid ${color}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontWeight: 600, fontSize: '13px', color }}>
+              <i className="fa-solid fa-flag" style={{ fontSize: '11px' }}></i>
+              {FACTIONS[fid] || fid}
+              <span style={{ color: '#96918a', fontWeight: 400, fontSize: '11px' }}>({gens.length}人)</span>
             </div>
-            {gens.slice(0, 4).map((g) => (
-              <div key={g.id} style={{ color: '#96918a', fontSize: '12px', marginTop: '4px' }}>
-                {g.name} 统{g.command} 政{g.politics} 武{g.bravery} 智{g.intelligence} 忠{g.loyalty}
+            {gens.slice(0, 5).map((g) => (
+              <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '12px' }}>
+                <i className="fa-solid fa-user" style={{ color: '#96918a', fontSize: '9px' }}></i>
+                <span style={{ color: '#e8e0d0', minWidth: '50px' }}>{g.name}</span>
+                <span style={{ color: '#c85046' }}>统{g.command}</span>
+                <span style={{ color: '#64a0d2' }}>政{g.politics}</span>
+                <span style={{ color: '#c85046' }}>武{g.bravery}</span>
+                <span style={{ color: '#d4a84b' }}>智{g.intelligence}</span>
+                <span style={{ color: '#5ab464' }}>忠{g.loyalty}</span>
               </div>
             ))}
+            {gens.length > 5 && (
+              <div style={{ color: '#5a5a72', fontSize: '11px', marginTop: '4px', textAlign: 'center' }}>
+                <i className="fa-solid fa-ellipsis" style={{ marginRight: '4px' }}></i>还有 {gens.length - 5} 人
+              </div>
+            )}
           </div>
         )
       })}
@@ -176,15 +254,44 @@ function GeneralList({ state }: { state: GameState }) {
   )
 }
 
-function EventLog({ events }: { events: GameState['events'] }) {
+function EventLog({ events }: { events: GameEvent[] }) {
+  const getEventIcon = (text: string): string => {
+    if (text.includes('攻占') || text.includes('占领')) return 'fa-chess-rook'
+    if (text.includes('战斗') || text.includes('攻')) return 'fa-khanda'
+    if (text.includes('围')) return 'fa-triangle-exclamation'
+    if (text.includes('迁都') || text.includes('建')) return 'fa-city'
+    if (text.includes('外交') || text.includes('盟')) return 'fa-handshake'
+    if (text.includes('投降') || text.includes('溃')) return 'fa-flag'
+    if (text.includes('募兵') || text.includes('训练')) return 'fa-users'
+    if (text.includes('发展') || text.includes('经济')) return 'fa-coins'
+    return 'fa-scroll'
+  }
+
+  const getEventColor = (text: string): string => {
+    if (text.includes('攻占') || text.includes('占领')) return '#d4a84b'
+    if (text.includes('战斗') || text.includes('攻')) return '#c85046'
+    if (text.includes('围')) return '#c85046'
+    if (text.includes('建')) return '#64a0d2'
+    if (text.includes('外交') || text.includes('盟')) return '#5ab464'
+    if (text.includes('投降') || text.includes('溃')) return '#96918a'
+    return '#96918a'
+  }
+
   return (
-    <div style={styles.logList}>
-      {[...events].reverse().map((evt, idx) => (
-        <div key={idx} style={styles.logItem}>
-          <span style={styles.dim}>第{evt.turn}回合</span>
-          <span style={{ color: '#e8e0d0' }}>{evt.text}</span>
-        </div>
-      ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      {[...events].reverse().map((evt, idx) => {
+        const icon = getEventIcon(evt.text)
+        const color = getEventColor(evt.text)
+        return (
+          <div key={idx} style={styles.logCard}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+              <i className={`fa-solid ${icon}`} style={{ color, fontSize: '10px', width: '14px', textAlign: 'center' }}></i>
+              <span style={{ color: '#5a5a72', fontSize: '11px' }}>第{evt.turn}回合</span>
+            </div>
+            <span style={{ color: '#e8e0d0', fontSize: '12px', lineHeight: '1.5', paddingLeft: '20px' }}>{evt.text}</span>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -193,66 +300,79 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     width: '300px',
     height: '100%',
-    backgroundColor: '#2a2a3e',
-    borderLeft: '1px solid #3c3c52',
+    backgroundColor: 'rgba(18, 18, 34, 0.85)',
+    borderLeft: '1px solid rgba(255, 255, 255, 0.06)',
+    backdropFilter: 'blur(12px)',
     display: 'flex',
     flexDirection: 'column',
   },
   tabs: {
     display: 'flex',
-    borderBottom: '1px solid #3c3c52',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+    padding: '8px 8px 0',
+    gap: '4px',
   },
   tab: {
     flex: 1,
-    padding: '10px 0',
+    padding: '8px 0',
     border: '1px solid transparent',
     borderBottom: 'none',
     background: 'transparent',
     cursor: 'pointer',
-    fontSize: '13px',
     fontFamily: 'inherit',
-    borderRadius: '4px 4px 0 0',
+    borderRadius: '6px 6px 0 0',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    transition: 'all 0.2s ease',
   },
   content: {
     flex: 1,
     padding: '12px',
     overflowY: 'auto',
   },
+  glassCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: '10px',
+    padding: '14px',
+    border: '1px solid rgba(255, 255, 255, 0.06)',
+    backdropFilter: 'blur(4px)',
+  },
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: '10px',
+    padding: '12px',
+    border: '1px solid rgba(255, 255, 255, 0.06)',
+    backdropFilter: 'blur(4px)',
+    transition: 'background-color 0.2s ease',
+  },
   dim: {
     color: '#96918a',
     fontSize: '13px',
   },
-  headerRow: {
+  statGrid: {
     display: 'grid',
-    gridTemplateColumns: '2fr 1fr 1.5fr 1fr',
-    gap: '4px',
-    fontSize: '12px',
-    marginBottom: '6px',
+    gridTemplateColumns: '1fr 1fr 1fr',
+    gap: '6px',
   },
-  row: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr 1.5fr 1fr',
-    gap: '4px',
-    fontSize: '13px',
-    padding: '5px 4px',
-    borderRadius: '4px',
+  statItem: {
+    display: 'flex',
+    alignItems: 'center',
+    color: '#96918a',
+    fontSize: '12px',
   },
   detailGrid: {
     display: 'grid',
-    gridTemplateColumns: '1fr 2fr',
+    gridTemplateColumns: 'auto 1fr',
     gap: '8px 12px',
     fontSize: '13px',
     color: '#e8e0d0',
+    alignItems: 'center',
   },
-  logList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  logItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-    fontSize: '12px',
+  logCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: '8px',
+    padding: '8px 10px',
+    border: '1px solid rgba(255, 255, 255, 0.04)',
   },
 }

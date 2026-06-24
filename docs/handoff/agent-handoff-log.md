@@ -57,6 +57,55 @@
 - 接入 Google Fonts Noto Sans SC
 - 接入 FontAwesome 6 图标
 
+### 5. UI 面板卡片化 + FontAwesome 图标化（v2.1）
+
+- `web/src/theme/index.ts`：新建 Theme 设计体系（势力色/地形色/阴影/城市 SVG path/军队 SVG path）
+- `web/src/components/Panel.tsx`：全面重写
+  - 玻璃拟态卡片风格（backdrop-filter blur + rgba 背景 + 细边框）
+  - 4 标签栏加 FontAwesome 图标（chess-king/city/user-shield/scroll）
+  - 势力列表改为卡片式，带势力色左边框、称王/称帝皇冠宝石图标
+  - 城市详情卡片：带城堡图标、等级星标、围城红色警告框
+  - 武将列表按势力分组卡片化
+  - 战报列表加事件类型图标（攻占/战斗/围城/建国/外交）+ 颜色区分
+- `web/src/components/TopBar.tsx`：圆角玻璃卡片 + FontAwesome 图标
+- `web/src/components/EventTicker.tsx`：玻璃卡片 + 喇叭图标
+- `web/src/components/App.tsx`：按钮样式同步玻璃拟态
+
+### 6. 地图元素图标化 + DOM Overlay 架构（v2.1）
+
+- `web/src/components/GameMap.tsx`：重大重构
+  - **PixiJS + DOM Overlay 混合渲染**：PixiJS 负责地形/边界/瓦片底图，DOM 负责城市/军队标记
+  - 建立 `syncCamera()` 统一同步两套渲染层的平移/缩放
+  - 相机状态存 ref，通过 DOM 操作直接更新 overlay，不触发 React 重渲染，性能最优
+- `web/src/components/map/CityMarker.tsx`：新建
+  - SVG 矢量城堡图标（城墙+塔楼+城门+等级星标）
+  - 势力色光晕（filter drop-shadow）
+  - 围城红色脉冲动画（CSS animation）
+  - 兵力条（彩色进度条）
+  - LOD 自适应：远距离保持可读大小
+- `web/src/components/map/ArmyMarker.tsx`：新建
+  - 进攻：盾牌形状 + 金色中心装饰
+  - 撤退：散乱士兵点 + 向左箭头 + CSS 抖动动画
+  - 士气条 + 兵力数字
+- `web/src/utils/mapIcons.ts`：废弃外部 FontAwesome SVG 方案，改为内联 SVG
+
+### 7. CartoDB 真实地图瓦片底图（v2.1）
+
+- `web/src/utils/tiles.ts`：新建瓦片系统
+  - 基于 `data/hex_map.json` bounds（95~125°E, 22~45°N）建立投影映射
+  - 标准 Web Mercator 公式转换经纬度 ↔ 瓦片坐标
+  - CartoDB `dark_nolabels` 暗色底图（最适合游戏覆盖）
+  - 固定 zoom=6，预加载约 35 张瓦片，容错静默失败
+- `web/test-browser.mjs`：添加瓦片请求拦截，避免测试超时
+
+### 8. Playwright 自动化测试 + 长流程稳定性
+
+- `web/test-long-run.mjs`：新建 50 回合长流程测试
+  - 自动模式推进，实时回合监控
+  - 内存检测（Performance.memory API）
+  - 截图保存最终状态
+- 测试结果：50 回合零错误，前端无崩溃
+
 ---
 
 ## 发现的后端问题（移交 DeepSeek）
@@ -94,18 +143,21 @@ python3 -m pytest tests/ -q     # 395 passed
 bash verify.sh                     # 全部验证通过
 
 # 浏览器测试
-node web/test-browser.mjs          # 无页面 JS 错误，turn 1 → 2 正常
+node web/test-browser.mjs          # ✓ 无页面 JS 错误，turn 1 → 2 正常
+
+# 长流程稳定性测试
+node web/test-long-run.mjs         # ✓ 50 回合零错误，前端无崩溃
 ```
 
 ---
 
 ## 前端下一步计划（Kimi 继续）
 
-1. 接入真实地图底图（CartoDB / 天地图瓦片）
-2. 城市/军队图标化（FontAwesome）
-3. UI 面板卡片化、玻璃拟态
-4. 扩展 Playwright 自动化测试覆盖
-5. 长流程稳定性测试（50+ 回合）
+1. **武将头像系统**：为 47 名武将接入头像占位框，架构支持未来替换为 AI 生成/手绘头像
+2. **战斗/占领视觉反馈**：城池变色动画、军队移动轨迹线、占领闪光效果
+3. **事件弹窗系统**：建国、大胜、武将投降等重要事件的中屏弹窗 + 特效
+4. **信息面板交互升级**：点击势力高亮地图领土、城市关联显示相邻城
+5. **更精美的素材替换**：城市图标替换为水墨风/手绘风素材、势力旗帜纹理
 
 ## 后端下一步计划（DeepSeek）
 
@@ -146,6 +198,16 @@ python3 -m pytest tests/ -q
 
 *最后更新：2026-06-24*  
 *更新人：Kimi*
+
+---
+
+## 本轮提交记录
+
+```bash
+# 提交 1: UI 面板卡片化 + FontAwesome 图标化
+# 提交 2: 地图元素 DOM Overlay 图标化 + Theme 体系
+# 提交 3: CartoDB 瓦片底图 + Playwright 长流程测试
+```
 
 ## 工作原则
 
