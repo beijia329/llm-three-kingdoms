@@ -144,7 +144,7 @@ class GameRenderer:
         self.turn_pending = False     # 等待玩家点"下一回合"
         self.selected_city_id: Optional[str] = None
         self.selected_faction: Optional[str] = None
-        self.panel_tab = "factions"   # factions / city / generals / log
+        self.panel_tab = "factions"   # factions / city / generals / diplomacy / data / events / log
         self._turn_just_executed = False
 
         # 事件日志
@@ -300,22 +300,25 @@ class GameRenderer:
         pygame.draw.rect(self.screen, COLOR_PANEL_BG, (PANEL_X, 0, PANEL_W, WINDOW_H))
         pygame.draw.line(self.screen, (55, 55, 70), (PANEL_X, 0), (PANEL_X, WINDOW_H), 2)
 
-        # 标签按钮：1-势力 2-城市 3-武将 4-战报
+        # 标签按钮：1-势力 2-城市 3-武将 4-外交 5-数据 6-事件 7-战报
         tabs = [
             ("factions", "1.势力"),
             ("city", "2.城市"),
             ("generals", "3.武将"),
-            ("log", "4.战报"),
+            ("diplomacy", "4.外交"),
+            ("data", "5.数据"),
+            ("events", "6.事件"),
+            ("log", "7.战报"),
         ]
-        tab_w = PANEL_CONTENT_W // 4
+        tab_w = PANEL_CONTENT_W // 7
         bx = PANEL_X + 10
         for key, label in tabs:
             is_active = self.panel_tab == key
             c = COLOR_GOLD if is_active else COLOR_DIM
             bg = (55, 55, 75) if is_active else COLOR_PANEL_BG
-            pygame.draw.rect(self.screen, bg, (bx, 8, tab_w - 4, 26), border_radius=4)
-            pygame.draw.rect(self.screen, (70, 70, 90) if is_active else (45, 45, 60), (bx, 8, tab_w - 4, 26), 1, border_radius=4)
-            draw_text(self.screen, label, bx + (tab_w - 4) // 2, 12, c, FONT_CJK_SM, center=True)
+            pygame.draw.rect(self.screen, bg, (bx, 8, tab_w - 2, 26), border_radius=4)
+            pygame.draw.rect(self.screen, (70, 70, 90) if is_active else (45, 45, 60), (bx, 8, tab_w - 2, 26), 1, border_radius=4)
+            draw_text(self.screen, label, bx + (tab_w - 2) // 2, 12, c, FONT_CJK_XS, center=True)
             bx += tab_w
 
         # 分割线
@@ -328,6 +331,12 @@ class GameRenderer:
             self._draw_city_detail()
         elif self.panel_tab == "generals":
             self._draw_general_list()
+        elif self.panel_tab == "diplomacy":
+            self._draw_diplomacy_panel()
+        elif self.panel_tab == "data":
+            self._draw_data_panel()
+        elif self.panel_tab == "events":
+            self._draw_events_panel()
         elif self.panel_tab == "log":
             self._draw_event_log()
 
@@ -462,6 +471,113 @@ class GameRenderer:
             if y > WINDOW_H - 30:
                 break
 
+    def _draw_diplomacy_panel(self) -> None:
+        """绘制外交面板：势力关系矩阵 + 最新消息"""
+        y = 52
+        drs = self.engine._diplomacy_relation_system
+        if drs is None:
+            draw_text(self.screen, "外交系统未初始化", PANEL_X + 12, y, COLOR_DIM, FONT_CJK_SM)
+            return
+
+        # 标题
+        draw_text(self.screen, "势力外交关系", PANEL_X + 12, y, COLOR_GOLD, FONT_CJK_SM)
+        y += 22
+
+        # 关系列表
+        relations = drs.get_all_relations()
+        status_colors = {
+            "war": (200, 80, 70),
+            "neutral": (150, 150, 150),
+            "alliance": (90, 180, 100),
+            "truce": (212, 168, 75),
+        }
+        for rel in list(relations.values())[:12]:
+            fa_name = FACTIONS.get(rel.faction_a, rel.faction_a)
+            fb_name = FACTIONS.get(rel.faction_b, rel.faction_b)
+            status_color = status_colors.get(rel.status.value, COLOR_DIM)
+            draw_text(self.screen, f"{fa_name}↔{fb_name}", PANEL_X + 12, y, COLOR_DIM, FONT_CJK_XS)
+            draw_text(self.screen, rel.status.value, PANEL_X + 160, y, status_color, FONT_CJK_XS)
+            draw_text(self.screen, str(rel.trust), PANEL_X + 240, y, COLOR_DIM, FONT_CJK_XS)
+            y += 16
+            if y > WINDOW_H - 80:
+                break
+
+        # 最新消息
+        y += 6
+        draw_text(self.screen, "最新消息", PANEL_X + 12, y, COLOR_GOLD, FONT_CJK_SM)
+        y += 20
+        for msg in self.engine.messages[-5:]:
+            from_name = FACTIONS.get(msg.from_faction, msg.from_faction)
+            to_name = FACTIONS.get(msg.to_faction, msg.to_faction)
+            draw_text(self.screen, f"{from_name}→{to_name}: {msg.content[:20]}", PANEL_X + 12, y, COLOR_DIM, FONT_CJK_XS)
+            y += 14
+            if y > WINDOW_H - 30:
+                break
+
+    def _draw_data_panel(self) -> None:
+        """绘制数据面板：武将排行榜 + 城池统计"""
+        y = 52
+        draw_text(self.screen, "武将排行榜", PANEL_X + 12, y, COLOR_GOLD, FONT_CJK_SM)
+        y += 22
+
+        all_gens = [g for g in self.engine.generals.values() if not g.is_captured]
+        # 统帅 Top 5
+        draw_text(self.screen, "统帅 Top 5", PANEL_X + 12, y, (150, 150, 150), FONT_CJK_XS)
+        y += 14
+        for g in sorted(all_gens, key=lambda x: -x.command)[:5]:
+            draw_text(self.screen, f"  {g.name}: {g.command}", PANEL_X + 12, y, COLOR_DIM, FONT_CJK_XS)
+            y += 12
+        y += 6
+
+        # 政治 Top 5
+        draw_text(self.screen, "政治 Top 5", PANEL_X + 12, y, (150, 150, 150), FONT_CJK_XS)
+        y += 14
+        for g in sorted(all_gens, key=lambda x: -x.politics)[:5]:
+            draw_text(self.screen, f"  {g.name}: {g.politics}", PANEL_X + 12, y, COLOR_DIM, FONT_CJK_XS)
+            y += 12
+        y += 6
+
+        # 勇武 Top 5
+        draw_text(self.screen, "勇武 Top 5", PANEL_X + 12, y, (150, 150, 150), FONT_CJK_XS)
+        y += 14
+        for g in sorted(all_gens, key=lambda x: -x.bravery)[:5]:
+            draw_text(self.screen, f"  {g.name}: {g.bravery}", PANEL_X + 12, y, COLOR_DIM, FONT_CJK_XS)
+            y += 12
+        y += 6
+
+        # 城池统计
+        draw_text(self.screen, "城池统计", PANEL_X + 12, y, COLOR_GOLD, FONT_CJK_SM)
+        y += 18
+        cities = list(self.engine.cities.values())
+        draw_text(self.screen, f"总城池: {len(cities)}  总武将: {len(all_gens)}", PANEL_X + 12, y, COLOR_DIM, FONT_CJK_XS)
+        y += 14
+        draw_text(self.screen, f"总兵力: {sum(c.garrison for c in cities)}  总人口: {sum(c.population for c in cities)}", PANEL_X + 12, y, COLOR_DIM, FONT_CJK_XS)
+
+    def _draw_events_panel(self) -> None:
+        """绘制事件面板：回合日志"""
+        y = 52
+        draw_text(self.screen, "回合事件", PANEL_X + 12, y, COLOR_GOLD, FONT_CJK_SM)
+        y += 22
+
+        for tl in self.engine.turn_logs[-10:]:
+            draw_text(self.screen, f"第 {tl.turn} 回合", PANEL_X + 12, y, COLOR_DIM, FONT_CJK_XS)
+            y += 12
+            battle_count = sum(1 for e in tl.events if isinstance(e, dict) and e.get("type") == "battle")
+            if battle_count:
+                draw_text(self.screen, f"  战斗: {battle_count} 场", PANEL_X + 12, y, (200, 80, 70), FONT_CJK_XS)
+                y += 12
+            # 显示前3个事件
+            for ev in tl.events[:3]:
+                if isinstance(ev, dict) and "text" in ev:
+                    draw_text(self.screen, f"  {ev['text'][:30]}", PANEL_X + 12, y, COLOR_DIM, FONT_CJK_XS)
+                    y += 12
+                elif isinstance(ev, str):
+                    draw_text(self.screen, f"  {ev[:30]}", PANEL_X + 12, y, COLOR_DIM, FONT_CJK_XS)
+                    y += 12
+            y += 4
+            if y > WINDOW_H - 30:
+                break
+
     # ============================================================
     # 事件处理
     # ============================================================
@@ -484,7 +600,7 @@ class GameRenderer:
                 self.auto_advance = not self.auto_advance
                 self.add_event(f"自动推进: {'开' if self.auto_advance else '关（手动）'}", COLOR_DIM)
             elif event.key == pygame.K_TAB:
-                tabs = ["factions", "city", "generals", "log"]
+                tabs = ["factions", "city", "generals", "diplomacy", "data", "events", "log"]
                 i = tabs.index(self.panel_tab)
                 self.panel_tab = tabs[(i + 1) % len(tabs)]
             elif event.key == pygame.K_1:
@@ -494,6 +610,12 @@ class GameRenderer:
             elif event.key == pygame.K_3:
                 self.panel_tab = "generals"
             elif event.key == pygame.K_4:
+                self.panel_tab = "diplomacy"
+            elif event.key == pygame.K_5:
+                self.panel_tab = "data"
+            elif event.key == pygame.K_6:
+                self.panel_tab = "events"
+            elif event.key == pygame.K_7:
                 self.panel_tab = "log"
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             x, y = event.pos
@@ -522,11 +644,11 @@ class GameRenderer:
     def _handle_panel_click(self, mx: int, my: int) -> None:
         """处理面板点击（Tab 切换）"""
         if 8 <= my <= 34:
-            tabs = ["factions", "city", "generals", "log"]
-            tab_w = PANEL_CONTENT_W // 4
+            tabs = ["factions", "city", "generals", "diplomacy", "data", "events", "log"]
+            tab_w = PANEL_CONTENT_W // 7
             for i, key in enumerate(tabs):
                 tx = PANEL_X + 10 + i * tab_w
-                if tx <= mx <= tx + tab_w - 4:
+                if tx <= mx <= tx + tab_w - 2:
                     self.panel_tab = key
                     return
 
