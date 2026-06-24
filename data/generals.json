@@ -96,7 +96,7 @@
     "bravery": 80,
     "intelligence": 65,
     "loyalty": 70,
-    "location": "wuwei"
+    "location": "tianshui"
   },
   {
     "id": "li_ru",
@@ -107,7 +107,7 @@
     "bravery": 20,
     "intelligence": 88,
     "loyalty": 85,
-    "location": "wuwei"
+    "location": "tianshui"
   },
   {
     "id": "hua_xiong",
@@ -448,7 +448,7 @@
     "bravery": 84,
     "intelligence": 58,
     "loyalty": 100,
-    "location": "changan"
+    "location": "wuwei"
   },
   {
     "id": "ma_chao",
@@ -459,7 +459,7 @@
     "bravery": 95,
     "intelligence": 50,
     "loyalty": 90,
-    "location": "changan"
+    "location": "wuwei"
   },
   {
     "id": "pang_de",
@@ -470,7 +470,7 @@
     "bravery": 88,
     "intelligence": 48,
     "loyalty": 85,
-    "location": "changan"
+    "location": "wuwei"
   },
   {
     "id": "yuan_shu",
@@ -503,7 +503,7 @@
     "bravery": 65,
     "intelligence": 38,
     "loyalty": 75,
-    "location": "nanyang"
+    "location": "shouchun"
   },
   {
     "id": "qiao_rui",
@@ -514,6 +514,6 @@
     "bravery": 60,
     "intelligence": 35,
     "loyalty": 70,
-    "location": "nanyang"
+    "location": "shouchun"
   }
 ]

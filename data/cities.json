@@ -19,7 +19,10 @@
       "nanyang",
       "chenliu",
       "xuchang",
-      "yecheng"
+      "yecheng",
+      "julu",
+      "bai_di",
+      "changan"
     ]
   },
   {
@@ -48,7 +51,7 @@
   {
     "id": "wuwei",
     "name": "武威",
-    "faction": "dongzhuo",
+    "faction": "mateng",
     "level": 2,
     "wall_hp": 1000,
     "wall_max_hp": 1000,
@@ -110,7 +113,8 @@
       "julu",
       "chenliu",
       "luoyang",
-      "xuchang"
+      "xuchang",
+      "ji"
     ]
   },
   {
@@ -133,7 +137,8 @@
       "xuchang",
       "yecheng",
       "nanyang",
-      "luoyang"
+      "luoyang",
+      "julu"
     ]
   },
   {
@@ -156,7 +161,8 @@
       "chenliu",
       "nanyang",
       "luoyang",
-      "xiangyang"
+      "xiangyang",
+      "yecheng"
     ]
   },
   {
@@ -383,7 +389,8 @@
       "hanzhong",
       "jian_ge",
       "luoyang",
-      "tianshui"
+      "tianshui",
+      "wuwei"
     ]
   },
   {
@@ -406,7 +413,9 @@
       "xiangyang",
       "xuchang",
       "chenliu",
-      "luoyang"
+      "luoyang",
+      "bai_di",
+      "jiangling"
     ]
   },
   {
@@ -479,7 +488,7 @@
   {
     "id": "he_fei",
     "name": "合肥",
-    "faction": "neutral",
+    "faction": "yuanshu",
     "level": 2,
     "wall_hp": 1000,
     "wall_max_hp": 1000,
@@ -496,7 +505,8 @@
       "shouchun",
       "jianye",
       "chai_sang",
-      "wu_jun"
+      "wu_jun",
+      "changsha"
     ]
   }
 ]
