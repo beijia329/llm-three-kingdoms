@@ -71,8 +71,8 @@ export const TERRAIN_COLORS: Record<string, { fill: number; border: number }> = 
   marsh:        { fill: 0x5a7a3a, border: 0x4a6a2e },
   tundra:       { fill: 0xa0a890, border: 0x909680 },
   snow:         { fill: 0xdce0e8, border: 0xccd0d8 },
-  water:        { fill: 0x3388cc, border: 0x2a70aa },
-  deep_water:   { fill: 0x1a5a88, border: 0x124868 },
+  water:        { fill: 0x4499cc, border: 0x3380aa },
+  deep_water:   { fill: 0x226688, border: 0x1a5070 },
   river:        { fill: 0x55aadd, border: 0x4499cc },
 }
 

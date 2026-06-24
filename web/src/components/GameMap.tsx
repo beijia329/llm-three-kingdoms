@@ -100,7 +100,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     const fogGraphics = new Graphics()
     const hw = state.hex_map?.width || 180
     const hh = state.hex_map?.height || 128
-    const FOG_MARGIN = 50  // 额外虚拟格 — 大范围未探索区域
+    const FOG_MARGIN = 80  // 大范围未探索外围
     for (let q = -FOG_MARGIN; q < hw + FOG_MARGIN; q++) {
       for (let r = -FOG_MARGIN; r < hh + FOG_MARGIN; r++) {
         const key = `${q},${r}`
@@ -109,7 +109,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
         const isOutside = q < 0 || q >= hw || r < 0 || r >= hh
         if (isOutside) {
           const { x: fx, y: fy } = axialToPixel({ q, r }, HEX_SIZE)
-          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x888c94)
+          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x9a9ea4)
         }
       }
     }
@@ -252,7 +252,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   const hh = state?.hex_map?.height || 128
   const worldW = HEX_SIZE * (Math.sqrt(3) * (hw - 1) + Math.sqrt(3) / 2 * (hh - 1))
   const worldH = HEX_SIZE * (1.5 * (hh - 1))
-  const PAD = HEX_SIZE * 60
+  const PAD = HEX_SIZE * 90
 
   const clampCamera = (cam: Camera, viewW: number, viewH: number): Camera => {
     const z = Math.max(0.3, Math.min(1.2, cam.zoom))
