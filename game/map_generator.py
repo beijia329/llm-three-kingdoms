@@ -395,7 +395,7 @@ class MapGenerator:
 
     @staticmethod
     def _hex_to_lonlat(q: int, r: int, width: int, height: int) -> Tuple[float, float]:
-        """六角格坐标 → 经纬度（覆盖全中国 85-130°E, 18-50°N）
+        """六角格坐标 → 经纬度（全域中国 73-136°E, 16-54°N）
 
         Args:
             q, r: 轴向坐标
@@ -404,8 +404,8 @@ class MapGenerator:
         Returns:
             (longitude, latitude)
         """
-        lon_min, lon_max = 85.0, 130.0
-        lat_min, lat_max = 18.0, 50.0
+        lon_min, lon_max = 73.0, 136.0
+        lat_min, lat_max = 16.0, 54.0
         lon = lon_min + (q / max(width - 1, 1)) * (lon_max - lon_min)
         lat = lat_max - (r / max(height - 1, 1)) * (lat_max - lat_min)
         return lon, lat

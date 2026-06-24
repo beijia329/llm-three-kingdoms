@@ -26,6 +26,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   // 相机状态用 ref（不触发 React 重渲染，通过 DOM 操作同步）
   const cameraRef = useRef<Camera>({ x: -4200, y: -600, zoom: 0.45 })
   const [isDragging, setIsDragging] = useState(false)
+  const isDraggingRef = useRef(false)
   const dragStartRef = useRef<{ x: number; y: number } | null>(null)
   const cameraStartRef = useRef<{ x: number; y: number } | null>(null)
 
@@ -99,7 +100,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     const fogGraphics = new Graphics()
     const hw = state.hex_map?.width || 180
     const hh = state.hex_map?.height || 128
-    const FOG_MARGIN = 25  // 额外虚拟格
+    const FOG_MARGIN = 50  // 额外虚拟格 — 大范围未探索区域
     for (let q = -FOG_MARGIN; q < hw + FOG_MARGIN; q++) {
       for (let r = -FOG_MARGIN; r < hh + FOG_MARGIN; r++) {
         const key = `${q},${r}`
@@ -132,7 +133,6 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       let fill: number
       if (faction && faction !== 'neutral') {
         fill = hexToNumber(factionColor(faction))
-        fill = adjustBrightness(fill, getTerrainBrightness(terrain) * 0.5)
       } else {
         fill = (TERRAIN_COLORS[terrain] || TERRAIN_COLORS.plain).fill
       }
@@ -252,7 +252,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   const hh = state?.hex_map?.height || 128
   const worldW = HEX_SIZE * (Math.sqrt(3) * (hw - 1) + Math.sqrt(3) / 2 * (hh - 1))
   const worldH = HEX_SIZE * (1.5 * (hh - 1))
-  const PAD = HEX_SIZE * 30
+  const PAD = HEX_SIZE * 60
 
   const clampCamera = (cam: Camera, viewW: number, viewH: number): Camera => {
     const z = Math.max(0.3, Math.min(1.2, cam.zoom))
@@ -313,12 +313,13 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return
       setIsDragging(true)
+      isDraggingRef.current = true
       dragStartRef.current = { x: e.clientX, y: e.clientY }
       cameraStartRef.current = { x: cameraRef.current.x, y: cameraRef.current.y }
     }
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging || !dragStartRef.current || !cameraStartRef.current) return
+      if (!isDraggingRef.current || !dragStartRef.current || !cameraStartRef.current) return
       const dx = e.clientX - dragStartRef.current.x
       const dy = e.clientY - dragStartRef.current.y
       syncCamera({
@@ -330,6 +331,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 
     const handleMouseUp = () => {
       setIsDragging(false)
+      isDraggingRef.current = false
       dragStartRef.current = null
       cameraStartRef.current = null
     }
