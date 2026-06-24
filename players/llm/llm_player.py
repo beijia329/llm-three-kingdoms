@@ -21,10 +21,12 @@ from typing import Any, Dict, List, Optional, Tuple
 from game.models import (
     Command,
     AttackCommand,
+    DeclareWarCommand,
     DevelopCommand,
     ExploreCommand,
     GameObservation,
     MessageCommand,
+    ProposeAllianceCommand,
     RecruitCommand,
     RewardCommand,
     RumorCommand,
@@ -47,6 +49,8 @@ COMMAND_CLASSES = {
     "explore": ExploreCommand,
     "message": MessageCommand,
     "rumor": RumorCommand,
+    "propose_alliance": ProposeAllianceCommand,
+    "declare_war": DeclareWarCommand,
 }
 
 # 命令参数映射（LLM输出字段 -> Command类字段）
@@ -58,6 +62,8 @@ PARAM_MAPPING = {
     "explore": {"city": "city", "general": "general"},
     "message": {"to": "to", "content": "content"},
     "rumor": {"city": "city", "target_general": "target_general", "spy_general": "spy_general"},
+    "propose_alliance": {"to": "to"},
+    "declare_war": {"to": "to", "reason": "reason"},
 }
 
 
@@ -290,6 +296,11 @@ class LLMPlayer(BasePlayer):
             content: 消息内容
         """
         logger.info("[%s] 收到来自%s的消息: %s", self.faction, from_faction, content[:100])
+        # 保存到记忆中，让 LLM 下次决策时能看到
+        if hasattr(self, 'memory') and self.memory:
+            self.memory.short_term.append({
+                "turn": 0, "thought": f"[外交] 收到来自 {from_faction} 的消息: {content[:200]}", "commands": [],
+            })
 
     def is_degraded(self) -> bool:
         """是否已降级为随机AI

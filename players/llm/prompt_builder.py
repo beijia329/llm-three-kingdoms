@@ -90,6 +90,8 @@ class PromptBuilder:
 
     ### 外交（重要！）
     - 每回合可给1个势力发 message 命令进行外交沟通
+    - 可以使用 propose_alliance 命令与目标势力正式结盟（持续12回合）
+    - 可以使用 declare_war 命令向目标势力宣战
     - 其他势力发来的消息会显示在你的观察中
     - 你可以：结盟共抗强敌、离间敌方关系、欺诈背盟
     - 多线作战必败，必须通过外交分化敌人
@@ -140,7 +142,15 @@ class PromptBuilder:
    参数：to (目标势力: {factions_str}), content (消息内容)
    效果：给其他势力发消息
 
-7. rumor - 散布流言
+7. propose_alliance - 提出同盟
+   参数：to (目标势力: {factions_str})
+   效果：与目标势力结为同盟（持续12回合），同盟期间不能互相攻击
+
+8. declare_war - 宣战
+   参数：to (目标势力: {factions_str}), reason (宣战理由，可选)
+   效果：向目标势力宣战，关系变为敌对
+
+9. rumor - 散布流言
    参数：city (目标城市), target_general (目标将领，可选)
    效果：降低敌方将领忠诚度"""
 
@@ -213,6 +223,21 @@ class PromptBuilder:
                 garr = str(ci.garrison) if ci.garrison is not None else "?"
                 lines.append(
                     f"| {ci.id} | {ci.name} | {ci.faction} | {ci.level} | {garr} |"
+                )
+            lines.append("")
+
+        # 外交关系
+        if observation.faction_relations:
+            lines.append("### 外交关系")
+            for rel in observation.faction_relations:
+                status_label = {
+                    "war": "敌",
+                    "neutral": "中",
+                    "alliance": "盟",
+                    "truce": "和",
+                }.get(rel.status.value, rel.status.value)
+                lines.append(
+                    f"- {rel.faction_a}↔{rel.faction_b}: {status_label} (信任{rel.trust})"
                 )
             lines.append("")
 

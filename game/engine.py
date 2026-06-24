@@ -50,6 +50,8 @@ from game.models import (
     ExploreCommand,
     MessageCommand,
     RumorCommand,
+    ProposeAllianceCommand,
+    DeclareWarCommand,
     DiplomacyMessage,
     General,
     GameObservation,
@@ -320,6 +322,10 @@ class GameEngine:
                 return self._execute_message(command)
             elif command_type == "rumor" and isinstance(command, RumorCommand):
                 return self._execute_rumor(command)
+            elif command_type == "propose_alliance" and isinstance(command, ProposeAllianceCommand):
+                return self._execute_propose_alliance(command)
+            elif command_type == "declare_war" and isinstance(command, DeclareWarCommand):
+                return self._execute_declare_war(command)
             else:
                 return CommandResult(
                     success=False,
@@ -592,6 +598,56 @@ class GameEngine:
             command_type="rumor",
             description=result.description,
             data={"loyalty_decrease": result.loyalty_decrease},
+        )
+
+    def _execute_propose_alliance(self, cmd: ProposeAllianceCommand) -> CommandResult:
+        """执行提出同盟命令"""
+        if cmd.to not in FACTIONS:
+            return CommandResult(
+                success=False,
+                command_type="propose_alliance",
+                description=f"目标势力 {cmd.to} 不存在",
+            )
+        if cmd.to == cmd.faction:
+            return CommandResult(
+                success=False,
+                command_type="propose_alliance",
+                description="不能与自己结盟",
+            )
+
+        rel = self._diplomacy_relation_system.set_status(
+            cmd.faction, cmd.to, DiplomaticStatus.ALLIANCE, turn=self.turn
+        )
+        return CommandResult(
+            success=True,
+            command_type="propose_alliance",
+            description=f"与 {FACTIONS.get(cmd.to, cmd.to)} 结为同盟（信任度: {rel.trust}）",
+            data={"trust": rel.trust, "alliance_end_turn": rel.alliance_end_turn},
+        )
+
+    def _execute_declare_war(self, cmd: DeclareWarCommand) -> CommandResult:
+        """执行宣战命令"""
+        if cmd.to not in FACTIONS:
+            return CommandResult(
+                success=False,
+                command_type="declare_war",
+                description=f"目标势力 {cmd.to} 不存在",
+            )
+        if cmd.to == cmd.faction:
+            return CommandResult(
+                success=False,
+                command_type="declare_war",
+                description="不能向自己宣战",
+            )
+
+        rel = self._diplomacy_relation_system.set_status(
+            cmd.faction, cmd.to, DiplomaticStatus.WAR, turn=self.turn
+        )
+        return CommandResult(
+            success=True,
+            command_type="declare_war",
+            description=f"向 {FACTIONS.get(cmd.to, cmd.to)} 宣战！（信任度: {rel.trust}）",
+            data={"trust": rel.trust},
         )
 
     # ============================================================

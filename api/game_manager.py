@@ -15,9 +15,11 @@ from game.engine import GameEngine
 from game.models import (
     AttackCommand,
     Command,
+    DeclareWarCommand,
     DevelopCommand,
     ExploreCommand,
     MessageCommand,
+    ProposeAllianceCommand,
     RecruitCommand,
     RewardCommand,
     RumorCommand,
@@ -257,6 +259,16 @@ class GameManager:
                 city=params["city"],
                 target_general=params.get("target_general"),
                 spy_general=params.get("spy_general"),
+            )
+        elif cmd_type == "propose_alliance":
+            return ProposeAllianceCommand(
+                faction=faction, turn=turn,
+                to=params["to"],
+            )
+        elif cmd_type == "declare_war":
+            return DeclareWarCommand(
+                faction=faction, turn=turn,
+                to=params["to"], reason=params.get("reason", ""),
             )
         else:
             return Command(type=cmd_type, faction=faction, turn=turn, params=params)

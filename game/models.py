@@ -358,6 +358,22 @@ class RumorCommand(Command):
     spy_general: Optional[str] = Field(None, description="执行间谍的将领")
 
 
+class ProposeAllianceCommand(Command):
+    """提出同盟命令"""
+
+    type: str = Field(default="propose_alliance", description="命令类型")
+    to: str = Field(description="目标势力")
+    duration: int = Field(default=12, description="同盟持续回合数")
+
+
+class DeclareWarCommand(Command):
+    """宣战命令"""
+
+    type: str = Field(default="declare_war", description="命令类型")
+    to: str = Field(description="目标势力")
+    reason: str = Field(default="", description="宣战理由")
+
+
 # ============================================================
 # 外交模型
 # ============================================================

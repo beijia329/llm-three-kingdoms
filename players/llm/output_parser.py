@@ -217,6 +217,7 @@ class OutputParser:
     VALID_COMMAND_TYPES: List[str] = [
         "develop", "recruit", "attack", "reward",
         "explore", "message", "rumor",
+        "propose_alliance", "declare_war",
     ]
 
     @staticmethod
@@ -250,6 +251,8 @@ class OutputParser:
             "explore": ["city"],
             "message": ["to", "content"],
             "rumor": ["city"],
+            "propose_alliance": ["to"],
+            "declare_war": ["to"],
         }
 
         missing = [

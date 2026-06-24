@@ -12,11 +12,14 @@ from typing import List, Optional, Set
 
 from game.models import (
     Command,
+    DeclareWarCommand,
     DevelopCommand,
+    ProposeAllianceCommand,
     RecruitCommand,
     AttackCommand,
     MessageCommand,
     City,
+    DiplomaticStatus,
     GameObservation,
     General,
 )
@@ -31,6 +34,7 @@ class CLIPlayer(BasePlayer):
         super().__init__(faction)
         self._rng = rng
         self._msg_sent = False
+        self._pending_alliance: Optional[str] = None  # 收到结盟提议的势力
 
         try:
             from game.personality import FACTION_PERSONALITY
@@ -43,6 +47,14 @@ class CLIPlayer(BasePlayer):
             self._diplomacy = 0.3
             self._expand = 0.2
 
+    def receive_message(self, from_faction: str, content: str) -> None:
+        """接收外交消息，识别结盟提议"""
+        super().receive_message(from_faction, content)
+        # 识别结盟相关消息
+        keywords = ["结盟", "同盟", "盟约", "联合", "互不侵犯", "合兵"]
+        if any(kw in content for kw in keywords):
+            self._pending_alliance = from_faction
+
     def get_commands(self, observation: GameObservation) -> List[Command]:
         commands: List[Command] = []
         turn = observation.turn
@@ -53,9 +65,47 @@ class CLIPlayer(BasePlayer):
         enemy_ids: Set[str] = {c.id for c in observation.known_cities}
         enemy_factions = list({c.faction for c in observation.known_cities if c.faction != self.faction})
 
-        # 外交（diplomacy 越高越频繁，高外交每2回合发一次）
+        # 外交响应：如果收到结盟提议，根据性格决定是否接受
+        if self._pending_alliance and self._diplomacy > 0.3 and not self._msg_sent:
+            commands.append(ProposeAllianceCommand(
+                faction=self.faction, turn=turn,
+                to=self._pending_alliance,
+            ))
+            self._msg_sent = True
+            self._pending_alliance = None
+
+        # 外交关系分析：检查 faction_relations
+        has_allies = False
+        if observation.faction_relations:
+            for rel in observation.faction_relations:
+                other = rel.faction_b if rel.faction_a == self.faction else rel.faction_a
+                if rel.status == DiplomaticStatus.WAR:
+                    enemy_factions.append(other)
+                elif rel.status == DiplomaticStatus.ALLIANCE:
+                    has_allies = True
+
+        # 主动宣战：aggression 高且没有同盟时，向最近的非同盟邻居宣战
+        if (self._aggression > 0.6 and not has_allies
+                and not self._msg_sent and enemy_factions and turn % 5 == 1):
+            target = self._rng.choice(enemy_factions)
+            # 检查是否已经处于 WAR（faction_relations 中没有才算新宣战）
+            already_at_war = any(
+                rel.status == DiplomaticStatus.WAR
+                for rel in (observation.faction_relations or [])
+                if (rel.faction_a == self.faction and rel.faction_b == target)
+                or (rel.faction_b == self.faction and rel.faction_a == target)
+            )
+            if not already_at_war:
+                commands.append(DeclareWarCommand(
+                    faction=self.faction, turn=turn,
+                    to=target, reason="扩张领土",
+                ))
+                self._msg_sent = True
+
+        # 外交消息（diplomacy 越高越频繁，高外交每2回合发一次）
         diplo_interval = 2 if self._diplomacy > 0.4 else 3
-        if self._diplomacy > 0.25 and not self._msg_sent and enemy_factions and turn % diplo_interval == 0:
+        if (self._diplomacy > 0.25 and not self._msg_sent
+                and enemy_factions and turn % diplo_interval == 0):
             target = self._rng.choice(enemy_factions)
             messages = ["提议结盟共抗强敌", "互不侵犯如何？", "你我合兵一处，天下可定"]
             commands.append(MessageCommand(
