@@ -339,6 +339,55 @@ class TestBattleResultApplication:
         assert general.loyalty > old_loyalty
 
 
+class TestYearCalculation:
+    """年份计算测试 B-09"""
+
+    def test_initial_year_is_184(self):
+        """初始年份为 184 AD"""
+        engine = _make_initialized_engine()
+        assert engine.year == 184
+
+    def test_year_after_4_turns(self):
+        """每 4 回合推进 1 年"""
+        engine = _make_initialized_engine()
+        assert engine.year == 184
+        # process_turn 在开始时用当前 turn 计算 year，然后 turn+=1
+        # 0 次调用: turn=1, year=184
+        # 1 次调用: year=184+(1-1)//4=184, turn=2
+        # 2 次调用: year=184+(2-1)//4=184, turn=3
+        # 3 次调用: year=184+(3-1)//4=184, turn=4
+        # 4 次调用: year=184+(4-1)//4=184, turn=5
+        # 5 次调用: year=184+(5-1)//4=185, turn=6
+        for _ in range(4):
+            engine.process_turn()
+        assert engine.turn == 5
+        assert engine.year == 184  # (5-1)//4 = 1, but year calculated at turn=4 start
+        # One more call to push year over the threshold
+        engine.process_turn()
+        assert engine.turn == 6
+        assert engine.year == 185  # 184 + (5-1)//4 = 184 + 1
+
+    def test_year_at_turn_192(self):
+        """第 192 回合时年份为 231 AD"""
+        engine = _make_initialized_engine()
+        engine.turn = 192
+        engine.process_turn()
+        assert engine.year == 231  # 184 + (192-1)//4 = 184+47 = 231
+
+    def test_game_state_includes_year_and_max_turns(self):
+        """GameState 快照包含 year 和 max_turns B-03"""
+        engine = _make_initialized_engine()
+        engine.process_turn()
+        snapshot = engine.get_state_snapshot()
+        assert snapshot.year == 184
+        assert snapshot.max_turns == 192
+        assert snapshot.turn == 2
+        # 验证序列化
+        data = snapshot.model_dump(mode="json")
+        assert data["year"] == 184
+        assert data["max_turns"] == 192
+
+
 # ============================================================
 # 辅助函数
 # ============================================================
