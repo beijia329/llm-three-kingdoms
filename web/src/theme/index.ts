@@ -53,14 +53,23 @@ export const FACTION_GLOW: Record<string, string> = {
   neutral: 'rgba(136, 136, 136, 0.5)',
 }
 
-// === 地形色板（文明6 风格低饱和度） ===
+// === 地形色板（文明6 风格低饱和度 / 15 种地形） ===
 export const TERRAIN_COLORS: Record<string, { fill: number; border: number }> = {
-  plain: { fill: 0x8b9a6e, border: 0x7a8960 },
-  forest: { fill: 0x4a6b3a, border: 0x3d5a30 },
-  hill: { fill: 0x9b8e7a, border: 0x8a7e6c },
-  mountain: { fill: 0x7a7a7a, border: 0x6a6a6a },
-  river: { fill: 0x4a8fb8, border: 0x3e7a9e },
-  desert: { fill: 0xc4b58a, border: 0xb0a27a },
+  grass:        { fill: 0x9bbf6e, border: 0x8aad5e },
+  grassland:    { fill: 0xa8b87a, border: 0x96a56c },
+  plain:        { fill: 0x8b9a6e, border: 0x7a8960 },
+  forest:       { fill: 0x4a6b3a, border: 0x3d5a30 },
+  dense_forest: { fill: 0x2d4a1e, border: 0x1f3512 },
+  hill:         { fill: 0x9b8e7a, border: 0x8a7e6c },
+  mountain:     { fill: 0x7a7a7a, border: 0x6a6a6a },
+  peak:         { fill: 0xb0ada6, border: 0x9e9b94 },
+  desert:       { fill: 0xc4b58a, border: 0xb0a27a },
+  marsh:        { fill: 0x5a6b3a, border: 0x4a5a2e },
+  tundra:       { fill: 0x9aacb0, border: 0x889a9e },
+  snow:         { fill: 0xd8e0e8, border: 0xc8d0d8 },
+  water:        { fill: 0x4a8fb8, border: 0x3e7a9e },
+  deep_water:   { fill: 0x2a5a80, border: 0x1e4868 },
+  river:        { fill: 0x5a9fc8, border: 0x4a8fb8 },
 }
 
 // === UI 基础色 ===
