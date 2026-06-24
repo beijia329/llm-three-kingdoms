@@ -249,7 +249,47 @@ python3 -m pytest tests/ -q
 ---
 
 *最后更新：2026-06-24*  
-*更新人：DeepSeek*
+*更新人：DeepSeek (会话 2)*
+
+---
+
+## 本轮工作（2026-06-24 会话 2：地图渲染方案研究）
+
+### 已完成
+
+| 任务 | 产出 |
+|------|------|
+| 深度搜索游戏 hex 地图方案 | 覆盖 Catlike Coding / Red Blob Games / Felix Turner WFC / Firaxis / Amplitude |
+| 读取 Wesnoth 源码 | `src/map/location.hpp` — 坐标系统、方向、距离公式、立方坐标转换 |
+| 读取 FreeCiv 源码 | `server/generator/mapgen.c` — 地图生成管线、`place_terrain` 扩散算法 |
+| 读取 FreeCiv 源码 | `common/terrain.h` — 数据驱动地形属性、生成权重系统 |
+| 读取 FreeCiv 源码 | `common/map_types.h` — 地图拓扑系统、坐标转换链 |
+| CodeGraph 索引项目 | 93 文件、1723 节点、4081 边 |
+| 输出知识库文档 | `docs/knowledge-base/hex-map-rendering-reference.md` |
+| 输出交接文档 | `docs/handoff/hex-map-rendering-handoff.md` |
+
+### 关键发现
+
+1. **FreeCiv 的架构值得抄，但算法质量不够** — 它的管线流程/数据模型正确，但产生的地图块状，达不到 Civ 6 水平
+2. **Wesnoth 的坐标系统可直接复用** — 你的 `hex_grid.py` 已在正确方向上
+3. **Civ 6/7 用 Voronoi 图做大陆形状** — 这是比 FreeCiv 伪分形更好的方法
+4. **推荐渲染路线从 Three.js 补齐** — PixiJS 继续做 UI，Three.js 新增做主地图
+
+### 下阶段任务（Phase 1）
+
+详见 `docs/handoff/hex-map-rendering-handoff.md`
+
+### 新会话启动提示词
+
+```
+请先阅读：
+1. docs/knowledge-base/hex-map-rendering-reference.md
+2. docs/handoff/hex-map-rendering-handoff.md
+3. AGENTS.md
+
+Phase 1 目标：扩展地形数据模型（6→15 种） + 实现基本地图生成器。
+严格遵循 TDD + 五步曲。
+```
 
 ---
 
@@ -259,7 +299,52 @@ python3 -m pytest tests/ -q
 # 提交 1: UI 面板卡片化 + FontAwesome 图标化
 # 提交 2: 地图元素 DOM Overlay 图标化 + Theme 体系
 # 提交 3: CartoDB 瓦片底图 + Playwright 长流程测试
+# 提交 4: feat(tile): expand TerrainType to 15 kinds
+# 提交 5: feat(constants): add 15-terrain yields, costs, defense and property weights
+# 提交 6: feat(mapgen): add MapGenerator with 15 terrain types and climate zones
 ```
+
+---
+
+## DeepSeek 本轮工作（2026-06-24 会话 4：Phase 1 编码执行）
+
+### 已完成
+
+| 任务 | 产出 | 测试 |
+|------|------|------|
+| 扩展 TerrainType 6→15 种 | `game/tile.py` | 29 passed |
+| 扩展地形常量 + TERRAIN_PROPERTIES | `game/constants.py` | 34 passed |
+| 实现 MapGenerator | `game/map_generator.py` | 9 passed |
+| 全量回归 | 465 unit + 6 integration | 全绿 |
+
+### 修改/新建文件
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `game/tile.py` | 修改 | TerrainType 15 种 + is_passable 更新 |
+| `game/constants.py` | 修改 | 3 个地形 Dict 扩展 + TERRAIN_PROPERTIES 新增 |
+| `game/map_generator.py` | **新建** | MapGenerator 完整实现（5 步管线） |
+| `tests/unit/test_tile.py` | 修改 | +15 项新测试（地形枚举 + 通行规则） |
+| `tests/unit/test_constants.py` | 修改 | +9 项新测试（15 种覆盖 + 属性验证） |
+| `tests/unit/test_map_generator.py` | **新建** | 9 项测试（生成/水陆/气候/确定性/山脉） |
+| `施工指南.md` | 修改 | 新增 Phase 1 施工日志 |
+
+### 关键技术细节
+
+- **噪声生成**：多八度 value noise（3 octaves: spacing=8/4/2, amplitude=1.0/0.5/0.25），仅用 GameRandom，零外部依赖
+- **温度带**：纬度 r/height 决定基础温度 + 海拔冷却（每 0.4 降 1 档，上限 2 档）
+- **地形放置**：BFS 迭代扩散（depth=5），概率 = max(0, 1 - 2*delta) * 0.8，delta = abs(dH) + deltaT
+- **TERRAIN_PROPERTIES**：仿 FreeCiv property[MG_COUNT]，模块加载时构建反向索引
+- **确定性**：所有随机操作通过 GameRandom，seed=42 两次生成完全一致
+
+### 下阶段 Phase 2
+
+- Voronoi 大陆形状（自然海岸线）
+- 山脉连续化（骨骼线算法）
+- 河流排水盆地生成
+- 公平起始位置
+
+---
 
 ## 工作原则
 
