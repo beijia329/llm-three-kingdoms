@@ -63,6 +63,8 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const c = cameraRef.current
       camera.position.set(c.x, c.y)
       camera.scale.set(c.zoom)
+      // 补偿 pointy-topped 六角格斜向偏移，让中国版图摆正
+      camera.rotation = -0.15
     }
 
     init()
