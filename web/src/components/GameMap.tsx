@@ -96,20 +96,14 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     Object.values(state.cities).forEach((c) => coords.add(`${c.position.q},${c.position.r}`))
     Object.values(state.armies).forEach((a) => { if (a.current_hex) coords.add(`${a.current_hex.q},${a.current_hex.r}`) })
 
-    // 0. 未探索外围（中国境外灰色迷雾——无 province_id 的水域格 + 超出地图的虚拟格）
+    // 0. 虚拟边界灰白雾（境外陆地保留暗化地形色，不涂雾）
     const fogGraphics = new Graphics()
-    const hw = state.hex_map?.width || 180
-    const hh = state.hex_map?.height || 128
-    const FOG_MARGIN = 80  // 大范围未探索外围
+    const hw = state.hex_map?.width || 252
+    const hh = state.hex_map?.height || 152
+    const FOG_MARGIN = 80
     for (let q = -FOG_MARGIN; q < hw + FOG_MARGIN; q++) {
       for (let r = -FOG_MARGIN; r < hh + FOG_MARGIN; r++) {
-        const key = `${q},${r}`
-        const tile = tileMap.get(key)
-        const isVirtual = q < 0 || q >= hw || r < 0 || r >= hh
-        // 境外陆地 = 无省界 且 非水域 → 灰白未探索
-        const isForeignLand = !isVirtual && tile && tile.province_id === null
-          && tile.terrain !== 'water' && tile.terrain !== 'deep_water'
-        if (isVirtual || isForeignLand) {
+        if (q < 0 || q >= hw || r < 0 || r >= hh) {
           const { x: fx, y: fy } = axialToPixel({ q, r }, HEX_SIZE)
           fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x9a9ea4)
         }
@@ -129,14 +123,16 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const { x, y } = axialToPixel(coord, HEX_SIZE)
       const points = hexPoints(x, y, HEX_SIZE)
 
-      // 基础色：势力=势力色，无主=统一大地色（仅亮度区分地形）
+      // 基础色：势力=势力色，中国境内=米色，境外=暗化地形色
       let fill: number
       if (faction && faction !== 'neutral') {
         fill = hexToNumber(factionColor(faction))
+      } else if (provinceId) {
+        fill = adjustBrightness(0xb8a878, getTerrainBrightness(terrain) * 0.3)
       } else {
-        // 无主土地：统一米色底，地形仅亮度微调
-        const base = 0xb8a878  // 统一米色
-        fill = adjustBrightness(base, getTerrainBrightness(terrain) * 0.3)
+        // 境外：暗化地形色，与中国米色+海洋蓝色三层区分
+        const tc = TERRAIN_COLORS[terrain] || TERRAIN_COLORS.plain
+        fill = blendColor(tc.fill, 0x333333, 0.4)
       }
       tilesGraphics.poly(points).fill(fill)
     })
