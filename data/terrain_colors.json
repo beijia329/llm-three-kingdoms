@@ -1,9 +1,9 @@
 {
-  "plain": {"fill": "#7cb342", "border": "#558b2f"},
-  "forest": {"fill": "#33691e", "border": "#1b5e20"},
-  "hill": {"fill": "#a1887f", "border": "#6d4c41"},
-  "mountain": {"fill": "#757575", "border": "#424242"},
-  "river": {"fill": "#4fc3f7", "border": "#0288d1"},
-  "desert": {"fill": "#e6c075", "border": "#c19a4b"},
-  "fog": {"fill": "#1a1a2e", "border": "#2a2a3e"}
+  "plain":   {"fill": "#8B9A6E", "border": "#7A8960"},
+  "forest":  {"fill": "#4A6B3A", "border": "#3D5A30"},
+  "hill":    {"fill": "#9B8E7A", "border": "#8A7E6C"},
+  "mountain":{"fill": "#7A7A7A", "border": "#6A6A6A"},
+  "river":   {"fill": "#4A8FB8", "border": "#3E7A9E"},
+  "desert":  {"fill": "#C4B58A", "border": "#B0A27A"},
+  "fog":     {"fill": "#1A1A2E", "border": "#2A2A3E"}
 }

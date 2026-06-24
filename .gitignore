@@ -35,5 +35,9 @@ replays/
 # Pygame
 *.pygame
 
+# Web Frontend
+web/node_modules/
+web/dist/
+
 # Environment Variables
 .env.local

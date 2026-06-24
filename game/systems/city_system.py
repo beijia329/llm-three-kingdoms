@@ -133,9 +133,9 @@ class CitySystem:
         effect_value = 0
 
         if develop_type == "economy":
-            # 经济发展：消耗金钱投资，短期回馈金币
-            city.gold += ECONOMY_GOLD_BONUS
-            effect_value = ECONOMY_GOLD_BONUS
+            # 经济发展：永久提升城市金钱产出
+            city.economic_bonus += ECONOMY_GOLD_BONUS
+            effect_value = city.economic_bonus
 
         elif develop_type == "military":
             # 修复并提升城墙耐久

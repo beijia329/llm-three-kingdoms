@@ -60,6 +60,9 @@ class MovementResult:
     status_changed: bool = False
     """状态是否发生变化"""
 
+    disbanded: bool = False
+    """是否已并入城市守军（到达友方城市后）"""
+
 
 @dataclass
 class MovementEvent:
@@ -104,6 +107,7 @@ class ArmyMovementSystem:
         hex_map: Optional[object] = None,
         season: str = "spring",
         cities: Optional[dict] = None,
+        generals: Optional[dict] = None,
     ) -> MovementResult:
         """处理一回合的军队移动
 
@@ -117,6 +121,8 @@ class ArmyMovementSystem:
             army: 要处理的军队对象（会被修改）
             hex_map: 六角格地图（可选，启用 Hex 模式）
             season: 当前季节（默认 spring）
+            cities: 城市字典，用于判断到达城市归属
+            generals: 将领字典，用于友方到达时更新将领位置
 
         Returns:
             本回合行军处理结果
@@ -156,16 +162,18 @@ class ArmyMovementSystem:
             if hex_map is not None and army.path_hexes:
                 if army.path_index >= len(army.path_hexes) - 1:
                     army.progress = 1.0
-                    arrival_result = self._handle_arrival(army, cities)
+                    arrival_result = self._handle_arrival(army, cities, generals)
                     result.arrived = arrival_result["arrived"]
                     result.arrival_type = arrival_result["type"]
                     result.status_changed = arrival_result["status_changed"]
+                    result.disbanded = arrival_result.get("disbanded", False)
             elif army.progress >= 1.0:
                 army.progress = 1.0
-                arrival_result = self._handle_arrival(army, cities)
+                arrival_result = self._handle_arrival(army, cities, generals)
                 result.arrived = arrival_result["arrived"]
                 result.arrival_type = arrival_result["type"]
                 result.status_changed = arrival_result["status_changed"]
+                result.disbanded = arrival_result.get("disbanded", False)
 
         return result
 
@@ -295,34 +303,50 @@ class ArmyMovementSystem:
     # 到达处理
     # ============================================================
 
-    def _handle_arrival(self, army: Army, cities: dict = None) -> dict:
+    def _handle_arrival(
+        self,
+        army: Army,
+        cities: Optional[dict] = None,
+        generals: Optional[dict] = None,
+    ) -> dict:
         """处理军队到达目的地
 
         根据目标城市归属决定：
-        - 友方城市：入城增援
-        - 敌方/中立城市：开始围城
+        - 友方城市：入城增援，兵力并入守军，将领返回城市
+        - 敌方/中立城市：开始围城，标记城市被围状态
         - 同城：驻守
 
         Args:
             army: 军队对象
             cities: 城市字典 {id: City}，用于判断城市归属
+            generals: 将领字典 {id: General}，用于更新将领位置
 
         Returns:
-            包含 arrived 和 type 的字典
+            包含 arrived、type、status_changed、disbanded 的字典
         """
         if army.from_city == army.to_city:
             army.status = ArmyStatus.GARRISONED
-            return {"arrived": True, "type": "garrison", "status_changed": True}
+            return {"arrived": True, "type": "garrison", "status_changed": True, "disbanded": False}
 
         # 判断目标城市归属
         if cities and army.to_city in cities:
             target_city = cities[army.to_city]
             if target_city.faction == army.faction:
+                # 友方城市：兵力并入守军，将领返回城市
+                target_city.garrison += army.soldiers
+                army.soldiers = 0
                 army.status = ArmyStatus.GARRISONED
-                return {"arrived": True, "type": "reinforce", "status_changed": True}
+                if generals and army.general_id in generals:
+                    generals[army.general_id].location = target_city.id
+                return {"arrived": True, "type": "reinforce", "status_changed": True, "disbanded": True}
+
+            # 敌方/中立城市：标记围城状态
+            target_city.is_besieged = True
+            if army.id not in target_city.besieging_armies:
+                target_city.besieging_armies.append(army.id)
 
         army.status = ArmyStatus.BESIEGING
-        return {"arrived": True, "type": "besiege", "status_changed": True}
+        return {"arrived": True, "type": "besiege", "status_changed": True, "disbanded": False}
 
     # ============================================================
     # 辅助方法

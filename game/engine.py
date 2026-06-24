@@ -596,18 +596,29 @@ class GameEngine:
 
         # 2. 行军推进（所有非驻守军队）
         season = getattr(self, 'season', 'spring')
+        disbanded_army_ids: List[str] = []
         for army in list(self.armies.values()):
             if army.soldiers <= 0:
                 # 全灭的军队清理
                 del self.armies[army.id]
                 continue
             if self.hex_map is not None:
-                self._army_movement.process_movement(
-                    army, hex_map=self.hex_map, season=season, cities=self.cities
+                move_result = self._army_movement.process_movement(
+                    army, hex_map=self.hex_map, season=season,
+                    cities=self.cities, generals=self.generals,
                 )
             else:
-                self._army_movement.process_movement(army, cities=self.cities)
+                move_result = self._army_movement.process_movement(
+                    army, cities=self.cities, generals=self.generals,
+                )
+            if move_result.disbanded:
+                disbanded_army_ids.append(army.id)
             result["armies_moved"] += 1
+
+        # 清理已并入守军的到达部队
+        for army_id in disbanded_army_ids:
+            if army_id in self.armies:
+                del self.armies[army_id]
 
         # 3. 将领忠诚度衰减
         for general in self.generals.values():
@@ -642,9 +653,10 @@ class GameEngine:
             battle_result = self._battle_resolver.resolve_battle(ctx)
             self._apply_battle_result(ctx, battle_result)
 
-            # 回写城墙耐久（攻城战中可能被损坏）
+            # 回写城墙耐久与守军数量（攻城战中可能被损坏/消灭）
             if defender_city and ctx.wall_hp >= 0:
                 defender_city.wall_hp = ctx.wall_hp
+                defender_city.garrison = max(0, ctx.defender_total_soldiers)
 
             result["battles_fought"] += 1
 
@@ -692,26 +704,36 @@ class GameEngine:
             ctx: 战斗上下文
             result: 战斗结果
         """
+        defender_city = self.cities.get(ctx.defender_city or "")
+
         if result.result == BattleResultType.ATTACKER_WIN:
             # 攻击方胜利：占领城市
-            if result.captured_city and result.captured_city in self.cities:
-                city = self.cities[result.captured_city]
+            captured_city_id = result.captured_city or ctx.defender_city
+            if captured_city_id and captured_city_id in self.cities:
+                city = self.cities[captured_city_id]
                 city.faction = ctx.attacker_faction
                 city.morale = max(20, city.morale - 20)  # 占领后民心下降
 
-            # 清理攻击方伤亡
-            for army_id in ctx.attacker_armies:
+                # 合并幸存攻击方兵力入城守军
+                surviving_attackers = 0
+                for army_id in ctx.attacker_armies:
+                    if army_id in self.armies:
+                        army = self.armies[army_id]
+                        initial_total = max(ctx.attacker_initial_soldiers, 1)
+                        loss_ratio = result.attacker_casualties / initial_total
+                        army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
+                        surviving_attackers += army.soldiers
+                        # 将领入驻城市
+                        if army.soldiers > 0 and army.general_id in self.generals:
+                            self.generals[army.general_id].location = city.id
+                        # 标记为可清理
+                        army.soldiers = 0
+                city.garrison += surviving_attackers
+
+            # 清理攻击方军队（已并入守军或全灭）
+            for army_id in list(ctx.attacker_armies):
                 if army_id in self.armies:
-                    army = self.armies[army_id]
-                    # 按比例减少兵力（使用战斗前初始总兵力计算比例）
-                    initial_total = max(ctx.attacker_initial_soldiers, 1)
-                    loss_ratio = result.attacker_casualties / initial_total
-                    army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
-                    if army.soldiers > 0:
-                        army.status = ArmyStatus.GARRISONED
-                        if result.captured_city:
-                            army.to_city = result.captured_city
-                            army.from_city = result.captured_city
+                    del self.armies[army_id]
 
         elif result.result == BattleResultType.DEFENDER_WIN:
             # 防守方胜利：攻击方军队撤退或消灭
@@ -736,6 +758,11 @@ class GameEngine:
                     army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
                     if army.soldiers > 0:
                         army.status = ArmyStatus.RETREATING
+
+        # 清理该城市的围城状态
+        if defender_city is not None:
+            defender_city.is_besieged = False
+            defender_city.besieging_armies = []
 
         # 清理俘虏的将领
         for gen_id in result.captured_generals:
@@ -836,7 +863,7 @@ class GameEngine:
         known_cities = []
         for city in self.cities.values():
             if city.faction != faction:
-                from game.models import CityInfo
+                from game.models import CityInfo, ArmyInfo
                 # 检查是否相邻
                 is_neighbor = any(
                     n in [oc.id for oc in own_cities]
@@ -855,6 +882,44 @@ class GameEngine:
                     info.wall_hp = city.wall_hp
                 known_cities.append(info)
 
+        # 可见敌方军队（信息迷雾）
+        visible_armies = []
+        own_city_ids = {c.id for c in own_cities}
+        own_army_hexes = {a.current_hex for a in own_armies if a.current_hex is not None}
+        for army in self.armies.values():
+            if army.faction == faction or army.soldiers <= 0:
+                continue
+            visible = False
+            if army.current_hex is not None and army.current_hex in own_army_hexes:
+                visible = True
+            elif army.to_city in own_city_ids or army.from_city in own_city_ids:
+                visible = True
+            else:
+                # 与城市相邻的敌方军队可见
+                for oc in own_cities:
+                    if army.to_city in oc.neighbors or army.from_city in oc.neighbors:
+                        visible = True
+                        break
+            if visible:
+                soldiers_estimate = "few"
+                if army.soldiers >= 3000:
+                    soldiers_estimate = "many"
+                elif army.soldiers >= 1000:
+                    soldiers_estimate = "normal"
+                morale_estimate = "low"
+                if army.morale >= 70:
+                    morale_estimate = "high"
+                elif army.morale >= 40:
+                    morale_estimate = "normal"
+                visible_armies.append(ArmyInfo(
+                    id=army.id,
+                    faction=army.faction,
+                    status=army.status,
+                    general_id=army.general_id,
+                    soldiers_estimate=soldiers_estimate,
+                    morale_estimate=morale_estimate,
+                ))
+
         return GameObservation(
             faction=faction,
             turn=self.turn,
@@ -863,7 +928,7 @@ class GameEngine:
             own_armies=own_armies,
             own_generals=own_generals,
             known_cities=known_cities,
-            visible_armies=[],
+            visible_armies=visible_armies,
             map_topology={
                 cid: c.neighbors for cid, c in self.cities.items()
             },

@@ -3,9 +3,13 @@
 # ============================================================
 
 # --- 游戏引擎核心 ---
-pygame>=2.5.0            # GUI渲染引擎
+pygame>=2.5.0            # GUI渲染引擎（保留为降级/调试模式）
 pydantic>=2.0.0          # 数据模型校验
 pydantic-settings>=2.0.0 # 配置管理
+
+# --- Web 前端服务 ---
+fastapi>=0.110.0         # Web 后端框架
+uvicorn[standard]>=0.29.0 # ASGI 服务器
 
 # --- LLM接入 ---
 httpx>=0.28.0            # HTTP客户端（调用OpenRouter API）

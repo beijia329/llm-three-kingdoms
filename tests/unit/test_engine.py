@@ -289,11 +289,16 @@ class TestBattleResultApplication:
             captured_city="city_liubei_1",
         )
 
+        captured_city = engine.cities["city_liubei_1"]
+        garrison_before = captured_city.garrison
+
         engine._apply_battle_result(ctx, result)
 
-        # 伤亡比例 = 200/1000 = 20%，军队剩余应为 1000 * 0.8 = 800
-        # 如果按旧的 bug 用 800 作分母，会得到 200/800 = 25%，剩余 750
-        assert army.soldiers == 800
+        # 伤亡比例 = 200/1000 = 20%，幸存 1000 * 0.8 = 800
+        # 攻击方胜利后，幸存者应并入被占领城市的守军
+        # 原守军被战斗过程清零（ctx.defender_total_soldiers 已归零）
+        assert captured_city.faction == "caocao"
+        assert captured_city.garrison == garrison_before + 800
 
     def test_reward_general_in_army(self):
         """出征中的将领也可以被赏赐，金钱从军队出发城市扣除"""

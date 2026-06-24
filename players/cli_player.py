@@ -53,8 +53,9 @@ class CLIPlayer(BasePlayer):
         enemy_ids: Set[str] = {c.id for c in observation.known_cities}
         enemy_factions = list({c.faction for c in observation.known_cities if c.faction != self.faction})
 
-        # 外交（diplomacy > 0.3 的势力倾向外交, 每3回合发一次）
-        if self._diplomacy > 0.3 and not self._msg_sent and enemy_factions and turn % 3 == 0:
+        # 外交（diplomacy 越高越频繁，高外交每2回合发一次）
+        diplo_interval = 2 if self._diplomacy > 0.4 else 3
+        if self._diplomacy > 0.25 and not self._msg_sent and enemy_factions and turn % diplo_interval == 0:
             target = self._rng.choice(enemy_factions)
             messages = ["提议结盟共抗强敌", "互不侵犯如何？", "你我合兵一处，天下可定"]
             commands.append(MessageCommand(
@@ -106,8 +107,14 @@ class CLIPlayer(BasePlayer):
                 break
             dev_gold = int(500 - self._expand * 200)
             if city.gold >= dev_gold:
-                dev_types = ["economy", "military", "culture"]
-                dev_type = dev_types[(turn + len(commands)) % 3]
+                    # 性格影响发展类型：expand高→经济，aggression高→军事，否则均衡
+                if self._expand > self._aggression and self._expand > 0.3:
+                    dev_type = "economy"
+                elif self._aggression > 0.6:
+                    dev_type = "military"
+                else:
+                    dev_types = ["economy", "military", "culture"]
+                    dev_type = dev_types[(turn + len(commands)) % 3]
                 commands.append(DevelopCommand(
                     faction=self.faction, turn=turn,
                     city=city.id, develop_type=dev_type,

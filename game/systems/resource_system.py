@@ -68,7 +68,7 @@ class ResourceSystem:
         base = level_config["base_gold"]
         population_output = city.population * GOLD_PER_POPULATION
         tile_gold = sum(t.gold_yield for t in tiles) if tiles else 0.0
-        total_before_morale = base + population_output + tile_gold
+        total_before_morale = base + population_output + tile_gold + city.economic_bonus
 
         multiplier = self._get_morale_multiplier(
             city.morale, MORALE_GOLD_PENALTY

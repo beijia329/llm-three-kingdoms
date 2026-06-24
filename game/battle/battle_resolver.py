@@ -504,6 +504,8 @@ class BattleResolver:
         if context.result == BattleResultType.ATTACKER_WIN:
             # 攻击方胜利：占领城市
             result.captured_city = context.defender_city
+            result.attacker_morale_change = 10
+            result.defender_morale_change = -15
 
             # 处理俘虏
             for gen_id in defender_generals:

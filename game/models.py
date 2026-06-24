@@ -96,6 +96,9 @@ class City(BaseModel):
     population: int = Field(ge=0, description="人口")
     morale: int = Field(ge=0, le=100, description="民心 0-100")
 
+    # 发展加成
+    economic_bonus: int = Field(default=0, ge=0, description="经济发展带来的每回合金钱产出加成")
+
     # 军事
     garrison: int = Field(ge=0, description="守军数量")
 

@@ -171,8 +171,14 @@ class BattleScheduler:
         # 防守方势力
         defender_faction = target_city.faction
 
-        # 友方城市不触发战斗
+        # 友方城市不触发战斗：转换为驻防增援
         if attacker_faction == defender_faction:
+            target_city.garrison += sum(a.soldiers for a in armies)
+            for a in armies:
+                a.status = ArmyStatus.GARRISONED
+                a.soldiers = 0
+                if a.general_id in all_generals:
+                    all_generals[a.general_id].location = target_city.id
             return None
 
         # 计算攻击方统计数据
