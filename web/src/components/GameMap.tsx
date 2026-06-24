@@ -123,18 +123,17 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const { x, y } = axialToPixel(coord, HEX_SIZE)
       const points = hexPoints(x, y, HEX_SIZE)
 
-      // 基础色：势力=势力色，中国无主=米色，境外=灰白雾，水域=蓝色
+      // === 渲染逻辑：四类，四色，不混合 ===
       let fill: number
+      const isWater = terrain === 'water' || terrain === 'deep_water'
       if (faction && faction !== 'neutral') {
-        fill = hexToNumber(factionColor(faction))
+        fill = hexToNumber(factionColor(faction))          // 🚩 势力色
       } else if (provinceId) {
-        fill = adjustBrightness(0xb8a878, getTerrainBrightness(terrain) * 0.3)
-      } else if (terrain === 'water' || terrain === 'deep_water') {
-        // 境外水域 = 蓝色海洋
-        fill = (TERRAIN_COLORS[terrain] || TERRAIN_COLORS.water).fill
+        fill = 0xc8b878                                     // 🏕️ 中国无主 = 米色
+      } else if (isWater) {
+        fill = TERRAIN_COLORS[terrain].fill                 // 🌊 海洋 = 蓝色
       } else {
-        // 境外陆地 = 灰白未探索
-        fill = 0x9a9ea4
+        fill = 0x999999                                     // 🌫️ 境外陆地 = 灰色
       }
       tilesGraphics.poly(points).fill(fill)
     })
