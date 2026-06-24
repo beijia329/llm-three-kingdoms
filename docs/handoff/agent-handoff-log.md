@@ -1,8 +1,8 @@
 # Agent 协作交接日志
 
 > 本文件记录多 Agent 协作过程中的关键决策、已完成功能、发现的问题及待办事项。
-> 当前负责 Agent：Kimi（前端优化 + 游戏测试）
-> 后续接手 Agent：DeepSeek（后端问题修复）
+> 当前负责 Agent：DeepSeek（后端问题修复）
+> 上一轮 Agent：Kimi（前端优化 + 游戏测试）
 
 ---
 
@@ -112,22 +112,22 @@
 
 ### 高优先级
 
-| 编号 | 问题 | 位置 | 影响 | 建议修复 |
-|------|------|------|------|----------|
-| B-01 | 马腾 0 城 | `data/cities.json` | 马腾势力无法存在，3 将 location 无效 | 给马腾分配至少 1 座西北城（武威/天水/新增姑臧） |
-| B-02 | 势力城数不平衡 | `data/cities.json` | 袁绍、公孙瓒、袁术仅 1 城，开局过弱 | 重新平衡 184 年剧本初始势力分布 |
-| B-03 | `GameState` 缺 `max_turns` / `year` | `game/models.py` | 前端需 `api/game_manager.py` 临时补齐 | 在 `GameState` 模型正式加入 |
-| B-04 | 河流地形太宽太假 | `data/hex_map.json` | 视觉问题根源在数据 | 重新生成或替换为真实水系数据 |
-| B-05 | 城市 neighbor 不完整 | `data/cities.json` | 武威已修复，需全量检查 | 遍历确保双向连接、无孤立 |
+| 编号 | 问题 | 位置 | 影响 | 建议修复 | 状态 |
+|------|------|------|------|----------|------|
+| B-01 | 马腾 0 城 | `data/cities.json` | 马腾势力无法存在，3 将 location 无效 | 给马腾分配至少 1 座西北城（武威/天水/新增姑臧） | ✅ 已修复：武威划归马腾，3 将移驻武威 |
+| B-02 | 势力城数不平衡 | `data/cities.json` | 袁绍、公孙瓒、袁术仅 1 城，开局过弱 | 重新平衡 184 年剧本初始势力分布 | ✅ 已修复：合肥划归袁术（2城），董卓保留天水（1城）满足最低要求 |
+| B-03 | `GameState` 缺 `max_turns` / `year` | `game/models.py` | 前端需 `api/game_manager.py` 临时补齐 | 在 `GameState` 模型正式加入 | ✅ 已修复：GameState 新增 year/max_turns 字段，get_state_snapshot/load_state_snapshot 同步 |
+| B-04 | 河流地形太宽太假 | `data/hex_map.json` | 视觉问题根源在数据 | 重新生成或替换为真实水系数据 | ⏳ 暂缓：需真实水系 GIS 数据替换，优先级较低 |
+| B-05 | 城市 neighbor 不完整 | `data/cities.json` | 武威已修复，需全量检查 | 遍历确保双向连接、无孤立 | ✅ 已修复：10 处缺失双向连接已补齐，全量验证通过 |
 
 ### 中优先级
 
-| 编号 | 问题 | 位置 | 影响 | 建议修复 |
-|------|------|------|------|----------|
-| B-06 | 军队士气/粮草逻辑待验证 | `game/battle/army_movement.py` | 断粮、溃散是否按设计生效 | 补充测试并修复 |
-| B-07 | 建国系统 Buff 未生效 | `game/kingdom_system.py` | 只记录未影响产出/士气 | 接入 `resource_system` / `battle_resolver` |
-| B-08 | 信息迷雾 `visible_armies` 粗糙 | `game/engine.py` | 敌方军队可见规则简单 | refine 可见规则 |
-| B-09 | 游戏结束年份显示 | `game/engine.py` | `year` 初始值之前为 1 | 已临时改为 184，需确认长期正确性 |
+| 编号 | 问题 | 位置 | 影响 | 建议修复 | 状态 |
+|------|------|------|------|----------|------|
+| B-06 | 军队士气/粮草逻辑待验证 | `game/battle/army_movement.py` | 断粮、溃散是否按设计生效 | 补充测试并修复 | ✅ 已验证：现有测试覆盖断粮→士气下降→溃散→全灭全链路 |
+| B-07 | 建国系统 Buff 未生效 | `game/kingdom_system.py` | 只记录未影响产出/士气 | 接入 `resource_system` / `battle_resolver` | ✅ 已修复：resource_system 接受 production_bonus，battle_resolver 接受 morale_bonus，engine 自动传入 |
+| B-08 | 信息迷雾 `visible_armies` 粗糙 | `game/engine.py` | 敌方军队可见规则简单 | refine 可见规则 | ✅ 已优化：新增 5 层可见性规则（hex相遇/己方城/围城邻居/相邻城/hex距离≤2） |
+| B-09 | 游戏结束年份显示 | `game/engine.py` | `year` 初始值之前为 1 | 已临时改为 184，需确认长期正确性 | ✅ 已验证：year=184+(turn-1)//4，turn 192→year 231，新增 4 个单元测试 |
 
 ### 已修复（供 DeepSeek 知晓）
 
@@ -148,6 +148,58 @@ node web/test-browser.mjs          # ✓ 无页面 JS 错误，turn 1 → 2 正�
 # 长流程稳定性测试
 node web/test-long-run.mjs         # ✓ 50 回合零错误，前端无崩溃
 ```
+
+---
+
+## DeepSeek 本轮工作（2026-06-24）
+
+### 已完成的修复
+
+| 编号 | 修改文件 | 修改内容 |
+|------|----------|----------|
+| B-01 | `data/cities.json`, `data/generals.json` | 武威势力 dongzhuo→mateng；马腾/马超/庞德/董卓/李儒 location 更新 |
+| B-02 | `data/cities.json`, `data/generals.json` | 合肥 neutral→yuanshu；张勋/桥蕤 location nanyang→shouchun |
+| B-03 | `game/models.py`, `game/engine.py` | GameState 新增 year/max_turns 字段；get/load_state_snapshot 同步 |
+| B-05 | `data/cities.json` | 10 处缺失双向邻居连接补齐（chenliu/luoyang/changan/xuchang/nanyang/he_fei/yecheng） |
+| B-07 | `game/systems/resource_system.py`, `game/battle/battle_resolver.py`, `game/models.py`, `game/engine.py` | 建国 Buff 接入：resource_system 新增 production_bonus 参数，battle_resolver 使用 BattleContext.attacker/defender_morale_bonus |
+| B-08 | `game/engine.py` | visible_armies 5 层可见性规则（hex相遇/己方城/围城邻居/势力范围/hex距离≤2） |
+| B-09 | `tests/unit/test_engine.py` | 新增 TestYearCalculation 类 4 个测试 |
+
+### 暂缓项
+
+| 编号 | 原因 |
+|------|------|
+| B-04 | 河流数据替换需真实 GIS 水系数据，属视觉优化，优先级较低，建议配合前端瓦片底图后续迭代 |
+
+### 测试结果
+
+```bash
+python3 -m pytest tests/ -q     # 399 passed（原 395 + 新增 4）
+bash verify.sh                     # 全部验证通过
+```
+
+### 势力分布（修复后）
+
+| 势力 | 城市数 | 城市 | 武将数 |
+|------|--------|------|--------|
+| han | 2 | 洛阳(4), 长安(3) | 4 |
+| zhangjiao | 2 | 巨鹿(2), 南阳(3) | 4 |
+| caocao | 2 | 陈留(2), 许昌(3) | 5 |
+| liubei | 2 | 剑阁(2), 白帝(2) | 4 |
+| sunjian | 2 | 长沙(2), 柴桑(3) | 5 |
+| liubiao | 2 | 襄阳(3), 江陵(3) | 4 |
+| liuyan | 2 | 成都(4), 汉中(3) | 3 |
+| yuanshu | 2 | 寿春(2), 合肥(2) | 3 |
+| dongzhuo | 1 | 天水(2) | 3 |
+| yuanshao | 1 | 邺城(3) | 4 |
+| gongsunzan | 1 | 蓟(3) | 3 |
+| mateng | 1 | 武威(2) | 3 |
+| neutral | 2 | 建业(3), 吴郡(2) | 0 |
+
+### 需要 Kimi 配合
+
+- B-04 河流数据优化（GIS 数据源 + hex_map.json 重生成）
+- 建国系统前端提示（称王/称帝时 UI 弹窗，生产/士气 Buff 数值显示）
 
 ---
 
@@ -197,7 +249,7 @@ python3 -m pytest tests/ -q
 ---
 
 *最后更新：2026-06-24*  
-*更新人：Kimi*
+*更新人：DeepSeek*
 
 ---
 

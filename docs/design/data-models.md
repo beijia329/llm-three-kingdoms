@@ -1,21 +1,36 @@
 # 数据模型设计文档
 
 > 本文档定义游戏中所有核心数据结构。所有开发必须严格遵循此定义。
+> 
+> ⚠️ **注意**：本文档为 v1.0 设计稿，实际实现见 `game/models.py`（12方势力，完整 Pydantic 模型）。
+> 以下为关键数据结构的参考文档，具体字段以代码为准。
 
 ---
 
 ## 一、基础类型定义
 
-### 1.1 势力枚举
+### 1.1 势力枚举（v2.2 实际实现）
 ```python
 from enum import Enum
 
 class Faction(str, Enum):
-    WEI = "wei"      # 魏国
-    SHU = "shu"      # 蜀国
-    WU = "wu"        # 吴国
-    NEUTRAL = "neutral"  # 中立
+    """势力枚举（184年剧本，12方诸侯）"""
+    HAN = "han"              # 汉室
+    ZHANGJIAO = "zhangjiao"  # 张角（黄巾）
+    DONGZHUO = "dongzhuo"    # 董卓
+    YUANSHAO = "yuanshao"    # 袁绍
+    CAOCAO = "caocao"        # 曹操
+    LIUBEI = "liubei"        # 刘备
+    SUNJIAN = "sunjian"      # 孙坚
+    LIUBIAO = "liubiao"      # 刘表
+    LIUYAN = "liuyan"        # 刘焉
+    GONGSUNZAN = "gongsunzan"  # 公孙瓒
+    MATENG = "mateng"        # 马腾
+    YUANSHU = "yuanshu"      # 袁术
 ```
+
+> **原 v1.0 设计**（已废弃）：仅 WEI/SHU/WU/NEUTRAL 四方。
+> 当前版本以实际代码 `game/models.py` 和 `game/constants.py` 为准。
 
 ### 1.2 城市等级
 ```python

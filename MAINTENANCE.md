@@ -1,7 +1,8 @@
-# LLM三国志 v2.0 — 运维与开发指南
+# LLM三国志 v2.2 — 运维与开发指南
 
-> 最后更新：2026-06-23
+> 最后更新：2026-06-24
 > 面向后续开发者/维护者
+> v2.2更新：马腾+武威、袁术+合肥、GameState字段补齐、10处邻居双向修复、建国Buff接入、信息迷雾5层规则
 
 ---
 
@@ -12,7 +13,7 @@ pip install -r requirements.txt
 python3 main.py --mode gui --seed 42        # GUI六角格地图
 python3 main.py --mode ai-vs-ai --max-turns 30  # CLI对战
 python3 main.py --mode gui --llm            # 12方全LLM对战
-python3 -m pytest tests/ -q                 # 387测试
+python3 -m pytest tests/ -q                 # 399 tests
 ```
 
 ---
@@ -68,9 +69,9 @@ python3 -m pytest tests/ -q                 # 387测试
 |------|------|------|
 | 地图渲染旧版 | `renderer/map_renderer.py` | 旧像素坐标渲染，无中文字体，可考虑移除 |
 | 回放系统 | `renderer/replay_player.py` | 未完成，engine从未被填充 |
-| 经济系统 | `game/systems/city_system.py` | 发展经济效果简化(一次性金币) |
+| 河流地形数据 | `data/hex_map.json` | 水系过宽不够真实，需真实GIS数据替换 (B-04) |
 | 常数分散 | 多个文件 | 部分数值硬编码未收敛到 constants.py |
-| OXERTIME_EXTRA_SOLDIERS | `constants.py` | 已导入但从未使用 |
+| OVERTIME_EXTRA_SOLDIERS | `constants.py` | 已导入但从未使用 |
 | 死代码 | `ui_panel.py` | scroll_offset, _cached_logs 未使用 |
 | LLM消息记忆 | `players/llm/memory_manager.py` | 无法跨回合记住外交消息 |
 | API key | `main.py` | 环境变量名 OPENROUTER_API_KEY 但实际用DeepSeek |
@@ -79,7 +80,7 @@ python3 -m pytest tests/ -q                 # 387测试
 
 ## 测试规范
 
-- 387 测试在 `tests/` 下
+- 399 tests in `tests/`
 - 新增功能必须先写测试（TDD）
 - `python3 -m pytest tests/ -q` 必须全部通过
 - 测试中避免使用过时的 faction key "wei"/"shu"/"wu"

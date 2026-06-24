@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="LLM三国志 Web 服务",
     description="为 LLM三国志 提供 WebSocket 游戏状态流与 REST API",
-    version="2.1.0",
+    version="2.2.0",
     lifespan=lifespan,
 )
 
