@@ -111,7 +111,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
            (tile.terrain === 'water' || tile.terrain === 'deep_water'))
         if (isOutside) {
           const { x: fx, y: fy } = axialToPixel({ q, r }, HEX_SIZE)
-          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x2a2a35)
+          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x888c94)
         }
       }
     }
@@ -454,7 +454,7 @@ function factionColor(faction: string): string {
   const colors: Record<string, string> = {
     han: '#FFD700', zhangjiao: '#FFD700',
     dongzhuo: '#8B0000', yuanshao: '#FF6600',
-    caocao: '#1a3a80', liubei: '#228B22',
+    caocao: '#6b3020', liubei: '#228B22',
     sunjian: '#CC0000', liubiao: '#8B6914',
     liuyan: '#6B3FA0', gongsunzan: '#d4c8a0',
     mateng: '#4B0082', yuanshu: '#C71585',
