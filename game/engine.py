@@ -129,8 +129,8 @@ class GameEngine:
         from game.season import Season
         self.game_mode: GameMode = GameMode.STANDARD
         self.season: Season = Season.SPRING
-        self.year: int = 1
-        self.start_year: int = 184  # 黄巾起义
+        self.year: int = 184  # 黄巾起义起始年
+        self.start_year: int = 184
 
         # 游戏数据
         self.cities: Dict[str, City] = {}

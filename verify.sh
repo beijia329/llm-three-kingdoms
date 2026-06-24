@@ -45,7 +45,7 @@ echo ""
 # 7. 前端构建测试
 echo "--- 7. 前端构建测试 ---"
 if [ -d "web/node_modules" ]; then
-    cd web && npm run build 2>&1 | tail -5 && cd ..
+    (cd web && npm run build)
 else
     echo "  跳过（未安装 web/node_modules）"
 fi

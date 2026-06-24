@@ -26,26 +26,35 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 
   // 初始化 Pixi Application
   useEffect(() => {
-    if (!containerRef.current || appRef.current) return
+    const container = containerRef.current
+    if (!container || appRef.current) return
 
-    let app: Application
+    let app: Application | null = null
+    let cancelled = false
+
     const init = async () => {
       app = new Application()
+      const width = container.clientWidth
+      const height = container.clientHeight
       await app.init({
         background: UI_COLORS.bg,
-        resizeTo: containerRef.current!,
+        width,
+        height,
         antialias: true,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
       })
-      containerRef.current!.appendChild(app.canvas)
+      if (cancelled) {
+        app.destroy(true, { children: true, texture: true })
+        return
+      }
+      container.appendChild(app.canvas)
       appRef.current = app
 
       const camera = new Container()
       cameraRef.current = camera
       app.stage.addChild(camera)
 
-      // 初始相机位置
       camera.position.set(-900, -500)
       camera.scale.set(0.3)
     }
@@ -53,8 +62,13 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     init()
 
     return () => {
-      app?.destroy(true, { children: true })
+      cancelled = true
+      if (app) {
+        app.destroy(true, { children: true, texture: true })
+        app = null
+      }
       appRef.current = null
+      cameraRef.current = null
     }
   }, [])
 
