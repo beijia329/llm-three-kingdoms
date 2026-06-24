@@ -89,33 +89,35 @@ class TestMapGenerator:
         hex_map = gen.generate(60, 40)
         from game.constants import TERRAIN_PROPERTIES
 
-        # 取南部行（r 接近 40）
+        # 南部 1/3 行应有 tropical 类
         southern_rows_terrains = set()
         for tile in hex_map.iter_tiles():
-            if tile.coord.r >= 30:  # 下 1/4
+            if tile.coord.r >= 26:  # 下 1/3
                 southern_rows_terrains.add(tile.terrain)
 
-        # 取北部行（r 接近 0）
+        # 北部 1/3 行应有 cold/frozen 类
         northern_rows_terrains = set()
         for tile in hex_map.iter_tiles():
-            if tile.coord.r < 10:  # 上 1/4
+            if tile.coord.r < 14:  # 上 1/3
                 northern_rows_terrains.add(tile.terrain)
 
-        # 南部应有 tropical 温度属性的地形
+        # 南部应有 tropical 温度属性（排除纯水域）
         has_tropical_south = any(
             TERRAIN_PROPERTIES.get(t.value, {}).get("temperature") == "tropical"
+            and t not in WATER_TERRAINS
             for t in southern_rows_terrains
         )
-        # 北部应有 cold/frozen 温度属性的地形
+        # 北部应有 cold/frozen 温度属性
         has_cold_north = any(
             TERRAIN_PROPERTIES.get(t.value, {}).get("temperature") in ("cold", "frozen")
+            and t not in WATER_TERRAINS
             for t in northern_rows_terrains
         )
         assert has_tropical_south, (
-            f"No tropical terrain in south rows. Found: {southern_rows_terrains}"
+            f"No tropical land terrain in south rows. Found: {southern_rows_terrains}"
         )
         assert has_cold_north, (
-            f"No cold/frozen terrain in north rows. Found: {northern_rows_terrains}"
+            f"No cold/frozen land terrain in north rows. Found: {northern_rows_terrains}"
         )
 
     @requires_mapgen
@@ -198,3 +200,93 @@ class TestMapGenerator:
         assert len(tiles) == 25
         for tile in tiles:
             assert isinstance(tile.terrain, TerrainType)
+
+
+class TestMapQuality:
+    """地图生成质量测试（Phase 1.5: 大陆形状 + 优化）"""
+
+    @requires_mapgen
+    def test_land_percentage_reasonable(self):
+        """非水域地形应占 45% 以上（含山/峰）"""
+        rng = GameRandom(seed=42)
+        gen = MapGenerator(rng)
+        hex_map = gen.generate(120, 90)
+        total = 0
+        land = 0
+        for tile in hex_map.iter_tiles():
+            total += 1
+            if tile.terrain not in WATER_TERRAINS:
+                land += 1
+        ratio = land / total if total > 0 else 0
+        assert ratio > 0.45, (
+            f"Non-water ratio {ratio:.1%} too low (should be > 45%)"
+        )
+
+    @requires_mapgen
+    def test_mountain_ratio_not_excessive(self):
+        """山脉+山峰不应超过 25%"""
+        rng = GameRandom(seed=42)
+        gen = MapGenerator(rng)
+        hex_map = gen.generate(120, 90)
+        total = 0
+        mountains = 0
+        for tile in hex_map.iter_tiles():
+            total += 1
+            if tile.terrain in (TerrainType.MOUNTAIN, TerrainType.PEAK):
+                mountains += 1
+        ratio = mountains / total if total > 0 else 0
+        assert ratio < 0.25, (
+            f"Mountain ratio {ratio:.1%} too high (should be < 25%)"
+        )
+
+    @requires_mapgen
+    def test_center_has_more_non_water_than_edges(self):
+        """地图中心非水域比率应高于边缘（大陆形状）"""
+        rng = GameRandom(seed=42)
+        gen = MapGenerator(rng)
+        hex_map = gen.generate(120, 90)
+        center_land = 0
+        center_total = 0
+        edge_land = 0
+        edge_total = 0
+        for tile in hex_map.iter_tiles():
+            q, r = tile.coord.q, tile.coord.r
+            is_non_water = tile.terrain not in WATER_TERRAINS
+            # 中心区域（q 25-95, r 18-72）
+            if 25 <= q < 95 and 18 <= r < 72:
+                center_total += 1
+                if is_non_water:
+                    center_land += 1
+            # 边缘区域
+            else:
+                edge_total += 1
+                if is_non_water:
+                    edge_land += 1
+        center_ratio = center_land / max(center_total, 1)
+        edge_ratio = edge_land / max(edge_total, 1)
+        assert center_ratio > edge_ratio, (
+            f"Center non-water {center_ratio:.1%} should exceed edge {edge_ratio:.1%}"
+        )
+
+    @requires_mapgen
+    def test_grassland_and_plain_exist(self):
+        """草原和平原等地形应存在于生成地图中"""
+        rng = GameRandom(seed=42)
+        gen = MapGenerator(rng)
+        hex_map = gen.generate(120, 90)
+        terrains = {t.terrain for t in hex_map.iter_tiles()}
+        common_land = {TerrainType.GRASS, TerrainType.GRASSLAND, TerrainType.PLAIN}
+        assert any(t in common_land for t in terrains), (
+            f"Should have common land terrains, got: {terrains}"
+        )
+
+    @requires_mapgen
+    def test_map_has_varied_terrain(self):
+        """地图应至少有 8 种不同地形（多样性检查）"""
+        rng = GameRandom(seed=42)
+        gen = MapGenerator(rng)
+        hex_map = gen.generate(120, 90)
+        terrains = {t.terrain for t in hex_map.iter_tiles()}
+        assert len(terrains) >= 8, (
+            f"Map should have >= 8 terrain types, got {len(terrains)}: {terrains}"
+        )

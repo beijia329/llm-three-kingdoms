@@ -25,10 +25,10 @@ from game.tile import Tile, TerrainType
 # 海拔到地形属性值的映射
 _ALTITUDE_THRESHOLDS = [
     (0.0, "deep"),
-    (0.15, "low"),
-    (0.40, "mid"),
-    (0.60, "high"),
-    (0.80, "peak"),
+    (0.30, "low"),
+    (0.60, "mid"),
+    (0.85, "high"),
+    (0.95, "peak"),
 ]
 
 # 纬度温度带边界（以行比例表示，r=0 为北，r=height 为南）
@@ -110,8 +110,11 @@ class MapGenerator:
         # Step 1: 生成高度图
         height_map = self._generate_height_map(width, height)
 
+        # Step 1.5: 大陆形状（中心加权，边缘向水）
+        height_map = self._apply_continent_shape(height_map, width, height)
+
         # Step 2: 海陆划分
-        sea_level: float = 0.35
+        sea_level: float = 0.40
         land_mask = self._make_land(height_map, width, height, sea_level)
 
         # Step 3: 温度带映射
@@ -264,6 +267,56 @@ class MapGenerator:
         return land_mask
 
     # ------------------------------------------------------------------
+    # Step 1.5: 大陆形状（中心加权）
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _apply_continent_shape(
+        height_map: List[List[float]],
+        width: int,
+        height: int,
+    ) -> List[List[float]]:
+        """中心加权大陆形状：中心高（陆地），边缘低（海洋）
+
+        将高度图乘以中心距离衰减因子，使地图中心更容易成为陆地，
+        边缘自然变为海洋，形成单一大陆。
+
+        Args:
+            height_map: 原始高度图
+            width: 地图宽度
+            height: 地图高度
+
+        Returns:
+            修正后的高度图
+        """
+        import math
+        center_q = width / 2.0
+        center_r = height / 2.0
+        # 最大距离用于归一化
+        max_dist = math.sqrt(center_q ** 2 + center_r ** 2)
+
+        result: List[List[float]] = [[0.0] * width for _ in range(height)]
+
+        for r in range(height):
+            for q in range(width):
+                h = height_map[r][q]
+                # 到中心的归一化距离
+                dist = math.sqrt((q - center_q) ** 2 + (r - center_r) ** 2) / max_dist
+                # 大陆因子：中心=1.0，边缘=0.0（使用 smoothstep 过渡）
+                if dist < 0.35:
+                    continent = 1.0
+                elif dist > 0.90:
+                    continent = 0.0
+                else:
+                    # 平滑过渡
+                    t = (dist - 0.35) / 0.55
+                    continent = 1.0 - t * t * (3.0 - 2.0 * t)
+                # 混合原始高度与大陆形状（保留 45% 噪声，55% 形状）
+                result[r][q] = h * 0.45 + continent * 0.55
+
+        return result
+
+    # ------------------------------------------------------------------
     # Step 3: 纬度温度带映射 + 海拔修正
     # ------------------------------------------------------------------
 
@@ -306,14 +359,18 @@ class MapGenerator:
                 temp = base_temp
 
                 if land_mask[r][q]:
-                    # 海拔修正：高度越高温度越低
+                    # 海拔修正：仅高海拔降温（>0.7 降 1 档，>0.9 降 2 档）
                     try:
                         temp_idx = _TEMP_LEVELS.index(temp)
                     except ValueError:
                         temp_idx = 2  # 默认温带
 
-                    # 每 0.4 高度降温一档，最多降 2 档
-                    elevation_cool = min(2, int(h / 0.4))
+                    if h > 0.9:
+                        elevation_cool = 2
+                    elif h > 0.7:
+                        elevation_cool = 1
+                    else:
+                        elevation_cool = 0
                     new_idx = min(len(_TEMP_LEVELS) - 1, temp_idx + elevation_cool)
                     temp = _TEMP_LEVELS[new_idx]
                 else:
@@ -645,7 +702,7 @@ class MapGenerator:
                 return TerrainType.PEAK
             return TerrainType.MOUNTAIN
 
-        # 中等海拔：hill
+        # 中等海拔：hill（不再 fallback 到 mountain）
         if altitude == "mid":
             return TerrainType.HILL
 
