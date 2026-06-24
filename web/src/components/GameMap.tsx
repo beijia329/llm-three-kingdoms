@@ -95,16 +95,22 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     Object.values(state.cities).forEach((c) => coords.add(`${c.position.q},${c.position.r}`))
     Object.values(state.armies).forEach((a) => { if (a.current_hex) coords.add(`${a.current_hex.q},${a.current_hex.r}`) })
 
-    // 0. 未探索外围（中国境外灰色迷雾）
+    // 0. 未探索外围（中国境外灰色迷雾——无 province_id 的水域格 + 超出地图的虚拟格）
     const fogGraphics = new Graphics()
-    const hw = state.hex_map?.width || 120
-    const hh = state.hex_map?.height || 90
-    for (let q = 0; q < hw; q++) {
-      for (let r = 0; r < hh; r++) {
+    const hw = state.hex_map?.width || 180
+    const hh = state.hex_map?.height || 128
+    const FOG_MARGIN = 25  // 额外虚拟格
+    for (let q = -FOG_MARGIN; q < hw + FOG_MARGIN; q++) {
+      for (let r = -FOG_MARGIN; r < hh + FOG_MARGIN; r++) {
         const key = `${q},${r}`
-        if (!coords.has(key)) {
+        const tile = tileMap.get(key)
+        // 境外 = 超出网格 或 水域且无 province
+        const isOutside = q < 0 || q >= hw || r < 0 || r >= hh ||
+          (tile && tile.province_id === null &&
+           (tile.terrain === 'water' || tile.terrain === 'deep_water'))
+        if (isOutside) {
           const { x: fx, y: fy } = axialToPixel({ q, r }, HEX_SIZE)
-          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x2a2a3a)
+          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x3a3a4a)
         }
       }
     }
@@ -122,14 +128,11 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const { x, y } = axialToPixel(coord, HEX_SIZE)
       const points = hexPoints(x, y, HEX_SIZE)
 
-      // 基础色：势力色优先，无势力则用州郡色，否则地形色
+      // 基础色：势力色优先，无势力则用地形色
       let fill: number
       if (faction && faction !== 'neutral') {
         fill = hexToNumber(factionColor(faction))
-        fill = adjustBrightness(fill, getTerrainBrightness(terrain))
-      } else if (provinceId && state.provinces?.[provinceId]?.color) {
-        fill = hexToNumber(state.provinces[provinceId].color)
-        fill = adjustBrightness(fill, getTerrainBrightness(terrain))
+        fill = adjustBrightness(fill, getTerrainBrightness(terrain) * 0.5)
       } else {
         fill = (TERRAIN_COLORS[terrain] || TERRAIN_COLORS.plain).fill
       }
@@ -162,7 +165,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
         const nx = (-dy/len) * HEX_SIZE * 0.55
         const ny = (dx/len) * HEX_SIZE * 0.55
         factionBorderGraphics.moveTo(mx+nx, my+ny).lineTo(mx-nx, my-ny)
-          .stroke({ color: hexToNumber(factionColor(faction)), width: 5 })
+          .stroke({ color: hexToNumber(factionColor(faction)), width: 6, alpha: 0.9 })
       })
     })
     camera.addChild(factionBorderGraphics)
@@ -194,7 +197,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
               const t0 = s / segs; const t1 = (s + 0.6) / segs
               provinceGraphics.moveTo(x1+(x2-x1)*t0, y1+(y2-y1)*t0)
                 .lineTo(x1+(x2-x1)*t1, y1+(y2-y1)*t1)
-                .stroke({ color: 0xc8b878, width: 2, alpha: 0.7 })
+                .stroke({ color: 0xe8d8a0, width: 2.5, alpha: 0.85 })
             }
           }
         }
@@ -202,36 +205,43 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     })
     camera.addChild(provinceGraphics)
 
-    // 4. 标注层次：州名（大） > 城名（中） > 势力名（旗标）
+    // 4. 标注层次：州名（大） > 城名（中） 
     Object.entries(provinceHexes).forEach(([provId, hexList]) => {
       if (hexList.length === 0) return
       const cx = hexList.reduce((s, h) => s + axialToPixel(h, HEX_SIZE).x, 0) / hexList.length
       const cy = hexList.reduce((s, h) => s + axialToPixel(h, HEX_SIZE).y, 0) / hexList.length
       const provName = state.provinces?.[provId]?.name || provId
+      // 州名背景底板
+      const metric = new Text({ text: provName, style: new TextStyle({ fontSize: 20, fontFamily: 'Noto Sans SC', fontWeight: 'bold' }) })
+      const pw = metric.width + 16; const ph = metric.height + 8
+      const bg = new Graphics()
+      bg.rect(-pw/2, -ph/2, pw, ph).fill({ color: 0x1a1a2e, alpha: 0.7 })
+      bg.position.set(cx, cy); camera.addChild(bg)
+      // 州名文字
       const label = new Text({
         text: provName,
         style: new TextStyle({
-          fontSize: 16, fontFamily: 'Noto Sans SC, sans-serif',
-          fill: 0xe8d8a0, stroke: { color: 0x1a1a2e, width: 4 },
+          fontSize: 20, fontFamily: 'Noto Sans SC, sans-serif',
+          fill: 0xffd700, stroke: { color: 0x000000, width: 4 },
           fontWeight: 'bold', align: 'center',
         }),
       })
       label.anchor.set(0.5); label.position.set(cx, cy)
       camera.addChild(label)
     })
+    // 城名（带底色）
     Object.values(state.cities).forEach((city) => {
       const { x, y } = axialToPixel(city.position, HEX_SIZE)
-      const faction = city.faction
-      const factionName = state.faction_stats?.[faction]?.name || ''
+      const cityText = `🏯 ${city.name}`
       const label = new Text({
-        text: `⚔ ${city.name}`,
+        text: cityText,
         style: new TextStyle({
-          fontSize: 12, fontFamily: 'Noto Sans SC, sans-serif',
-          fill: 0xffffff, stroke: { color: 0x1a1a2e, width: 3 },
+          fontSize: 14, fontFamily: 'Noto Sans SC, sans-serif',
+          fill: 0xffffff, stroke: { color: 0x000000, width: 3 },
           fontWeight: 'bold',
         }),
       })
-      label.anchor.set(0.5); label.position.set(x, y + HEX_SIZE * 1.3)
+      label.anchor.set(0.5); label.position.set(x, y + HEX_SIZE * 1.4)
       camera.addChild(label)
     })
 
@@ -242,7 +252,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   const hh = state?.hex_map?.height || 128
   const worldW = HEX_SIZE * (Math.sqrt(3) * (hw - 1) + Math.sqrt(3) / 2 * (hh - 1))
   const worldH = HEX_SIZE * (1.5 * (hh - 1))
-  const PAD = HEX_SIZE * 15  // 外围未探索缓冲
+  const PAD = HEX_SIZE * 30
 
   const clampCamera = (cam: Camera, viewW: number, viewH: number): Camera => {
     const z = Math.max(0.3, Math.min(1.2, cam.zoom))
@@ -290,7 +300,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 
       const prev = cameraRef.current
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
-      const newZoom = Math.max(0.08, Math.min(1.5, prev.zoom * zoomFactor))
+      const newZoom = Math.max(0.3, Math.min(1.2, prev.zoom * zoomFactor))
       const wx = (mouseX - prev.x) / prev.zoom
       const wy = (mouseY - prev.y) / prev.zoom
       syncCamera({
@@ -335,7 +345,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isDragging])
+  }, [])  // 只绑定一次，不依赖 isDragging
 
   // 计算城市/军队的世界像素坐标
   const cityMarkers = state
