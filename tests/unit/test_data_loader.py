@@ -57,7 +57,7 @@ class TestLoadCityPositions:
         """加载城市坐标返回字典"""
         positions = load_city_positions()
         assert isinstance(positions, dict)
-        assert len(positions) == 22
+        assert len(positions) >= 30
 
     def test_load_city_positions_has_key_cities(self):
         """应包含关键城市"""
@@ -76,8 +76,8 @@ class TestLoadCityPositions:
             assert "r" in pos, f"{city_id} missing r"
             assert isinstance(pos["q"], int)
             assert isinstance(pos["r"], int)
-            assert 0 <= pos["q"] < 120, f"{city_id} q={pos['q']} out of range"
-            assert 0 <= pos["r"] < 90, f"{city_id} r={pos['r']} out of range"
+            assert 0 <= pos["q"] < 200, f"{city_id} q={pos['q']} out of range"
+            assert 0 <= pos["r"] < 120, f"{city_id} r={pos['r']} out of range"
 
     def test_load_city_positions_file_size(self):
         """city_positions.json 应远小于 hex_map.json"""

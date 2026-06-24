@@ -178,6 +178,52 @@ python3 -m pytest tests/ -q     # 399 passed（原 395 + 新增 4）
 bash verify.sh                     # 全部验证通过
 ```
 
+---
+
+## Kimi 渲染交接 — 本轮施工（2026-06-24）
+
+> 按 `docs/handoff/kimi-rendering-handoff.md` 执行，优先解决用户提出的“中国版图轮廓不清、内陆水域被渲染成外海蓝色”问题。
+
+### 已完成
+
+| 文件 | 修改内容 |
+|------|----------|
+| `data/city_positions.json` | 22 城 → 31 城，新增下邳、彭城、广陵、临淄、北海、晋阳、番禺、苍梧、襄平，补齐空州郡 |
+| `data/cities.json` | 同步 31 城属性、坐标、邻居关系；修正原 cities.json 与 city_positions.json 坐标不一致 |
+| `game/map_generator.py` | 中国遮罩优化：六角格中心+6顶点采样填补省界缝隙；删除“水域清空 province_id”逻辑；增加 flood-fill 洞填充 + 轻度膨胀，保证中国版图连续 |
+| `web/src/components/GameMap.tsx` | 重写颜色判定：不依赖 province_id，改用 flood fill 从边界识别外海，内陆水统一米色；删除未用的 blend/brightness 辅助函数；修复初始相机、雾颜色、州名背景 padding；颜色统一使用 `theme/FACTION_COLORS` |
+| `tests/unit/test_data_loader.py` | 城市数量断言、坐标边界适配 200×120 |
+| `tests/unit/test_map_generator.py` | 陆地比例、州郡数量断言适配新地图生成逻辑 |
+
+### 当前效果
+
+- 中国版图（陆地 + 内陆水域）统一米色，轮廓连续
+- 外海（东海/南海/渤海/太平洋）蓝色
+- 境外陆地灰白色
+- 势力领土纯色，无混合
+- 州名、城名、势力边界、州郡边界正常渲染
+
+### 已知遗留
+
+| 编号 | 问题 | 说明 |
+|------|------|------|
+| R-01 | `renderer/game_renderer.py` 中 `FONT_CJK_XS` 未定义 | 旧 Pygame GUI 冒烟测试失败，与 Web 渲染无关，需后续修复 |
+| R-02 | `兖州（yanzhou）` 在 `china_provinces.json` 遮罩中无实际格子 | 陈留数据归属兖州，但 tile 层面被吸附到邻近州郡，兖州只能以陈留周围小控制区呈现 |
+| R-03 | 海岸线较锯齿 | 200×120 六角格分辨率限制，属正常现象；如需更平滑需提升地图分辨率或改用矢量轮廓 |
+
+### 测试记录
+
+```bash
+python3 -m pytest tests/unit/test_engine.py tests/unit/test_map_generator.py tests/unit/test_hex_map.py tests/unit/test_data_loader.py -q
+# 65 passed
+
+python3 -m pytest tests/unit/test_map_generator.py::TestMapGenerator -q
+# 9 passed
+
+python3 -m pytest tests/unit/test_map_generator.py::TestMapQuality -q
+# 5 passed
+```
+
 ### 势力分布（修复后）
 
 | 势力 | 城市数 | 城市 | 武将数 |

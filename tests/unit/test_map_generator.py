@@ -216,8 +216,8 @@ class TestMapQuality:
             if tile.terrain not in WATER_TERRAINS:
                 land += 1
         ratio = land / total if total > 0 else 0
-        assert 0.30 < ratio < 0.65, (
-            f"Land ratio {ratio:.1%} outside China range (30-65%)"
+        assert 0.55 < ratio < 0.80, (
+            f"Land ratio {ratio:.1%} outside China range (55-80%)"
         )
 
     @requires_mapgen
@@ -239,7 +239,7 @@ class TestMapQuality:
 
     @requires_mapgen
     def test_china_provinces_detected(self):
-        """应检测到至少 25 个中国省级行政区"""
+        """应检测到三国十三州郡中的主要州郡"""
         rng = GameRandom(seed=42)
         gen = MapGenerator(rng)
         hex_map = gen.generate(120, 90)
@@ -247,8 +247,8 @@ class TestMapQuality:
         for tile in hex_map.iter_tiles():
             if tile.province_id:
                 provinces.add(tile.province_id)
-        assert len(provinces) >= 25, (
-            f"Should detect >= 25 provinces, got {len(provinces)}: {provinces}"
+        assert len(provinces) >= 10, (
+            f"Should detect >= 10 ancient provinces, got {len(provinces)}: {provinces}"
         )
 
     @requires_mapgen

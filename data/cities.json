@@ -12,8 +12,8 @@
     "morale": 70,
     "garrison": 3500,
     "position": {
-      "q": 69,
-      "r": 40
+      "q": 124,
+      "r": 61
     },
     "neighbors": [
       "nanyang",
@@ -40,15 +40,18 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 79,
-      "r": 30
+      "q": 132,
+      "r": 53
     },
     "neighbors": [
       "yecheng",
       "chenliu",
       "ji",
       "luoyang",
-      "xuchang"
+      "xuchang",
+      "linzi",
+      "beihai",
+      "jinyang"
     ],
     "province_id": "jizhou"
   },
@@ -65,8 +68,8 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 30,
-      "r": 27
+      "q": 93,
+      "r": 50
     },
     "neighbors": [
       "tianshui"
@@ -86,8 +89,8 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 43,
-      "r": 40
+      "q": 104,
+      "r": 61
     },
     "neighbors": [
       "jian_ge",
@@ -111,8 +114,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 77,
-      "r": 34
+      "q": 131,
+      "r": 56
     },
     "neighbors": [
       "julu",
@@ -120,7 +123,11 @@
       "xuchang",
       "luoyang",
       "nanyang",
-      "ji"
+      "ji",
+      "linzi",
+      "beihai",
+      "jinyang",
+      "xiangping"
     ],
     "province_id": "jizhou"
   },
@@ -137,8 +144,8 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 77,
-      "r": 39
+      "q": 131,
+      "r": 60
     },
     "neighbors": [
       "xuchang",
@@ -163,8 +170,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 75,
-      "r": 42
+      "q": 129,
+      "r": 62
     },
     "neighbors": [
       "chenliu",
@@ -190,8 +197,8 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 42,
-      "r": 49
+      "q": 103,
+      "r": 68
     },
     "neighbors": [
       "hanzhong",
@@ -214,8 +221,8 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 58,
-      "r": 54
+      "q": 116,
+      "r": 72
     },
     "neighbors": [
       "xiangyang",
@@ -240,13 +247,15 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 71,
-      "r": 65
+      "q": 126,
+      "r": 81
     },
     "neighbors": [
       "jiangling",
       "chai_sang",
-      "xiangyang"
+      "xiangyang",
+      "panyu",
+      "cangwu"
     ],
     "province_id": "jingzhou"
   },
@@ -263,8 +272,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 83,
-      "r": 59
+      "q": 136,
+      "r": 76
     },
     "neighbors": [
       "he_fei",
@@ -288,8 +297,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 68,
-      "r": 50
+      "q": 124,
+      "r": 68
     },
     "neighbors": [
       "nanyang",
@@ -315,8 +324,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 68,
-      "r": 57
+      "q": 124,
+      "r": 74
     },
     "neighbors": [
       "xiangyang",
@@ -341,8 +350,8 @@
     "morale": 70,
     "garrison": 3500,
     "position": {
-      "q": 36,
-      "r": 55
+      "q": 98,
+      "r": 73
     },
     "neighbors": [
       "jian_ge",
@@ -364,8 +373,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 48,
-      "r": 46
+      "q": 108,
+      "r": 65
     },
     "neighbors": [
       "jian_ge",
@@ -389,12 +398,16 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 85,
-      "r": 20
+      "q": 138,
+      "r": 44
     },
     "neighbors": [
       "julu",
-      "yecheng"
+      "yecheng",
+      "linzi",
+      "beihai",
+      "jinyang",
+      "xiangping"
     ],
     "province_id": "youzhou"
   },
@@ -411,8 +424,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 55,
-      "r": 42
+      "q": 113,
+      "r": 62
     },
     "neighbors": [
       "hanzhong",
@@ -436,8 +449,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 70,
-      "r": 46
+      "q": 125,
+      "r": 65
     },
     "neighbors": [
       "xiangyang",
@@ -463,13 +476,14 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 86,
-      "r": 48
+      "q": 138,
+      "r": 67
     },
     "neighbors": [
       "he_fei",
       "jianye",
-      "chai_sang"
+      "chai_sang",
+      "pengcheng"
     ],
     "province_id": "yangzhou"
   },
@@ -486,14 +500,16 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 94,
-      "r": 50
+      "q": 144,
+      "r": 69
     },
     "neighbors": [
       "he_fei",
       "shouchun",
       "chai_sang",
-      "wu_jun"
+      "wu_jun",
+      "xiapi",
+      "guangling"
     ],
     "province_id": "yangzhou"
   },
@@ -510,12 +526,14 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 102,
-      "r": 53
+      "q": 151,
+      "r": 71
     },
     "neighbors": [
       "jianye",
-      "he_fei"
+      "he_fei",
+      "xiapi",
+      "guangling"
     ],
     "province_id": "yangzhou"
   },
@@ -532,15 +550,227 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 88,
-      "r": 51
+      "q": 140,
+      "r": 69
     },
     "neighbors": [
       "shouchun",
       "jianye",
       "chai_sang",
-      "wu_jun"
+      "wu_jun",
+      "pengcheng",
+      "guangling"
     ],
     "province_id": "yangzhou"
+  },
+  {
+    "id": "xiapi",
+    "name": "下邳",
+    "faction": "neutral",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 148,
+      "r": 69
+    },
+    "neighbors": [
+      "pengcheng",
+      "guangling",
+      "jianye",
+      "wu_jun"
+    ],
+    "province_id": "xuzhou"
+  },
+  {
+    "id": "pengcheng",
+    "name": "彭城",
+    "faction": "neutral",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 144,
+      "r": 69
+    },
+    "neighbors": [
+      "xiapi",
+      "guangling",
+      "shouchun",
+      "he_fei"
+    ],
+    "province_id": "xuzhou"
+  },
+  {
+    "id": "guangling",
+    "name": "广陵",
+    "faction": "neutral",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 149,
+      "r": 67
+    },
+    "neighbors": [
+      "xiapi",
+      "pengcheng",
+      "jianye",
+      "he_fei",
+      "wu_jun"
+    ],
+    "province_id": "xuzhou"
+  },
+  {
+    "id": "linzi",
+    "name": "临淄",
+    "faction": "neutral",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 143,
+      "r": 51
+    },
+    "neighbors": [
+      "beihai",
+      "yecheng",
+      "julu",
+      "ji"
+    ],
+    "province_id": "qingzhou"
+  },
+  {
+    "id": "beihai",
+    "name": "北海",
+    "faction": "neutral",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 150,
+      "r": 54
+    },
+    "neighbors": [
+      "linzi",
+      "yecheng",
+      "julu",
+      "ji"
+    ],
+    "province_id": "qingzhou"
+  },
+  {
+    "id": "jinyang",
+    "name": "晋阳",
+    "faction": "neutral",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 127,
+      "r": 47
+    },
+    "neighbors": [
+      "ji",
+      "yecheng",
+      "julu"
+    ],
+    "province_id": "bingzhou"
+  },
+  {
+    "id": "panyu",
+    "name": "番禺",
+    "faction": "neutral",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 117,
+      "r": 97
+    },
+    "neighbors": [
+      "cangwu",
+      "changsha"
+    ],
+    "province_id": "jiaozhou"
+  },
+  {
+    "id": "cangwu",
+    "name": "苍梧",
+    "faction": "neutral",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 118,
+      "r": 95
+    },
+    "neighbors": [
+      "panyu",
+      "changsha"
+    ],
+    "province_id": "jiaozhou"
+  },
+  {
+    "id": "xiangping",
+    "name": "襄平",
+    "faction": "neutral",
+    "level": 2,
+    "wall_hp": 1000,
+    "wall_max_hp": 1000,
+    "gold": 400,
+    "food": 600,
+    "population": 15000,
+    "morale": 70,
+    "garrison": 1000,
+    "position": {
+      "q": 169,
+      "r": 24
+    },
+    "neighbors": [
+      "ji",
+      "yecheng"
+    ],
+    "province_id": "youzhou"
   }
 ]

@@ -153,11 +153,8 @@ class MapGenerator:
         sea_level: float = 0.40
         land_mask = self._make_land(height_map, width, height, sea_level)
 
-        # 水域不分配省界（内陆湖/近海仅地形色，不归属任何州）
-        province_map = {
-            k: v for k, v in province_map.items()
-            if land_mask[k[1]][k[0]]
-        }
+        # 保留中国版图内所有格子的 province_id（含内陆水域），
+        # 让前端能渲染出连续的中国轮廓。
 
         # Step 3: 温度带映射
         temp_map = self._assign_temperature_band(height_map, land_mask, width, height)
@@ -417,6 +414,38 @@ class MapGenerator:
         return lon, lat
 
     @staticmethod
+    def _hex_sample_points(
+        q: int, r: int, width: int, height: int
+    ) -> List[Tuple[float, float]]:
+        """为一个六角格生成中心 + 6 个顶点的采样经纬度。
+
+        省界 GeoJSON 按六角格中心离散后会出现缝隙，采样多个点可以让
+        省界在六角格层面更连续。
+
+        Args:
+            q, r: 轴向坐标
+            width, height: 地图尺寸
+
+        Returns:
+            采样点经纬度列表
+        """
+        import math
+
+        center_lon, center_lat = MapGenerator._hex_to_lonlat(q, r, width, height)
+        lon_step = (136.0 - 73.0) / max(width - 1, 1)
+        lat_step = (54.0 - 16.0) / max(height - 1, 1)
+        radius = (lon_step + lat_step) / 2.0 * 0.55
+
+        samples = [(center_lon, center_lat)]
+        for angle in (0, 60, 120, 180, 240, 300):
+            rad = math.radians(angle)
+            samples.append(
+                (center_lon + radius * math.cos(rad),
+                 center_lat + radius * math.sin(rad))
+            )
+        return samples
+
+    @staticmethod
     def _apply_china_mask(
         height_map: List[List[float]],
         width: int,
@@ -425,6 +454,9 @@ class MapGenerator:
         """中国版图遮罩：境内=陆地，境外=水域
 
         加载真实中国省界数据，判断每个六角格是否在中国境内。
+        由于省界数据在六角格离散化后会出现缝隙，后续会做一次
+        "内陆洞填充"：任何被中国省份完全包围、不接触地图边界的
+        非省份格子都会被划入中国，并继承最近省份的 province_id。
         境外格子高度强制设为 0（水域），境内保持原有高度。
         同时为境内格子分配 province_id。
 
@@ -462,36 +494,159 @@ class MapGenerator:
 
         for r in range(height):
             for q in range(width):
-                lon, lat = MapGenerator._hex_to_lonlat(q, r, width, height)
+                samples = MapGenerator._hex_sample_points(q, r, width, height)
                 h = height_map[r][q]
 
-                # 检查是否在任一省份内（带边界框快速剔除）
+                # 检查六角格的任一采样点是否在任一省份内（带边界框快速剔除）
                 in_china = False
+                matched_province: Optional[str] = None
                 for ancient_id, min_lon, max_lon, min_lat, max_lat, polygons in prov_bboxes:
-                    # 边界框快速剔除
-                    if lon < min_lon or lon > max_lon or lat < min_lat or lat > max_lat:
-                        continue
-                    for polygon in polygons:
-                        for ring in polygon:
-                            if len(ring) < 3:
-                                continue
-                            if MapGenerator._point_in_polygon(lon, lat, ring):
-                                in_china = True
-                                province_map[(q, r)] = ancient_id
+                    for sample_lon, sample_lat in samples:
+                        # 边界框快速剔除
+                        if (
+                            sample_lon < min_lon
+                            or sample_lon > max_lon
+                            or sample_lat < min_lat
+                            or sample_lat > max_lat
+                        ):
+                            continue
+                        for polygon in polygons:
+                            for ring in polygon:
+                                if len(ring) < 3:
+                                    continue
+                                if MapGenerator._point_in_polygon(sample_lon, sample_lat, ring):
+                                    in_china = True
+                                    matched_province = ancient_id
+                                    break
+                            if in_china:
                                 break
                         if in_china:
                             break
                     if in_china:
                         break
 
-                if in_china:
+                if in_china and matched_province:
                     result[r][q] = h
-                    province_map[(q, r)] = ancient_id
+                    province_map[(q, r)] = matched_province
                 else:
                     # 境外：保留原始高度（陆地=未探索，水域=海洋）
                     result[r][q] = h
 
+        # 填充中国版图内部的缝隙/洞，让省界在六角格层面连续
+        MapGenerator._fill_china_holes(province_map, width, height)
+
+        # 对中国版图做轻度膨胀，把内陆湖泊、河流也纳入境内，
+        # 避免前端把中国内部的水体渲染成外海蓝色。
+        MapGenerator._dilate_china_mask(province_map, width, height, iterations=2)
+
         return result, province_map
+
+    @staticmethod
+    def _fill_china_holes(
+        province_map: Dict[Tuple[int, int], str],
+        width: int,
+        height: int,
+    ) -> None:
+        """填充中国版图内部未归属的六角格缝隙/水体。
+
+        真实省界 GeoJSON 离散到六角格后，省内陆的湖泊、河流以及
+        省界缝隙会出现 province_id 为空的"洞"。这里用 flood fill 找出
+        所有不接触地图边界的非中国连通区域（即中国版图内部），全部
+        划入最近的中国省份。
+
+        Args:
+            province_map: {(q,r): province_id}，会被原地修改
+            width: 地图宽度
+            height: 地图高度
+        """
+        from collections import deque
+
+        dirs = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
+        in_bounds = lambda q, r: 0 <= q < width and 0 <= r < height
+
+        visited: Set[Tuple[int, int]] = set()
+        filled_count = 0
+        region_count = 0
+
+        for r in range(height):
+            for q in range(width):
+                if (q, r) in province_map or (q, r) in visited:
+                    continue
+
+                region: List[Tuple[int, int]] = []
+                touches_boundary = False
+                queue: deque = deque([(q, r)])
+                visited.add((q, r))
+
+                while queue:
+                    cq, cr = queue.popleft()
+                    region.append((cq, cr))
+                    if cq == 0 or cq == width - 1 or cr == 0 or cr == height - 1:
+                        touches_boundary = True
+
+                    for dq, dr in dirs:
+                        nq, nr = cq + dq, cr + dr
+                        if not in_bounds(nq, nr):
+                            touches_boundary = True
+                            continue
+                        if (nq, nr) in province_map or (nq, nr) in visited:
+                            continue
+                        visited.add((nq, nr))
+                        queue.append((nq, nr))
+
+                region_count += 1
+                if touches_boundary:
+                    continue
+
+                # 内部洞：继承最近的中国省份 id
+                for cq, cr in region:
+                    nearest_prov: Optional[str] = None
+                    nearest_dist = float("inf")
+                    for dq, dr in dirs:
+                        nq, nr = cq + dq, cr + dr
+                        if (nq, nr) in province_map:
+                            dist = abs(cq - nq) + abs(cr - nr) + abs(-cq - cr + nq + nr)
+                            if dist < nearest_dist:
+                                nearest_dist = dist
+                                nearest_prov = province_map[(nq, nr)]
+                    if nearest_prov:
+                        province_map[(cq, cr)] = nearest_prov
+                        filled_count += 1
+
+    @staticmethod
+    def _dilate_china_mask(
+        province_map: Dict[Tuple[int, int], str],
+        width: int,
+        height: int,
+        iterations: int = 3,
+    ) -> None:
+        """对中国版图遮罩做形态学膨胀。
+
+        省界 GeoJSON 不包含内陆大湖/河流，导致这些水体被排除在中国
+        之外。轻度膨胀可以把与中国陆地相邻的水体纳入版图，同时只
+        让海岸线向外扩展少量格子，基本保持轮廓。
+
+        Args:
+            province_map: {(q,r): province_id}，会被原地修改
+            width: 地图宽度
+            height: 地图高度
+            iterations: 膨胀次数
+        """
+        dirs = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
+        in_bounds = lambda q, r: 0 <= q < width and 0 <= r < height
+
+        for _ in range(iterations):
+            new_china: Dict[Tuple[int, int], str] = {}
+            for r in range(height):
+                for q in range(width):
+                    if (q, r) in province_map:
+                        continue
+                    for dq, dr in dirs:
+                        nq, nr = q + dq, r + dr
+                        if in_bounds(nq, nr) and (nq, nr) in province_map:
+                            new_china[(q, r)] = province_map[(nq, nr)]
+                            break
+            province_map.update(new_china)
 
     # ------------------------------------------------------------------
     # Step 3: 纬度温度带映射 + 海拔修正

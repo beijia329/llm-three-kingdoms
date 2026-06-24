@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js'
 import type { GameState, HexCoord } from '../types'
-import { TERRAIN_COLORS, UI_COLORS, FACTION_COLORS, hexToNumber } from '../theme'
+import { UI_COLORS, FACTION_COLORS, hexToNumber } from '../theme'
 import { HEX_SIZE, axialToPixel, hexNeighbors, hexPoints } from '../utils/hex'
 import { CityMarker } from './map/CityMarker'
 import { ArmyMarker } from './map/ArmyMarker'
@@ -24,7 +24,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
 
   // 相机状态用 ref（不触发 React 重渲染，通过 DOM 操作同步）
-  const cameraRef = useRef<Camera>({ x: -4200, y: -600, zoom: 0.45 })
+  const cameraRef = useRef<Camera>({ x: -2800, y: -400, zoom: 0.45 })
   const [isDragging, setIsDragging] = useState(false)
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -96,16 +96,22 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     Object.values(state.cities).forEach((c) => coords.add(`${c.position.q},${c.position.r}`))
     Object.values(state.armies).forEach((a) => { if (a.current_hex) coords.add(`${a.current_hex.q},${a.current_hex.r}`) })
 
-    // 0. 虚拟边界灰白雾（境外陆地保留暗化地形色，不涂雾）
-    const fogGraphics = new Graphics()
+    // 地图尺寸
     const hw = state.hex_map?.width || 252
     const hh = state.hex_map?.height || 152
+
+    // 用 flood fill 从地图边界出发，标记所有与中国版图隔离的内部格。
+    // 这比依赖 province_id 更可靠，能避免省界 GeoJSON 缝隙造成的斑秃。
+    const chinaMask = computeChinaMask(tileMap, hw, hh)
+
+    // 0. 虚拟边界灰白雾（境外陆地保留暗化地形色，不涂雾）
+    const fogGraphics = new Graphics()
     const FOG_MARGIN = 80
     for (let q = -FOG_MARGIN; q < hw + FOG_MARGIN; q++) {
       for (let r = -FOG_MARGIN; r < hh + FOG_MARGIN; r++) {
         if (q < 0 || q >= hw || r < 0 || r >= hh) {
           const { x: fx, y: fy } = axialToPixel({ q, r }, HEX_SIZE)
-          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x9a9ea4)
+          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0xcccccc)
         }
       }
     }
@@ -118,22 +124,21 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const coord: HexCoord = { q, r }
       const tile = tileMap.get(key)
       const terrain = tile?.terrain || 'plain'
-      const provinceId = tile?.province_id || null
       const faction = tile?.faction || getFactionAt(state, coord)
       const { x, y } = axialToPixel(coord, HEX_SIZE)
       const points = hexPoints(x, y, HEX_SIZE)
 
-      // === 渲染逻辑：四类，四色，不混合 ===
+      // === 渲染逻辑：三类，不混合 ===
       let fill: number
       const isWater = terrain === 'water' || terrain === 'deep_water'
       if (faction && faction !== 'neutral') {
-        fill = hexToNumber(factionColor(faction))          // 🚩 势力色
-      } else if (provinceId) {
-        fill = 0xc8b878                                     // 🏕️ 中国无主 = 米色
+        fill = hexToNumber(FACTION_COLORS[faction] || '#666666')  // 🚩 势力色
+      } else if (chinaMask.has(key)) {
+        fill = 0xc8b878                                           // 🏕️ 中国版图内部统一大陆色（含内陆水域）
       } else if (isWater) {
-        fill = TERRAIN_COLORS[terrain].fill                 // 🌊 海洋 = 蓝色
+        fill = 0x4499cc                                           // 🌊 外海 = 蓝色
       } else {
-        fill = 0x999999                                     // 🌫️ 境外陆地 = 灰色
+        fill = 0xcccccc                                           // 🌫️ 境外陆地统一灰白
       }
       tilesGraphics.poly(points).fill(fill)
     })
@@ -164,7 +169,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
         const nx = (-dy/len) * HEX_SIZE * 0.55
         const ny = (dx/len) * HEX_SIZE * 0.55
         factionBorderGraphics.moveTo(mx+nx, my+ny).lineTo(mx-nx, my-ny)
-          .stroke({ color: hexToNumber(factionColor(faction)), width: 6, alpha: 0.9 })
+          .stroke({ color: hexToNumber(FACTION_COLORS[faction] || '#666666'), width: 6, alpha: 0.9 })
       })
     })
     camera.addChild(factionBorderGraphics)
@@ -196,7 +201,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
               const t0 = s / segs; const t1 = (s + 0.6) / segs
               provinceGraphics.moveTo(x1+(x2-x1)*t0, y1+(y2-y1)*t0)
                 .lineTo(x1+(x2-x1)*t1, y1+(y2-y1)*t1)
-                .stroke({ color: 0xe8d8a0, width: 2.5, alpha: 0.85 })
+                .stroke({ color: 0xc8b878, width: 2.5, alpha: 0.85 })
             }
           }
         }
@@ -212,7 +217,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const provName = state.provinces?.[provId]?.name || provId
       // 州名背景底板
       const metric = new Text({ text: provName, style: new TextStyle({ fontSize: 20, fontFamily: 'Noto Sans SC', fontWeight: 'bold' }) })
-      const pw = metric.width + 16; const ph = metric.height + 8
+      const pw = metric.width + 16; const ph = metric.height + 16
       const bg = new Graphics()
       bg.rect(-pw/2, -ph/2, pw, ph).fill({ color: 0x1a1a2e, alpha: 0.7 })
       bg.position.set(cx, cy); camera.addChild(bg)
@@ -449,48 +454,80 @@ function cityRadius(level: number): number {
   return 3
 }
 
-function factionColor(faction: string): string {
-  const colors: Record<string, string> = {
-    zhangjiao: '#FFD700', han: '#DAA520',
-    caocao: '#6b3020', liubei: '#2d7a3a',
-    sunjian: '#8B2020', yuanshao: '#CC7733',
-    gongsunzan: '#c4b090', mateng: '#5a3070',
-    dongzhuo: '#3a3040', liubiao: '#7a6040',
-    liuyan: '#5a5070', yuanshu: '#b04060',
-    neutral: '#666666',
+function computeChinaMask(
+  tileMap: Map<string, { terrain: string; faction: string | null; province_id: string | null }>,
+  width: number,
+  height: number,
+): Set<string> {
+  /**
+   * 计算中国版图内部格子集合。
+   *
+   * 策略：
+   * 1. 所有有 province_id 的格子视为中国版图。
+   * 2. 没有 province_id 的水格，如果从地图边界能通过"无 province_id 的水格"
+   *    蔓延到它，说明是外海；否则是内陆水域，也归入中国版图。
+   * 3. 其余格子为境外。
+   *
+   * 这比单纯依赖 province_id 更可靠，能把内陆湖/河也渲染成大陆色。
+   */
+  const isWater = (terrain: string) => terrain === 'water' || terrain === 'deep_water'
+
+  // 无 province_id 的水格
+  const waterWithoutProv = new Set<string>()
+  for (let r = 0; r < height; r++) {
+    for (let q = 0; q < width; q++) {
+      const key = `${q},${r}`
+      const tile = tileMap.get(key)
+      if (tile && isWater(tile.terrain) && !tile.province_id) {
+        waterWithoutProv.add(key)
+      }
+    }
   }
-  return colors[faction] || '#666666'
-}
 
-function blendColor(base: number, tint: number, alpha: number): number {
-  const br = (base >> 16) & 0xff
-  const bg = (base >> 8) & 0xff
-  const bb = base & 0xff
-  const tr = (tint >> 16) & 0xff
-  const tg = (tint >> 8) & 0xff
-  const tb = tint & 0xff
-  const r = Math.round(br * (1 - alpha) + tr * alpha)
-  const g = Math.round(bg * (1 - alpha) + tg * alpha)
-  const b = Math.round(bb * (1 - alpha) + tb * alpha)
-  return (r << 16) | (g << 8) | b
-}
-
-function getTerrainBrightness(terrain: string): number {
-  // 地形亮度偏移：山/林=暗，平原/沙漠=亮
-  const bright: Record<string, number> = {
-    grass: 0.05, grassland: 0.08, plain: 0.10, desert: 0.12,
-    snow: 0.15, tundra: 0.05,
-    forest: -0.05, dense_forest: -0.10,
-    hill: -0.02, mountain: -0.08, peak: -0.12,
-    marsh: -0.03,
-    water: -0.05, deep_water: -0.10, river: 0.0,
+  // 从边界 flood fill，找出外海水格
+  const exteriorWater = new Set<string>()
+  const queue: HexCoord[] = []
+  for (let q = 0; q < width; q++) {
+    const k1 = `${q},0`
+    const k2 = `${q},${height - 1}`
+    if (waterWithoutProv.has(k1) && !exteriorWater.has(k1)) queue.push({ q, r: 0 })
+    if (waterWithoutProv.has(k2) && !exteriorWater.has(k2)) queue.push({ q, r: height - 1 })
   }
-  return bright[terrain] || 0.0
+  for (let r = 1; r < height - 1; r++) {
+    const k1 = `0,${r}`
+    const k2 = `${width - 1},${r}`
+    if (waterWithoutProv.has(k1) && !exteriorWater.has(k1)) queue.push({ q: 0, r })
+    if (waterWithoutProv.has(k2) && !exteriorWater.has(k2)) queue.push({ q: width - 1, r })
+  }
+
+  let head = 0
+  while (head < queue.length) {
+    const c = queue[head++]
+    const key = `${c.q},${c.r}`
+    if (exteriorWater.has(key)) continue
+    exteriorWater.add(key)
+
+    hexNeighbors(c).forEach((nb) => {
+      if (nb.q < 0 || nb.q >= width || nb.r < 0 || nb.r >= height) return
+      const nbKey = `${nb.q},${nb.r}`
+      if (exteriorWater.has(nbKey) || !waterWithoutProv.has(nbKey)) return
+      queue.push(nb)
+    })
+  }
+
+  // 中国版图 = 有 province_id 的格子 + 被 province_id 陆地闭合环绕的内陆水格
+  const china = new Set<string>()
+  for (let r = 0; r < height; r++) {
+    for (let q = 0; q < width; q++) {
+      const key = `${q},${r}`
+      const tile = tileMap.get(key)
+      if (tile?.province_id) {
+        china.add(key)
+      } else if (tile && isWater(tile.terrain) && !exteriorWater.has(key)) {
+        china.add(key)
+      }
+    }
+  }
+  return china
 }
 
-function adjustBrightness(color: number, amount: number): number {
-  const r = Math.min(255, Math.max(0, ((color >> 16) & 0xff) + Math.round(amount * 255)))
-  const g = Math.min(255, Math.max(0, ((color >> 8) & 0xff) + Math.round(amount * 255)))
-  const b = Math.min(255, Math.max(0, (color & 0xff) + Math.round(amount * 255)))
-  return (r << 16) | (g << 8) | b
-}
