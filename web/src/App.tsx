@@ -5,7 +5,7 @@ import { Panel } from './components/Panel'
 import { TopBar } from './components/TopBar'
 import { useGame } from './hooks/useGame'
 
-type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log'
+type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning'
 
 function App() {
   const { state, connected, auto, nextTurn, toggleAuto } = useGame()
@@ -34,6 +34,8 @@ function App() {
         setTab('events')
       } else if (e.key === '7') {
         setTab('log')
+      } else if (e.key === '8') {
+        setTab('reasoning')
       }
     }
     window.addEventListener('keydown', handleKey)

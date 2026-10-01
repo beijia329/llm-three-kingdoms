@@ -104,6 +104,13 @@ export interface TurnLog {
   cities_captured: string[]
 }
 
+export interface ReasoningEntry {
+  turn: number
+  faction: string
+  reasoning: string
+  commands: string[]
+}
+
 export interface GameState {
   turn: number
   max_turns: number
@@ -126,6 +133,7 @@ export interface GameState {
   messages?: DiplomacyMessage[]
   turn_logs?: TurnLog[]
   provinces?: Record<string, ProvinceInfo>
+  reasoning?: ReasoningEntry[]
 }
 
 export interface ProvinceInfo {

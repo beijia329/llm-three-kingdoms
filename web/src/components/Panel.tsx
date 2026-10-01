@@ -1,8 +1,8 @@
-import type { GameEvent, GameState, General } from '../types'
+import type { GameEvent, GameState, General, ReasoningEntry } from '../types'
 import { FACTION_COLORS, FACTIONS } from '../theme'
 import { DiplomacyPanel } from './DiplomacyPanel'
 
-type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log'
+type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning'
 
 interface PanelProps {
   state: GameState | null
@@ -21,6 +21,7 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'data', label: '数据', icon: 'fa-chart-bar' },
   { key: 'events', label: '事件', icon: 'fa-calendar-day' },
   { key: 'log', label: '战报', icon: 'fa-scroll' },
+  { key: 'reasoning', label: '决策', icon: 'fa-brain' },
 ]
 
 export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, setSelectedFaction }: PanelProps) {
@@ -59,6 +60,7 @@ export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, set
         {tab === 'data' && <DataPanel state={state} />}
         {tab === 'events' && <EventsPanel state={state} />}
         {tab === 'log' && <EventLog events={state.events} />}
+        {tab === 'reasoning' && <ReasoningPanel state={state} />}
       </div>
     </div>
   )
@@ -299,6 +301,79 @@ function EventLog({ events }: { events: GameEvent[] }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function ReasoningPanel({ state }: { state: GameState }) {
+  const entries = state.reasoning || []
+
+  if (entries.length === 0) {
+    return (
+      <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
+        <i className="fa-solid fa-brain" style={{ fontSize: '28px', color: '#5a5a72', marginBottom: '10px' }}></i>
+        <div style={styles.dim}>当前为 CLI AI 对局，无决策理由；以 LLM 模式运行后可见</div>
+      </div>
+    )
+  }
+
+  // 按 turn 倒序分组（最新回合在上）
+  const turns: number[] = []
+  const byTurn: Record<number, ReasoningEntry[]> = {}
+  entries.forEach((e) => {
+    if (!byTurn[e.turn]) {
+      byTurn[e.turn] = []
+      turns.push(e.turn)
+    }
+    byTurn[e.turn].push(e)
+  })
+  turns.sort((a, b) => b - a)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {turns.map((turn) => (
+        <div key={turn} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ color: '#d4a84b', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <i className="fa-solid fa-calendar-day"></i>
+            第 {turn} 回合
+          </div>
+          {byTurn[turn].map((e, idx) => {
+            const color = FACTION_COLORS[e.faction] || '#888888'
+            return (
+              <div key={`${turn}-${e.faction}-${idx}`} style={{ ...styles.card, borderLeft: `3px solid ${color}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: color, display: 'inline-block', flexShrink: 0 }}></span>
+                  <span style={{ color: '#e8e0d0', fontWeight: 600, fontSize: '13px' }}>
+                    {FACTIONS[e.faction] || e.faction}
+                  </span>
+                </div>
+                <div style={{ color: '#b8b3aa', fontSize: '12px', lineHeight: '1.6', marginBottom: e.commands && e.commands.length > 0 ? '8px' : 0 }}>
+                  {e.reasoning}
+                </div>
+                {e.commands && e.commands.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                    {e.commands.map((cmd, ci) => (
+                      <span
+                        key={ci}
+                        style={{
+                          fontSize: '10px',
+                          color: '#d4a84b',
+                          backgroundColor: 'rgba(212, 168, 75, 0.12)',
+                          border: '1px solid rgba(212, 168, 75, 0.3)',
+                          borderRadius: '4px',
+                          padding: '1px 6px',
+                        }}
+                      >
+                        {cmd}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }

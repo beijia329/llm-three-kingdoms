@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -25,7 +26,10 @@ from game.models import (
     RumorCommand,
 )
 from game.random import GameRandom
+from players.base_player import BasePlayer
 from players.cli_player import CLIPlayer
+from players.llm.llm_client import LLMClient
+from players.llm.llm_player import LLMPlayer
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +42,15 @@ class GameConfig:
     max_turns: int = 192
     game_mode: str = "standard"
     human_faction: Optional[str] = None
+    # ---- LLM 玩家相关（决策理由暴露使用）----
+    use_llm: bool = False
+    """为参与势力创建 LLMPlayer（真实大模型决策）而非 CLIPlayer"""
+    model: str = "deepseek-flash"
+    """LLM 模型名（DeepSeek-V4.1-Flash 的 API id 即 deepseek-flash）"""
+    provider: str = "deepseek"
+    """LLM 提供商（deepseek / openai / openrouter）"""
+    factions: Optional[List[str]] = None
+    """只给这些势力建玩家；None = 全部 12 方参战"""
 
 
 class GameManager:
@@ -58,8 +71,10 @@ class GameManager:
         """
         self.config = config or GameConfig()
         self.engine: Optional[GameEngine] = None
-        self._players: Dict[str, CLIPlayer] = {}
+        self._players: Dict[str, BasePlayer] = {}
         self._events: List[Dict[str, Any]] = []
+        # 决策理由（供前端「决策」面板展示）：每条 = 一次 LLM 决策
+        self._reasoning: List[Dict[str, Any]] = []
         self._init_engine()
 
     def _init_engine(self) -> None:
@@ -77,15 +92,52 @@ class GameManager:
             raise RuntimeError("无法加载游戏数据")
         self.engine.init_game(data)
 
-        # 创建 CLI AI 玩家（人类势力如有则不创建 AI）
+        # 创建 AI 玩家（人类势力如有则不创建 AI）
+        # 参与势力：config.factions 指定则只用这些，None = 全部 12 方
+        participant_factions = (
+            list(self.config.factions) if self.config.factions else list(FACTIONS.keys())
+        )
+
+        # use_llm=True 时，尽量用 LLMPlayer（真实大模型决策）；
+        # 缺少 API Key 时回退为 CLIPlayer，保证游戏仍可运行。
+        #
+        # ⚠️ 权衡（本次未做并发改造）：LLMPlayer.get_commands 内部是对
+        #   LLM API 的**阻塞网络调用**，在 process_turn 的势力循环中逐个
+        #   串行执行。势力越多、延迟越高，单回合耗时线性增长。后续可考虑
+        #   并发/异步化，本次仅打通「决策理由」链路，不做并发。
+        llm_client: Optional[LLMClient] = None
+        if self.config.use_llm:
+            api_key = (
+                os.environ.get("LLM_API_KEY")
+                or os.environ.get("DEEPSEEK_API_KEY")
+                or ""
+            ).strip()
+            if api_key:
+                llm_client = LLMClient(
+                    provider=self.config.provider,
+                    model=self.config.model,
+                    api_key=api_key,
+                )
+            else:
+                logger.warning(
+                    "use_llm=True 但未找到 LLM_API_KEY / DEEPSEEK_API_KEY，"
+                    "回退为 CLIPlayer（无真实决策理由）"
+                )
+
         self._players = {}
-        for faction in FACTIONS:
+        for faction in participant_factions:
             if faction == self.config.human_faction:
                 continue
-            self._players[faction] = CLIPlayer(
-                faction=faction,
-                rng=GameRandom(self.config.seed + hash(faction) % 10000),
-            )
+            if llm_client is not None:
+                player = LLMPlayer(faction=faction, llm_client=llm_client)
+                # 仅把参战势力作为外交目标提示，避免对不存在的势力发消息
+                player.faction_keys = list(participant_factions)
+                self._players[faction] = player
+            else:
+                self._players[faction] = CLIPlayer(
+                    faction=faction,
+                    rng=GameRandom(self.config.seed + hash(faction) % 10000),
+                )
 
         self._add_event("游戏开始：184年 黄巾之乱", "info")
         logger.info("GameManager 初始化完成: seed=%s, mode=%s", self.config.seed, self.config.game_mode)
@@ -135,6 +187,8 @@ class GameManager:
         # max_turns / year 现在由 GameState 模型自动序列化（B-03 修复后）
         data["faction_stats"] = faction_stats
         data["events"] = list(self._events[-20:])
+        # 决策理由（前端「决策」面板）：最近若干条 LLM 决策
+        data["reasoning"] = self._reasoning
         data["human_faction"] = self.config.human_faction
         data["hex_map"] = {
             "width": self.engine.hex_map.width if self.engine.hex_map else 0,
@@ -299,9 +353,23 @@ class GameManager:
 
         # 执行 AI 玩家命令
         ai_events = []
+        turn_no = self.engine.turn  # 本回合号（决策归属回合）
         for faction, player in self._players.items():
             obs = self.engine.get_observation(faction)
-            for cmd in player.get_commands(obs):
+            commands = player.get_commands(obs)
+
+            # 收集本回合的决策理由（仅 LLMPlayer 会设置 last_reasoning；
+            # CLIPlayer 无此属性，getattr 回退为空串 → 不记录噪声）
+            reasoning = getattr(player, "last_reasoning", "") or ""
+            if reasoning.strip():
+                self._reasoning.append({
+                    "turn": turn_no,
+                    "faction": faction,
+                    "reasoning": reasoning,
+                    "commands": [type(cmd).__name__ for cmd in commands],
+                })
+
+            for cmd in commands:
                 result = self.engine.execute_command(cmd)
                 if result.success:
                     ai_events.append({
@@ -309,6 +377,10 @@ class GameManager:
                         "type": cmd.type,
                         "description": result.description,
                     })
+
+        # 只保留最近 40 条决策理由
+        if len(self._reasoning) > 40:
+            self._reasoning = self._reasoning[-40:]
 
         # 推进引擎回合
         turn_result = self.engine.process_turn()
