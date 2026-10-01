@@ -12,7 +12,7 @@
     "morale": 70,
     "garrison": 3500,
     "position": {
-      "q": 124,
+      "q": 85,
       "r": 61
     },
     "neighbors": [
@@ -40,7 +40,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 132,
+      "q": 95,
       "r": 53
     },
     "neighbors": [
@@ -68,7 +68,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 93,
+      "q": 69,
       "r": 50
     },
     "neighbors": [
@@ -89,7 +89,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 104,
+      "q": 71,
       "r": 61
     },
     "neighbors": [
@@ -114,7 +114,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 131,
+      "q": 92,
       "r": 56
     },
     "neighbors": [
@@ -144,7 +144,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 131,
+      "q": 90,
       "r": 60
     },
     "neighbors": [
@@ -170,7 +170,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 129,
+      "q": 88,
       "r": 62
     },
     "neighbors": [
@@ -197,7 +197,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 103,
+      "q": 67,
       "r": 68
     },
     "neighbors": [
@@ -221,7 +221,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 116,
+      "q": 74,
       "r": 72
     },
     "neighbors": [
@@ -247,7 +247,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 126,
+      "q": 76,
       "r": 81
     },
     "neighbors": [
@@ -272,7 +272,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 136,
+      "q": 86,
       "r": 76
     },
     "neighbors": [
@@ -297,7 +297,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 124,
+      "q": 82,
       "r": 68
     },
     "neighbors": [
@@ -324,7 +324,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 124,
+      "q": 79,
       "r": 74
     },
     "neighbors": [
@@ -350,7 +350,7 @@
     "morale": 70,
     "garrison": 3500,
     "position": {
-      "q": 98,
+      "q": 61,
       "r": 73
     },
     "neighbors": [
@@ -373,7 +373,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 108,
+      "q": 72,
       "r": 65
     },
     "neighbors": [
@@ -398,7 +398,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 138,
+      "q": 103,
       "r": 44
     },
     "neighbors": [
@@ -424,7 +424,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 113,
+      "q": 77,
       "r": 62
     },
     "neighbors": [
@@ -449,7 +449,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 125,
+      "q": 84,
       "r": 65
     },
     "neighbors": [
@@ -476,7 +476,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 138,
+      "q": 92,
       "r": 67
     },
     "neighbors": [
@@ -500,7 +500,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 144,
+      "q": 95,
       "r": 69
     },
     "neighbors": [
@@ -526,7 +526,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 151,
+      "q": 99,
       "r": 71
     },
     "neighbors": [
@@ -550,7 +550,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 140,
+      "q": 92,
       "r": 69
     },
     "neighbors": [
@@ -576,7 +576,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 148,
+      "q": 98,
       "r": 69
     },
     "neighbors": [
@@ -600,7 +600,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 144,
+      "q": 95,
       "r": 69
     },
     "neighbors": [
@@ -624,7 +624,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 149,
+      "q": 100,
       "r": 67
     },
     "neighbors": [
@@ -649,7 +649,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 143,
+      "q": 103,
       "r": 51
     },
     "neighbors": [
@@ -673,7 +673,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 150,
+      "q": 107,
       "r": 54
     },
     "neighbors": [
@@ -697,7 +697,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 127,
+      "q": 94,
       "r": 47
     },
     "neighbors": [
@@ -720,7 +720,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 117,
+      "q": 62,
       "r": 97
     },
     "neighbors": [
@@ -742,7 +742,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 118,
+      "q": 64,
       "r": 95
     },
     "neighbors": [
@@ -764,7 +764,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 169,
+      "q": 135,
       "r": 24
     },
     "neighbors": [
