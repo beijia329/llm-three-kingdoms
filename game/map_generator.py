@@ -409,7 +409,10 @@ class MapGenerator:
         """
         lon_min, lon_max = 73.0, 136.0
         lat_min, lat_max = 16.0, 54.0
-        lon = lon_min + (q / max(width - 1, 1)) * (lon_max - lon_min)
+        # [几何修复 2026-10-01] 六角格渲染时 x ∝ (q + r/2)（轴向坐标），
+        # 若 lon 直接按 q 线性映射，中国轮廓会在屏幕上被"水平剪切"（像斜体字）。
+        # 让 lon 随 (q + r/2) 走，(lon,lat)→(x,y) 即成为纯缩放，形状不再畸变。
+        lon = lon_min + ((q + r / 2.0) / max(width - 1, 1)) * (lon_max - lon_min)
         lat = lat_max - (r / max(height - 1, 1)) * (lat_max - lat_min)
         return lon, lat
 

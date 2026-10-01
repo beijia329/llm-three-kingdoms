@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Application, Assets, Container, Graphics, Sprite, Text, TextStyle } from 'pixi.js'
+import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js'
 import type { GameState, HexCoord } from '../types'
-import { FACTION_COLORS, TERRAIN_COLORS, hexToNumber } from '../theme'
+import { FACTION_COLORS, hexToNumber } from '../theme'
 import { HEX_SIZE, axialToPixel, hexNeighbors, hexPoints } from '../utils/hex'
 import { CityMarker } from './map/CityMarker'
 import { ArmyMarker } from './map/ArmyMarker'
@@ -34,25 +34,8 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   // 在 Pixi 就绪前到达导致地图空白且不再重绘。
   const [pixiReady, setPixiReady] = useState(false)
 
-  // [美术 2026-10-01] Kenney 装饰贴图（树/松/丘/石/灌木/花）——用 Sprite 叠在纯色地块上，
-  // 避开 Kenney 平顶砖块与本网格尖顶朝向不匹配的问题。
-  const [decoReady, setDecoReady] = useState(false)
-  const decoTexturesRef = useRef<Record<string, any>>({})
-  useEffect(() => {
-    let cancelled = false
-    const names = ['treeGreen_high', 'treeGreen_mid', 'pineGreen_high', 'pineGreen_mid',
-      'hillGrass', 'hillSnow', 'hillSand', 'rockStone', 'bushGrass', 'flowerGreen', 'flowerRed']
-    Promise.all(names.map(async (n) => {
-      try { return [n, await Assets.load(`/art/hex/${n}.png`)] as const } catch { return [n, null] as const }
-    })).then((pairs) => {
-      if (cancelled) return
-      const m: Record<string, any> = {}
-      pairs.forEach(([n, t]) => { if (t) m[n] = t })
-      decoTexturesRef.current = m
-      setDecoReady(true)
-    })
-    return () => { cancelled = true }
-  }, [])
+  // [美术 2026-10-01] 改为"古地图"风格：不再散布贴图装饰（读起来像噪点），
+  // 地形改用线描山脉表现（见渲染层）。
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef<{ x: number; y: number } | null>(null)
   const cameraStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -70,7 +53,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const width = container.clientWidth
       const height = container.clientHeight
       await app.init({
-        background: 0x1d4056,  // 海色（与境外水域一致）→ 版图外不再出现斜边
+        background: SEA_COLOR,  // 古地图风：深色海（与陆地羊皮纸形成对比）
         width,
         height,
         antialias: true,
@@ -159,58 +142,31 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const coord: HexCoord = { q, r }
       const tile = tileMap.get(key)
       const terrain = tile?.terrain || 'plain'
-      const faction = tile?.faction || getFactionAt(state, coord)
       const { x, y } = axialToPixel(coord, HEX_SIZE)
       const points = hexPoints(x, y, HEX_SIZE)
 
-      // === 渲染逻辑 ===
-      let fill: number
-      if (faction && faction !== 'neutral') {
-        fill = hexToNumber(FACTION_COLORS[faction] || '#666666')          // 势力色
-      } else {
-        // [美术 2026-10-01] 按地形着色：中国版图(有 province_id) = 本色；境外 = 压暗，突出中国
-        const tc = TERRAIN_COLORS[terrain]
-        const base = tc ? (tc.fill as number) : 0x8a9464
-        fill = tile?.province_id ? base : darken(base, 0.42)
-      }
-      tilesGraphics.poly(points).fill(fill)
+      // === 渲染逻辑：古地图风（羊皮纸陆地 + 深色海） ===
+      const isWater = terrain === 'water' || terrain === 'deep_water'
+      tilesGraphics.poly(points).fill(isWater ? SEA_COLOR : parchmentTint(terrain))
     })
     camera.addChild(tilesGraphics)
 
-    // 1.5 Kenney 装饰贴图（只贴中国版图内的地形，确定性散布，避免全铺过密）
-    const deco = decoTexturesRef.current
-    if (deco && Object.keys(deco).length > 0) {
-      const decoLayer = new Container()
-      coords.forEach((key) => {
-        const tile = tileMap.get(key)
-        if (!tile || !tile.province_id) return
-        const t = tile.terrain
-        let name = ''
-        if (t === 'forest' || t === 'dense_forest') name = hashPct(key, 1) < 0.5 ? 'treeGreen_high' : 'treeGreen_mid'
-        else if (t === 'hill') name = 'hillGrass'
-        else if (t === 'mountain' || t === 'peak') name = 'rockStone'
-        else if (t === 'marsh') name = 'bushGrass'
-        else if (t === 'desert') name = 'hillSand'
-        else if (t === 'snow' || t === 'tundra') name = 'hillSnow'
-        else if (t === 'grass' || t === 'grassland') {
-          const h = hashPct(key, 2)
-          name = h < 0.09 ? 'bushGrass' : h < 0.15 ? 'flowerGreen' : ''
-        }
-        const tex = deco[name]
-        if (!name || !tex) return
-        const [q, r] = key.split(',').map(Number)
-        const { x, y } = axialToPixel({ q, r }, HEX_SIZE)
-        const sp = new Sprite(tex)
-        sp.anchor.set(0.5, 0.85)
-        const jitter = (hashPct(key, 3) - 0.5) * HEX_SIZE * 0.4
-        sp.position.set(x + jitter, y + HEX_SIZE * 0.25)
-        const s = (HEX_SIZE * 1.55) / sp.texture.height
-        sp.scale.set(s)
-        sp.alpha = 0.95
-        decoLayer.addChild(sp)
-      })
-      camera.addChild(decoLayer)
-    }
+    // 势力领地：半透明色块叠在羊皮纸上（参考三国志：纯色填充 + 深色边界）
+    const factionGraphics = new Graphics()
+    coords.forEach((key) => {
+      const [q, r] = key.split(',').map(Number)
+      const coord: HexCoord = { q, r }
+      const tile = tileMap.get(key)
+      const fac = tile?.faction || getFactionAt(state, coord)
+      if (!fac || fac === 'neutral') return
+      const { x, y } = axialToPixel(coord, HEX_SIZE)
+      factionGraphics.poly(hexPoints(x, y, HEX_SIZE))
+        .fill({ color: hexToNumber(FACTION_COLORS[fac] || '#666666'), alpha: 0.42 })
+    })
+    camera.addChild(factionGraphics)
+
+    // [美术 2026-10-01] 线描山脉在"整图缩放"下会糊成噪点，暂不绘制；
+    // 保持"平铺羊皮纸 + 墨线省界 + 半透明势力色"的干净古地图风（参考三国志12）。
 
     // 2. 势力边界（最粗，势力色）
     const factionBorderGraphics = new Graphics()
@@ -237,7 +193,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
         const nx = (-dy/len) * HEX_SIZE * 0.55
         const ny = (dx/len) * HEX_SIZE * 0.55
         factionBorderGraphics.moveTo(mx+nx, my+ny).lineTo(mx-nx, my-ny)
-          .stroke({ color: hexToNumber(FACTION_COLORS[faction] || '#666666'), width: 6, alpha: 0.9 })
+          .stroke({ color: darken(hexToNumber(FACTION_COLORS[faction] || '#666666'), 0.55), width: 3, alpha: 0.9 })
       })
     })
     camera.addChild(factionBorderGraphics)
@@ -263,14 +219,9 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
           if (!coordSet.has(`${nbQ},${nbR}`)) {
             const x1 = hPts[i*2]; const y1 = hPts[i*2+1]
             const x2 = hPts[((i+1)%6)*2]; const y2 = hPts[((i+1)%6)*2+1]
-            // 虚线效果：分段绘制
-            const segs = 3
-            for (let s = 0; s < segs; s++) {
-              const t0 = s / segs; const t1 = (s + 0.6) / segs
-              provinceGraphics.moveTo(x1+(x2-x1)*t0, y1+(y2-y1)*t0)
-                .lineTo(x1+(x2-x1)*t1, y1+(y2-y1)*t1)
-                .stroke({ color: 0xc8b878, width: 2.5, alpha: 0.85 })
-            }
+            // [美术 2026-10-01] 实线墨线（原来虚线在整图缩放下变成点点、看不清）
+            provinceGraphics.moveTo(x1, y1).lineTo(x2, y2)
+              .stroke({ color: INK_COLOR, width: 1.2, alpha: 0.85 })
           }
         }
       })
@@ -317,7 +268,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       camera.addChild(label)
     })
 
-  }, [state, pixiReady, decoReady])
+  }, [state, pixiReady])
 
   // 地图像素边界（世界坐标）— 动态从 hex_map 读取
   const hw = state?.hex_map?.width || 180
@@ -449,7 +400,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
         height: '100%',
         overflow: 'hidden',
         cursor: isDragging ? 'grabbing' : 'grab',
-        backgroundColor: '#1d4056',
+        backgroundColor: '#1b3a4b',
       }}
     >
       {/* PixiJS Canvas 由 useEffect 插入 */}
@@ -508,20 +459,19 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 // ---- 辅助函数 ----
 
 /** 颜色按系数压暗（用于弱化境外陆地） */
-function darken(color: number, factor: number): number {
-  const r = Math.min(255, Math.round(((color >> 16) & 0xff) * factor))
+function darken(color: number, factor: number): number {  const r = Math.min(255, Math.round(((color >> 16) & 0xff) * factor))
   const g = Math.min(255, Math.round(((color >> 8) & 0xff) * factor))
   const b = Math.min(255, Math.round((color & 0xff) * factor))
   return (r << 16) | (g << 8) | b
 }
 
-/** 由 hex key 派生的稳定 0..1 哈希（用于确定性散布装饰，避免每次刷新乱跳） */
-function hashPct(key: string, salt: number): number {  let h = 2166136261 ^ salt
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return ((h >>> 0) % 1000) / 1000
+/** 古地图配色：深色海 + 墨线 */
+const SEA_COLOR = 0x1b3a4b
+const INK_COLOR = 0x4a3a28
+
+/** 羊皮纸底：整片统一（参考三国志12 古地图——地形不做花斑，只靠墨线省界与势力色） */
+function parchmentTint(_terrain: string): number {
+  return 0xd9c9a3
 }
 
 function getFactionAt(state: GameState, coord: HexCoord): string | null {
