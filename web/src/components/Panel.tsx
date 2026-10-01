@@ -48,8 +48,8 @@ export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, set
             }}
             onClick={() => setTab(t.key)}
           >
-            <i className={`fa-solid ${t.icon}`} style={{ fontSize: '13px', marginBottom: '3px' }}></i>
-            <span style={{ fontSize: '12px' }}>{t.label}</span>
+            <i className={`fa-solid ${t.icon}`} style={{ fontSize: '12px', marginBottom: '2px' }}></i>
+            <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{t.label}</span>
           </button>
         ))}
       </div>
@@ -460,13 +460,26 @@ function StatBox({ label, value }: { label: string; value: number }) {
 
 function EventsPanel({ state }: { state: GameState }) {
   const turnLogs = state.turn_logs || []
+  // [修复 2026-10-01] 开局 turn_logs 还空时回退展示 state.events，
+  // 避免"事件 tab 空着、但事件流明明有事件"的口径不一致。
+  const events = state.events || []
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <div style={{ color: '#d4a84b', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
         <i className="fa-solid fa-calendar-day" style={{ marginRight: '6px' }}></i>回合事件
       </div>
-      {turnLogs.length === 0 && (
-        <div style={{ fontSize: '12px', color: '#666', textAlign: 'center', padding: '20px 0' }}>暂无回合记录</div>
+      {turnLogs.length === 0 && events.length === 0 && (
+        <div style={{ fontSize: '12px', color: '#666', textAlign: 'center', padding: '20px 0' }}>暂无记录</div>
+      )}
+      {turnLogs.length === 0 && events.length > 0 && (
+        <div style={{ ...styles.card, padding: '10px' }}>
+          <div style={{ fontSize: '12px', color: '#96918a', marginBottom: '6px' }}>开局事件</div>
+          {events.slice().reverse().map((e, i) => (
+            <div key={i} style={{ fontSize: '12px', color: '#e8e0d0', marginBottom: '4px' }}>
+              <span style={{ color: '#96918a', marginRight: '6px' }}>第{e.turn}回合</span>{e.text}
+            </div>
+          ))}
+        </div>
       )}
       {turnLogs.slice().reverse().map((tl) => (
         <div key={tl.turn} style={{ ...styles.card, padding: '10px' }}>
@@ -500,12 +513,12 @@ const styles: Record<string, React.CSSProperties> = {
   tabs: {
     display: 'flex',
     borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-    padding: '8px 8px 0',
-    gap: '4px',
+    padding: '6px 6px 0',
+    gap: '2px',
   },
   tab: {
     flex: 1,
-    padding: '8px 0',
+    padding: '6px 2px',
     border: '1px solid transparent',
     borderBottom: 'none',
     background: 'transparent',
