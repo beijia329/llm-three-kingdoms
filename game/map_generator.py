@@ -535,9 +535,13 @@ class MapGenerator:
         # 填充中国版图内部的缝隙/洞，让省界在六角格层面连续
         MapGenerator._fill_china_holes(province_map, width, height)
 
-        # 对中国版图做轻度膨胀，把内陆湖泊、河流也纳入境内，
-        # 避免前端把中国内部的水体渲染成外海蓝色。
-        MapGenerator._dilate_china_mask(province_map, width, height, iterations=2)
+        # [修复 2026-10-01] 只向"陆地"膨胀：原先无差别膨胀会把沿海海水也吞进中国版图，
+        # 导致 3476 个水域被误标 province_id → 前端蓝色泛滥。内陆水体交给 _fill_china_holes。
+        _sea_level = 0.40
+        _is_land = lambda q, r: height_map[r][q] >= _sea_level
+        MapGenerator._dilate_china_mask(
+            province_map, width, height, iterations=1, is_land=_is_land
+        )
 
         return result, province_map
 
@@ -619,6 +623,7 @@ class MapGenerator:
         width: int,
         height: int,
         iterations: int = 3,
+        is_land: Optional[Callable[[int, int], bool]] = None,
     ) -> None:
         """对中国版图遮罩做形态学膨胀。
 
@@ -640,6 +645,8 @@ class MapGenerator:
             for r in range(height):
                 for q in range(width):
                     if (q, r) in province_map:
+                        continue
+                    if is_land is not None and not is_land(q, r):
                         continue
                     for dq, dr in dirs:
                         nq, nr = q + dq, r + dr
