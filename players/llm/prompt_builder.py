@@ -309,6 +309,7 @@ class PromptBuilder:
         faction: str,
         observation: GameObservation,
         memory_context: str = "",
+        faction_keys: list = None,
     ) -> List[Dict[str, str]]:
         """构建完整的messages列表
 
@@ -316,13 +317,14 @@ class PromptBuilder:
             faction: 势力名称
             observation: 游戏观察
             memory_context: 记忆上下文（由MemoryManager提供）
+            faction_keys: 本局参战势力键列表（用于外交目标提示；None=全部）
 
         Returns:
             适用于 LLMClient.chat() 的 messages 列表
         """
         system_parts = [
             PromptBuilder.build_system_prompt(faction),
-            PromptBuilder.build_commands_help(),
+            PromptBuilder.build_commands_help(faction_keys=faction_keys),
         ]
         system_prompt = "\n\n".join(system_parts)
 

@@ -106,6 +106,7 @@ class LLMPlayer(BasePlayer):
         self._parser = OutputParser()
         self._prompt_builder = PromptBuilder()
         self._last_response: str = ""  # 上次的LLM响应（用于重试时反馈）
+        self.faction_keys: Optional[list] = None  # 本局参战势力（外交目标提示；None=全部）
 
     # ============================================================
     # 核心方法
@@ -133,6 +134,7 @@ class LLMPlayer(BasePlayer):
             faction=self.faction,
             observation=observation,
             memory_context=memory_context,
+            faction_keys=self.faction_keys,
         )
 
         # 调用LLM（带重试）
