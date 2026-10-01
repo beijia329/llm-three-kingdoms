@@ -328,18 +328,68 @@ class GameEngine:
             return
         from game.constants import TERRAIN_YIELDS
 
+        # [领地 2026-10-01] 先给每城一小圈（保证城池周边必有归属），
+        # 再跑"多源 BFS 领地扩张"，让无主地连成大片割据。
         for city in self.cities.values():
             territory = self._city_system.get_city_territory(city, self.hex_map)
             for coord in territory:
                 tile = self.hex_map.get_tile(coord)
                 if tile is not None:
                     tile.owner_city_id = city.id
-                    tile.province_id = city.province_id
                     tile.faction = city.faction
                     yields = TERRAIN_YIELDS.get(tile.terrain.value, {})
                     tile.gold_yield = yields.get("gold", 0)
                     tile.food_yield = yields.get("food", 0)
                     tile.pop_yield = yields.get("pop", 0)
+
+        self._expand_territories()
+
+    def _expand_territories(self) -> None:
+        """多源 BFS 领地扩张：从每座城向外吞并无主地，直到碰到水/山/他方领地。
+
+        [领地 2026-10-01] 原实现只有每城一小圈（半径 1~3），97.7% 地块无主，
+        势力色域呈"圆斑"而非割据。这里让各势力领地从城池向外连片扩张。
+        """
+        from collections import deque
+        from game.tile import TerrainType
+        from game.hex_grid import HexCoord
+
+        blocked = {TerrainType.WATER, TerrainType.DEEP_WATER, TerrainType.PEAK}
+        # 种子：所有城池所在格，按城等级给初始"深度余量"
+        seed_depth: dict = {}
+        queue: deque = deque()
+        assigned = set()
+        for city in self.cities.values():
+            start = city.position
+            if self.hex_map.get_tile(start) is None:
+                continue
+            # 等级越高扩张越远（L1~L5 → 余量 8~16），且允许跨过丘陵/山脉
+            depth = 8 + city.level * 2
+            seed_depth[city.id] = depth
+            assigned.add((start.q, start.r))
+            queue.append((start.q, start.r, city.id, depth))
+
+        dirs = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
+        while queue:
+            q, r, city_id, depth = queue.popleft()
+            if depth <= 0:
+                continue
+            for dq, dr in dirs:
+                nq, nr = q + dq, r + dr
+                if (nq, nr) in assigned:
+                    continue
+                tile = self.hex_map.get_tile(HexCoord(nq, nr))
+                if tile is None:
+                    continue
+                if tile.terrain in blocked:
+                    continue
+                # 只吞中国境内（有 province_id）；不越海
+                if not tile.province_id:
+                    continue
+                assigned.add((nq, nr))
+                tile.owner_city_id = city_id
+                tile.faction = self.cities[city_id].faction
+                queue.append((nq, nr, city_id, depth - 1))
 
     # ============================================================
     # 命令执行
