@@ -486,7 +486,7 @@ class LLMClient:
     """LLM API统一客户端"""
 
     def __init__(self, provider: str, model: str, api_key: str):
-        self.provider = provider  # openrouter / anthropic / openai
+        self.provider = provider  # deepseek / openai / openrouter（默认 deepseek；密钥从 LLM_API_KEY 读取，兼容旧名 OPENROUTER_API_KEY）
         self.model = model
         self.api_key = api_key
 
@@ -678,7 +678,8 @@ def run_llm_turn(players: dict, observations: dict, timeout=60):
 
 ---
 
-> **文档版本**：v2.2
-> **最后更新**：2026-06-24
+> **文档版本**：v2.3
+> **最后更新**：2026-10-01
 > **相关文档**：command-pattern.md, data-models.md
+> **v2.3更新**：API key 变量改为 LLM_API_KEY（兼容 OPENROUTER_API_KEY），provider 描述对齐代码默认 deepseek
 > **v2.2更新**：MAX_TURNS 24→192，三方→12方

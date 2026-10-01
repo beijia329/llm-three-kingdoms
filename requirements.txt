@@ -6,13 +6,14 @@
 pygame>=2.5.0            # GUI渲染引擎（保留为降级/调试模式）
 pydantic>=2.0.0          # 数据模型校验
 pydantic-settings>=2.0.0 # 配置管理
+numpy>=1.24.0            # 数值计算 / GUI 像素断言测试（test_gui_smoke）
 
 # --- Web 前端服务 ---
 fastapi>=0.110.0         # Web 后端框架
 uvicorn[standard]>=0.29.0 # ASGI 服务器
 
 # --- LLM接入 ---
-httpx>=0.28.0            # HTTP客户端（调用OpenRouter API）
+httpx>=0.28.0            # HTTP客户端（调用 LLM API，默认 DeepSeek，可经 OpenRouter）
 
 # --- 工具 ---
 json_repair>=0.60.0      # LLM输出JSON容错修复

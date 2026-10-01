@@ -66,15 +66,15 @@ pytest tests/unit/ -v
 ```yaml
 # 游戏配置
 game:
-  max_turns: 24              # 最大回合数
+  max_turns: 192             # 最大回合数（184→232年，每回合=1季）
   seed: null                 # 随机种子（null=随机）
-  factions: ["wei", "shu", "wu"]  # 势力列表
+  factions: ["han", "zhangjiao", "dongzhuo", "yuanshao", "caocao", "liubei", "sunjian", "liubiao", "liuyan", "gongsunzan", "mateng", "yuanshu"]  # 12方真实 key
 
 # LLM配置
 llm:
-  provider: openrouter       # API提供商
-  base_url: https://openrouter.ai/api/v1
-  api_key: YOUR_API_KEY      # API密钥（也可以用环境变量）
+  provider: deepseek         # API提供商（默认 deepseek；可选 openrouter / openai）
+  base_url: https://api.deepseek.com/v1   # 随 provider 变化（openrouter 为 https://openrouter.ai/api/v1）
+  api_key: ${LLM_API_KEY}    # API密钥（优先用环境变量 LLM_API_KEY，兼容 OPENROUTER_API_KEY）
   default_model: claude-3-opus-20240229
   timeout: 30                # 超时时间（秒）
   max_retries: 3             # 最大重试次数
@@ -99,19 +99,20 @@ logging:
 
 ```bash
 # Windows
-set OPENROUTER_API_KEY=your_api_key_here
+set LLM_API_KEY=your_api_key_here
 
 # macOS/Linux
-export OPENROUTER_API_KEY=your_api_key_here
+export LLM_API_KEY=your_api_key_here
+# 兼容旧名：export OPENROUTER_API_KEY=your_api_key_here（main.py 会回退读取）
 ```
 
-**重要**：API密钥不要硬编码到代码里，不要提交到Git。
+**重要**：API密钥不要硬编码到代码里，不要提交到Git。默认 provider 为 deepseek，密钥用 `LLM_API_KEY`；若走 OpenRouter 可在运行时加 `--provider openrouter` 并设 `LLM_API_KEY`（或沿用 `OPENROUTER_API_KEY`）。
 
-### 3.3 OpenRouter API Key 获取
-1. 访问 https://openrouter.ai/
-2. 注册账号
-3. 在设置页面生成API Key
-4. 充值（可以先充5美元测试）
+### 3.3 API Key 获取（LLM_API_KEY）
+1. 默认用 DeepSeek：访问 https://platform.deepseek.com/ 注册并生成 API Key
+2. 若走 OpenRouter：访问 https://openrouter.ai/ 注册并生成 API Key
+3. 将 Key 写入环境变量 `LLM_API_KEY`（旧部署可继续用 `OPENROUTER_API_KEY`）
+4. 充值（可先小额测试）
 
 ---
 

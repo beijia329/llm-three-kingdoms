@@ -126,7 +126,7 @@ def process_turn(self) -> Dict[str, Any]:
     3. 军队行军推进（含粮食消耗和饥饿判定）
     4. 战斗检测与结算（围城→巷战→战后）
     5. 清理已消灭的军队（将领归城/被俘）
-    6. 胜利判定（城市最多者胜）
+    6. 胜利判定（终局：占地最多者胜；称帝=阶段性 Buff，非终局胜负）
     7. 回合递增
     """
     result = {"turn": self.turn, "battles_fought": 0, "armies_moved": 0}
@@ -569,9 +569,18 @@ class TurnLog:
   "version": "1.0",
   "seed": 42,
   "players": {
-    "wei": {"type": "llm", "model": "claude-sonnet"},
-    "shu": {"type": "llm", "model": "gpt-4o"},
-    "wu": {"type": "llm", "model": "gemini-pro"}
+    "han": {"type": "llm", "model": "claude-sonnet"},
+    "zhangjiao": {"type": "llm", "model": "deepseek-v4-flash"},
+    "dongzhuo": {"type": "llm", "model": "gpt-4o"},
+    "yuanshao": {"type": "llm", "model": "gemini-pro"},
+    "caocao": {"type": "llm", "model": "claude-sonnet"},
+    "liubei": {"type": "llm", "model": "deepseek-v4-flash"},
+    "sunjian": {"type": "llm", "model": "gpt-4o"},
+    "liubiao": {"type": "llm", "model": "gemini-pro"},
+    "liuyan": {"type": "llm", "model": "claude-sonnet"},
+    "gongsunzan": {"type": "llm", "model": "deepseek-v4-flash"},
+    "mateng": {"type": "llm", "model": "gpt-4o"},
+    "yuanshu": {"type": "llm", "model": "gemini-pro"}
   },
   "turns": [
     {
@@ -580,8 +589,8 @@ class TurnLog:
       "events": [...]
     }
   ],
-  "winner": "shu",
-  "total_turns": 24
+  "winner": "caocao",
+  "total_turns": 192
 }
 ```
 
@@ -695,6 +704,6 @@ boardgame.io 有一个很重要的设计思想：
 
 ---
 
-> **文档版本**：v2.2
-> **最后更新**：2026-06-23
-> **更新内容**：补充状态快照、命令模式、状态校验、日志系统、容错与兜底机制
+> **文档版本**：v2.3
+> **最后更新**：2026-10-01
+> **更新内容**：补充状态快照、命令模式、状态校验、日志系统、容错与兜底机制；v2.3 修正 11.3 回放示例为 12 方真实 key、total_turns 24→192、胜利条件澄清

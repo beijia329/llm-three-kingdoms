@@ -54,11 +54,12 @@ COLOR_WHITE = (232, 224, 208)
 FONT_CJK = None
 FONT_CJK_SM = None
 FONT_CJK_LG = None
+FONT_CJK_XS = None  # 面板小型说明文字（比 FONT_CJK_SM 更小）
 
 
 def _init_cjk_font() -> None:
     """初始化中文字体"""
-    global FONT_CJK, FONT_CJK_SM, FONT_CJK_LG
+    global FONT_CJK, FONT_CJK_SM, FONT_CJK_LG, FONT_CJK_XS
     for name in ["PingFang SC", "STHeiti", "Heiti SC", "SimSun", "Noto Sans CJK SC"]:
         try:
             test = pygame.font.SysFont(name, 16)
@@ -66,6 +67,7 @@ def _init_cjk_font() -> None:
                 FONT_CJK_SM = pygame.font.SysFont(name, 13)
                 FONT_CJK = pygame.font.SysFont(name, 16)
                 FONT_CJK_LG = pygame.font.SysFont(name, 22)
+                FONT_CJK_XS = pygame.font.SysFont(name, 11)
                 logger.info("中文字体: %s", name)
                 return
         except Exception:
@@ -73,6 +75,7 @@ def _init_cjk_font() -> None:
     FONT_CJK_SM = pygame.font.Font(None, 14)
     FONT_CJK = pygame.font.Font(None, 16)
     FONT_CJK_LG = pygame.font.Font(None, 22)
+    FONT_CJK_XS = pygame.font.Font(None, 11)
     logger.warning("未找到中文字体，使用默认字体")
 
 

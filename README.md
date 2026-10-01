@@ -2,6 +2,8 @@
 
 > 184年黄巾之乱，12方诸侯逐鹿中原——大语言模型们，谁才是真正的"天命之子"
 
+> 最后更新：2026-10-01 | 版本：v2.3
+
 ---
 
 ## 项目简介
@@ -21,10 +23,13 @@
 
 ### 技术栈
 - **后端**：Python 3.12+
-- **GUI**：Pygame 2.6+
-- **数据**：Pydantic 2.0+
-- **测试**：pytest（399 tests）
-- **LLM**：OpenRouter（多模型接入）
+- **游戏引擎**：纯 Python（无 UI 依赖），Pydantic 2.0+ 数据校验
+- **GUI（降级 / 调试通道）**：Pygame 2.6+
+- **Web 前端（一等公民渲染通道）**：React 18 + PixiJS 8 + TypeScript 5 + Vite 5
+- **Web 后端桥接**：FastAPI + WebSocket（桥接单局 GameManager）
+- **E2E 测试**：Playwright
+- **测试**：pytest（504 tests）
+- **LLM**：默认 DeepSeek（api.deepseek.com/v1），可经 OpenRouter / OpenAI 封装切换；密钥用环境变量 `LLM_API_KEY`（兼容旧名 `OPENROUTER_API_KEY`）
 - **地图数据**：阿里云 DataV GeoJSON + 六角格投影
 
 ---
@@ -130,6 +135,8 @@ llm-sanguo/
 ---
 
 ## 版本
+
+**v2.3** — 收口质量门修复：API key 变量改名 `LLM_API_KEY`（兼容 `OPENROUTER_API_KEY`）、文档一致性（12方/192回合/22城/胜利条件）、renderer 字体缺陷修复（FONT_CJK_XS）、依赖补 numpy
 
 **v2.2** — 马腾+武威、袁术+合肥、GameState字段补齐、建国Buff接入、信息迷雾优化
 

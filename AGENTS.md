@@ -20,7 +20,7 @@
 
 ### 1.3 非目标（Out of Scope）
 - 不做3D画面、精美特效（Pygame 2D足够）
-- 不做联网对战（本地单机即可）
+- 不做联网对战（Web 为本地单机浏览器展示，非多人在线对战）
 - 不做复杂兵种/科技树
 - 不做移动端适配
 
@@ -32,14 +32,17 @@
 | 技术 | 版本 | 用途 |
 |------|------|------|
 | Python | 3.10+ | 主开发语言 |
-| Pygame | 2.5+ | GUI渲染 |
+| Pygame | 2.5+ | 降级/调试 GUI 渲染 |
 | Pydantic | 2.0+ | 数据校验 |
-| pytest | 7.0+ | 测试框架 |
+| pytest | 7.0+ | 测试框架（504 tests） |
 | json-repair | latest | JSON容错解析 |
+| Web 前端 | React 18 + PixiJS 8 + TS 5 + Vite 5 | 浏览器渲染通道（一等公民） |
+| Web 后端 | FastAPI + WebSocket | 桥接单局 GameManager |
+| E2E | Playwright | 端到端测试 |
 
 ### 2.2 LLM接入
-- 统一通过 OpenRouter API 接入多模型
-- 支持模型：Claude、GPT、Gemini、Kimi、Qwen等
+- 默认 DeepSeek（api.deepseek.com/v1），兼容 OpenRouter / OpenAI（用 `--provider` 切换）；密钥用环境变量 `LLM_API_KEY`（兼容旧名 `OPENROUTER_API_KEY`）
+- 支持模型：取决于所选 provider（如 Claude、GPT、Gemini、Kimi、Qwen、DeepSeek 等）
 - 异步并发调用，设置超时保护
 
 ### 2.3 代码风格
@@ -367,7 +370,7 @@ class InvalidCommandError(GameError):
 - 游戏必须能运行到结束，任何组件失败都不能导致崩溃
 - LLM连续失败自动降级为随机AI
 - 异常隔离：一个玩家出错不影响其他玩家
-- 最大回合数保证：24回合强制结束
+- 最大回合数保证：192回合强制结束（184→232年）
 
 ### 7.7 日志与回放
 - 结构化游戏日志：所有命令和事件都要记录
@@ -406,9 +409,10 @@ class InvalidCommandError(GameError):
 
 ---
 
-> **最后更新**：2026-06-24
+> **最后更新**：2026-10-01
 > **维护者**：项目架构师
-> **版本**：v2.2
+> **版本**：v2.3
+> **v2.3更新**：API key 改名 `LLM_API_KEY`（兼容 `OPENROUTER_API_KEY`）、文档一致性（12方/192回合/22城/胜利条件）、renderer 字体缺陷修复（FONT_CJK_XS）、依赖补 numpy、技术栈补 Web 一等公民
 > **v2.2更新**：马腾势力修复、势力城数平衡、GameState字段补齐、邻居双向连接、建国Buff接入、信息迷雾优化
 > **v2.1更新**：Web前端迁移（FastAPI+React+PixiJS）、玻璃拟态UI、DOM Overlay地图、Playwright测试
 > **v2.0更新**：六角格地图+12方势力+184年剧本+性格系统+建国机制+文明风格GUI

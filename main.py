@@ -264,8 +264,13 @@ def main() -> None:
     """主入口"""
     args = parse_args()
 
-    # 获取 API Key
-    api_key = args.api_key or os.environ.get("OPENROUTER_API_KEY") or ""
+    # 获取 API Key（优先 LLM_API_KEY，与 provider 解耦；兼容旧名 OPENROUTER_API_KEY）
+    api_key = (
+        args.api_key
+        or os.environ.get("LLM_API_KEY")
+        or os.environ.get("OPENROUTER_API_KEY")
+        or ""
+    )
 
     if args.mode == "ai-vs-ai":
         run_ai_vs_ai(

@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="乱斗三国 Web 服务",
     description="为 乱斗三国 提供 WebSocket 游戏状态流与 REST API",
-    version="2.2.0",
+    version="2.3.0",
     lifespan=lifespan,
 )
 

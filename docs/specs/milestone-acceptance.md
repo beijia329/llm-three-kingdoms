@@ -38,7 +38,7 @@ from game.models import City, Army, General, AttackCommand
 city = City(
     id="chengdu",
     name="成都",
-    faction="shu",
+    faction="liuyan",
     level=3,
     wall_hp=2000,
     wall_max_hp=2000,
@@ -254,7 +254,7 @@ pytest tests/unit/test_battle.py -v
 ### 验收标准
 - [ ] GameEngine主类可用
 - [ ] 完整回合流程
-- [ ] 胜利判定正确
+- [ ] 胜利判定正确（终局：占地最多者胜；中途控 5 城称帝为阶段性 Buff，非终局胜负）
 - [ ] 信息迷雾工作
 - [ ] 初始游戏数据完整
 - [ ] CLI玩家可用
@@ -268,23 +268,28 @@ engine = GameEngine(seed=42)
 engine.init_game()
 
 print(f"当前回合：{engine.turn}")
-print(f"魏国城市：{len([c for c in engine.cities.values() if c.faction == 'wei'])}")
-print(f"蜀国城市：{len([c for c in engine.cities.values() if c.faction == 'shu'])}")
-print(f"吴国城市：{len([c for c in engine.cities.values() if c.faction == 'wu'])}")
+
+from game.constants import FACTIONS
+print("各势力初始城池数（共 22 城，12 方各 1~2 城）：")
+for fid, fname in FACTIONS.items():
+    n = len([c for c in engine.cities.values() if c.faction == fid])
+    if n:
+        print(f"  {fname}（{fid}）：{n} 城")
+print(f"总城池：{len(engine.cities)}")
 ```
 **预期效果**：
 - 游戏正常初始化
-- 每方5座城市
+- 每方 1~2 座城市，共 22 城
 - 初始资源、将领都到位
 
 #### Demo 2：执行命令+处理回合
 ```python
-# 执行蜀国的命令
+# 执行 liuyan（刘焉）势力的命令（成都为其初始城）
 commands = [
     {"type": "develop", "params": {"city": "chengdu", "type": "economy"}},
     {"type": "recruit", "params": {"city": "chengdu", "troops": 500}},
 ]
-engine.execute_commands("shu", commands)
+engine.execute_commands("liuyan", commands)
 
 # 处理一回合
 engine.process_turn()
@@ -299,10 +304,10 @@ print(f"成都金钱：{engine.cities['chengdu'].gold}")
 
 #### Demo 3：信息迷雾
 ```python
-# 获取蜀国的观察数据
-obs = engine.get_observation("shu")
+# 获取 liubei（刘备）势力的观察数据
+obs = engine.get_observation("liubei")
 
-print("蜀国知道的城市：")
+print("liubei（刘备）知道的城市：")
 for city in obs.known_cities:
     print(f"  {city.name} - 兵力：{city.garrison if hasattr(city, 'garrison') else '未知'}")
 ```
@@ -316,14 +321,14 @@ for city in obs.known_cities:
 python -m tests.integration.test_full_game
 ```
 **预期效果**：
-- 完整跑24回合
+- 完整跑 192 回合（184→232 年）
 - 不会崩溃
 - 最后有胜利者
 - 状态全程合法
 
 #### Demo 5：CLI模式试玩
 ```bash
-python main.py --mode cli --faction shu
+python main.py --mode cli --faction caocao
 ```
 **预期效果**：
 - 可以用命令行输入指令
@@ -333,7 +338,7 @@ python main.py --mode cli --faction shu
 ### 完成标志
 > 🎮 可以玩游戏了！
 > ✅ 完整的游戏循环
-> ✅ 24回合能分出胜负
+> ✅ 192 回合能分出胜负
 > ✅ 有信息迷雾
 > ✅ CLI模式可玩
 > ❌ 还没有AI玩家
@@ -355,8 +360,8 @@ python main.py --mode cli --faction shu
 
 #### Demo 1：Prompt构建
 ```python
-obs = engine.get_observation("shu")
-prompt = prompt_builder.build_full_prompt("shu", obs)
+obs = engine.get_observation("liubei")
+prompt = prompt_builder.build_full_prompt("liubei", obs)
 print(prompt)
 ```
 **预期效果**：
@@ -387,7 +392,7 @@ for i, test in enumerate(test_cases):
 
 #### Demo 3：LLM单步决策
 ```python
-player = LLMPlayer("shu", llm_client, ...)
+player = LLMPlayer("liubei", llm_client, ...)
 commands = player.get_commands(observation)
 print(f"LLM输出命令：{commands}")
 ```
@@ -396,12 +401,13 @@ print(f"LLM输出命令：{commands}")
 - 命令格式正确
 - 有思考过程（思维链）
 
-#### Demo 4：三个LLM对战
+#### Demo 4：12方 LLM 对战
 ```bash
-python main.py --mode ai-vs-ai --models claude-sonnet gpt-4o gemini-pro
+# 12方各自由 LLM 决策；--model 指定统一模型，--provider 可切换（默认 deepseek）
+python main.py --mode ai-vs-ai --model deepseek-v4-flash
 ```
 **预期效果**：
-- 三个AI能完整打完一局
+- 12方 AI 能完整打完一局（192 回合）
 - 不会因为解析错误卡住
 - AI会发展、会打仗、会发消息
 - 一局大概10-30分钟（取决于模型速度）
@@ -412,7 +418,7 @@ python main.py --mode ai-vs-ai --models claude-sonnet gpt-4o gemini-pro
 
 ### 完成标志
 > 🤖 AI能自己玩了！
-> ✅ 三个LLM能完整对战
+> ✅ 12方 LLM 能完整对战
 > ✅ 输出解析稳定
 > ✅ 有记忆，不会每回合忘光
 > ✅ 出错了能降级，不崩溃
@@ -441,7 +447,7 @@ python main.py --mode gui
 ```
 **预期效果**：
 - 显示游戏地图
-- 15座城市按位置分布
+- 22座城市按位置分布
 - 不同势力用不同颜色
 - 城市大小反映等级
 
@@ -493,7 +499,7 @@ python main.py --mode replay --file replay.json
 ### 验收标准
 - [ ] 核心模块测试覆盖率>80%
 - [ ] 集成测试通过
-- [ ] 三方胜率在25%-40%之间
+- [ ] 各势力胜率分布合理（12方对战需重新标定基准区间；原 3 方 25%–40% 不适用，见 tests/balance/run_simulation.py）
 - [ ] 连续跑10局不崩溃
 - [ ] 没有明显的OP策略
 - [ ] 性能达标（一局不超过30分钟）
@@ -524,7 +530,7 @@ python -m tests.stability.run_10_games
 python -m tests.balance.run_simulation --games 100
 ```
 **预期效果**：
-- 输出三方胜率统计
+- 输出各势力胜率统计
 - 胜率在25%-40%之间
 - 有详细的胜负原因分析
 
@@ -549,8 +555,8 @@ python -m tests.balance.run_simulation --games 100
 项目全部完成的标志：
 
 - [ ] 可以用GUI看完整的AI对战回放
-- [ ] 三个不同模型能正常对战
-- [ ] 三方胜率在25%-40%之间
+- [ ] 12方势力能正常对战
+- [ ] 各势力胜率分布合理（12方对战需重新标定基准区间；原 3 方 25%–40% 不适用，见 tests/balance/run_simulation.py）
 - [ ] 连续跑10局不崩溃
 - [ ] 核心模块测试覆盖率>80%
 - [ ] 有完整的使用文档
@@ -559,5 +565,6 @@ python -m tests.balance.run_simulation --games 100
 
 ---
 
-> **文档版本**：v2.2
+> **文档版本**：v2.3
 > **创建日期**：2026-06-23
+> **最后更新**：2026-10-01（v2.3：12 方势力 key、192 回合、22 城、胜利条件澄清；API key 改 LLM_API_KEY）

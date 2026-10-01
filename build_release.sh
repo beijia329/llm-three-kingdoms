@@ -176,7 +176,7 @@ rm -rf "$DIST_DIR/game" "$DIST_DIR/players" "$DIST_DIR/renderer" \
 
 # 创建简单的启动说明
 cat > "$DIST_DIR/使用说明.txt" << 'README'
-乱斗三国 v2.2 — 使用方法
+乱斗三国 v2.3 — 使用方法
 ============================
 
 【macOS】双击 乱斗三国.app

@@ -110,7 +110,7 @@ class DevelopParams(BaseModel):
 ```json
 {
   "type": "develop",
-  "faction": "wei",
+  "faction": "caocao",
   "turn": 5,
   "params": {
     "city": "许昌",
@@ -147,7 +147,7 @@ class RecruitParams(BaseModel):
 ```json
 {
   "type": "recruit",
-  "faction": "wei",
+  "faction": "caocao",
   "turn": 5,
   "params": {
     "city": "许昌",
@@ -187,7 +187,7 @@ class AttackParams(BaseModel):
 ```json
 {
   "type": "attack",
-  "faction": "wei",
+  "faction": "caocao",
   "turn": 5,
   "params": {
     "from": "许昌",
@@ -224,7 +224,7 @@ class RewardParams(BaseModel):
 ```json
 {
   "type": "reward",
-  "faction": "wei",
+  "faction": "caocao",
   "turn": 5,
   "params": {
     "general": "曹操",
@@ -258,7 +258,7 @@ class ExploreParams(BaseModel):
 ```json
 {
   "type": "explore",
-  "faction": "wei",
+  "faction": "caocao",
   "turn": 5,
   "params": {
     "city": "许昌"
@@ -291,11 +291,11 @@ class MessageParams(BaseModel):
 ```json
 {
   "type": "message",
-  "faction": "wei",
+  "faction": "caocao",
   "turn": 5,
   "params": {
-    "to": "shu",
-    "content": "我们联手攻打吴国如何？"
+      "to": "liubei",
+      "content": "我们联手攻打 sunjian（孙坚）如何？"
   }
 }
 ```
@@ -326,7 +326,7 @@ class RumorParams(BaseModel):
 ```json
 {
   "type": "rumor",
-  "faction": "wei",
+  "faction": "caocao",
   "turn": 5,
   "params": {
     "city": "成都",
@@ -436,7 +436,7 @@ class CommandExecutor:
 ### 6.1 转 JSON
 ```python
 command = AttackCommand(
-    faction="wei",
+    faction="caocao",
     turn=5,
     params={"from": "许昌", "to": "洛阳", "troops": 5000}
 )
@@ -534,9 +534,10 @@ class GameLog(BaseModel):
 
 ---
 
-> **文档版本**：v2.2
+> **文档版本**：v2.3
 > **创建日期**：2026-06-23
-> **最后更新**：2026-06-24
+> **最后更新**：2026-10-01
 > **相关文档**：data-models.md, architecture.md
+> **v2.3更新**：命令示例 faction key 全面改为 12 方真实 key（caocao/liubei/sunjian 等），与 constants.FACTIONS 一致
 > **v2.2更新**：势力枚举3方→12方，命令示例 faction key 更新
 > **v1.1更新**：补充Explore的general参数和Rumor的spy_general参数
