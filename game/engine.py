@@ -326,47 +326,46 @@ class GameEngine:
         """初始化城市控制区地块的归属和产出"""
         if self.hex_map is None:
             return
-        from game.constants import TERRAIN_YIELDS
-
-        # [领地 2026-10-01] 先给每城一小圈（保证城池周边必有归属），
-        # 再跑"多源 BFS 领地扩张"，让无主地连成大片割据。
-        for city in self.cities.values():
-            territory = self._city_system.get_city_territory(city, self.hex_map)
-            for coord in territory:
-                tile = self.hex_map.get_tile(coord)
-                if tile is not None:
-                    tile.owner_city_id = city.id
-                    tile.faction = city.faction
-                    yields = TERRAIN_YIELDS.get(tile.terrain.value, {})
-                    tile.gold_yield = yields.get("gold", 0)
-                    tile.food_yield = yields.get("food", 0)
-                    tile.pop_yield = yields.get("pop", 0)
-
+        # [领地 2026-10-01] 归属统一交给 _expand_territories()（全量重划，先到先得）。
         self._expand_territories()
 
     def _expand_territories(self) -> None:
-        """多源 BFS 领地扩张：从每座城向外吞并无主地，直到碰到水/山/他方领地。
+        """全量重划领地：清空所有地块归属，再从每座**有主城**做多源 BFS，先到先得。
 
-        [领地 2026-10-01] 原实现只有每城一小圈（半径 1~3），97.7% 地块无主，
-        势力色域呈"圆斑"而非割据。这里让各势力领地从城池向外连片扩张。
+        [领地 2026-10-01] 这是**唯一**的领地划分入口，开局与"占领后"都调用它，
+        保证边界永远一致、无交叉、无残留（占领时不再需要手动转移领地）。
+        - 源点：所有 faction != neutral 的城市
+        - 扩张：深度 = 8 + level×2，避水/避峰，限中国境内（province_id 非空）
+        - 先到先得 → 相邻势力自然形成边界
         """
+        if self.hex_map is None:
+            return
         from collections import deque
         from game.tile import TerrainType
         from game.hex_grid import HexCoord
+        from game.constants import TERRAIN_YIELDS
+
+        # 1. 清空所有地块归属
+        for tile in self.hex_map.iter_tiles():
+            tile.owner_city_id = None
+            tile.faction = None
 
         blocked = {TerrainType.WATER, TerrainType.DEEP_WATER, TerrainType.PEAK}
-        # 种子：所有城池所在格，按城等级给初始"深度余量"
-        seed_depth: dict = {}
         queue: deque = deque()
-        assigned = set()
+        assigned: set = set()
+
+        # 2. 以所有有主城为源点
         for city in self.cities.values():
+            if city.faction == "neutral":
+                continue
             start = city.position
             if self.hex_map.get_tile(start) is None:
                 continue
-            # 等级越高扩张越远（L1~L5 → 余量 8~16），且允许跨过丘陵/山脉
             depth = 8 + city.level * 2
-            seed_depth[city.id] = depth
             assigned.add((start.q, start.r))
+            st = self.hex_map.get_tile(start)
+            st.owner_city_id = city.id
+            st.faction = city.faction
             queue.append((start.q, start.r, city.id, depth))
 
         dirs = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
@@ -383,12 +382,15 @@ class GameEngine:
                     continue
                 if tile.terrain in blocked:
                     continue
-                # 只吞中国境内（有 province_id）；不越海
                 if not tile.province_id:
                     continue
                 assigned.add((nq, nr))
                 tile.owner_city_id = city_id
                 tile.faction = self.cities[city_id].faction
+                yields = TERRAIN_YIELDS.get(tile.terrain.value, {})
+                tile.gold_yield = yields.get("gold", 0)
+                tile.food_yield = yields.get("food", 0)
+                tile.pop_yield = yields.get("pop", 0)
                 queue.append((nq, nr, city_id, depth - 1))
 
     # ============================================================
@@ -944,11 +946,9 @@ class GameEngine:
                 city.faction = ctx.attacker_faction
                 city.morale = max(20, city.morale - 20)  # 占领后民心下降
 
-                # [领地 2026-10-01] "占城即夺地"：把该城所属领地地块一并易主
-                if self.hex_map is not None:
-                    for tile in self.hex_map.iter_tiles():
-                        if tile.owner_city_id == captured_city_id:
-                            tile.faction = ctx.attacker_faction
+                # [领地 2026-10-01] "占城即夺地"：占领后全量重划领地。
+                # 该城已成为新势力的源点，重划后其周边地块自然归入新势力，边界自动更新。
+                self._expand_territories()
 
                 # 外交影响：占领城市降低信任度，双方变为交战状态
                 if self._diplomacy_relation_system is not None and old_faction != ctx.attacker_faction:
