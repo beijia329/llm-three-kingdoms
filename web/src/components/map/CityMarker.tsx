@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { FACTION_COLORS, FACTION_GLOW } from '../../theme'
 
 interface CityMarkerProps {
@@ -27,45 +26,22 @@ export function CityMarker({ city, x, y, zoom, onClick }: CityMarkerProps) {
   const ratio = Math.min(1, city.garrison / maxG)
   const hpColor = ratio > 0.5 ? '#3cb464' : ratio > 0.2 ? '#c8a032' : '#c85046'
 
-  // 城墙 SVG path
-  const castleSvg = useMemo(() => {
-    const s = size * 0.5
-    return (
-      <svg width={size * 1.6} height={size * 1.2} viewBox={`${-size} ${-size} ${size * 2} ${size * 1.5}`} style={{ overflow: 'visible' }}>
-        {/* 城墙主体 */}
-        <path
-          d={`
-            M${-s*0.8},${s*0.4} L${-s*0.8},${-s*0.5} 
-            L${-s*0.55},${-s*0.5} L${-s*0.55},${-s*0.25} 
-            L${-s*0.3},${-s*0.25} L${-s*0.3},${-s*0.5} 
-            L${s*0.3},${-s*0.5} L${s*0.3},${-s*0.25} 
-            L${s*0.55},${-s*0.25} L${s*0.55},${-s*0.5} 
-            L${s*0.8},${-s*0.5} L${s*0.8},${s*0.4} Z
-            M${-s*0.22},${s*0.4} A${s*0.22},${s*0.22} 0 0,1 ${s*0.22},${s*0.4} Z
-          `}
-          fill={color}
-          stroke="#e8e0d0"
-          strokeWidth={1.5}
-          filter="drop-shadow(0 2px 4px rgba(0,0,0,0.6))"
-        />
-        {/* 城门 */}
-        <path
-          d={`M${-s*0.22},${s*0.4} A${s*0.22},${s*0.22} 0 0,1 ${s*0.22},${s*0.4} Z`}
-          fill="#1a1a2e"
-          stroke="#e8e0d0"
-          strokeWidth={0.8}
-        />
-        {/* 等级星标 */}
-        {city.level >= 3 && (
-          <>
-            <circle cx={-s*0.5} cy={-s*0.65} r={s*0.12} fill="#d4a84b" />
-            {city.level >= 4 && <circle cx={0} cy={-s*0.7} r={s*0.12} fill="#d4a84b" />}
-            {city.level >= 5 && <circle cx={s*0.5} cy={-s*0.65} r={s*0.12} fill="#d4a84b" />}
-          </>
-        )}
-      </svg>
-    )
-  }, [size, color, city.level])
+  // [美术 2026-10-01] 城池图标改用 game-icons（CC BY 3.0）的 castle.svg，
+  // 通过 CSS mask 上势力色（game-icons 为单色 currentColor，直接用 <img> 会变黑）。
+  const iconSize = size * 1.25
+  const maskIcon = (url: string, color: string, s: number) => ({
+    width: s,
+    height: s,
+    backgroundColor: color,
+    WebkitMaskImage: `url(${url})`,
+    maskImage: `url(${url})`,
+    WebkitMaskSize: 'contain',
+    maskSize: 'contain',
+    WebkitMaskRepeat: 'no-repeat',
+    maskRepeat: 'no-repeat',
+    WebkitMaskPosition: 'center',
+    maskPosition: 'center',
+  })
 
   return (
     <div
@@ -95,7 +71,15 @@ export function CityMarker({ city, x, y, zoom, onClick }: CityMarkerProps) {
           animation: city.is_besieged ? 'city-pulse 2s ease-in-out infinite' : 'none',
         }}
       >
-        {castleSvg}
+        <div style={{ ...maskIcon('/art/icons/castle.svg', color, iconSize), filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))' }} />
+        {/* 等级星标 */}
+        {city.level >= 3 && (
+          <div style={{ position: 'absolute', top: '-5px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '2px' }}>
+            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#d4a84b' }} />
+            {city.level >= 4 && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#d4a84b' }} />}
+            {city.level >= 5 && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#d4a84b' }} />}
+          </div>
+        )}
         {/* 围城警告 */}
         {city.is_besieged && (
           <div

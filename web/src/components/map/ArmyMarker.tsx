@@ -49,44 +49,21 @@ export function ArmyMarker({ army, x, y, zoom }: ArmyMarkerProps) {
           animation: isRetreat ? 'retreat-shake 0.8s ease-in-out infinite' : 'none',
         }}
       >
-        <svg width={size * 2} height={size * 2} viewBox={`${-size} ${-size} ${size * 2} ${size * 2}`} style={{ overflow: 'visible' }}>
-          {isRetreat ? (
-            // 撤退：散开的士兵 + 向左箭头
-            <>
-              <circle cx={-size * 0.3} cy={-size * 0.2} r={size * 0.25} fill={color} stroke="#e8e0d0" strokeWidth={1} />
-              <circle cx={size * 0.2} cy={-size * 0.3} r={size * 0.2} fill={color} stroke="#e8e0d0" strokeWidth={1} />
-              <circle cx={0} cy={size * 0.2} r={size * 0.22} fill={color} stroke="#e8e0d0" strokeWidth={1} />
-              <circle cx={size * 0.35} cy={size * 0.1} r={size * 0.18} fill={color} stroke="#e8e0d0" strokeWidth={1} />
-              {/* 撤退箭头 */}
-              <path d={`M${-size * 0.6},0 L${-size * 0.3},${-size * 0.25} L${-size * 0.3},${size * 0.25} Z`} fill="#c85046" />
-              <line x1={-size * 0.3} y1={0} x2={size * 0.3} y2={0} stroke="#c85046" strokeWidth={2} />
-            </>
-          ) : (
-            // 进攻：盾牌/旗帜形状
-            <>
-              <path
-                d={`
-                  M0,${-size} 
-                  L${size * 0.5},${-size * 0.3} 
-                  L${size * 0.35},${size * 0.5} 
-                  L0,${size * 0.75} 
-                  L${-size * 0.35},${size * 0.5} 
-                  L${-size * 0.5},${-size * 0.3} 
-                  Z
-                `}
-                fill={color}
-                stroke="#e8e0d0"
-                strokeWidth={1.5}
-              />
-              {/* 中心装饰 */}
-              <circle cx={0} cy={0} r={size * 0.2} fill="#1a1a2e" stroke="#e8e0d0" strokeWidth={0.8} />
-              <path
-                d={`M0,${-size * 0.1} L${size * 0.08},${size * 0.05} L${-size * 0.08},${size * 0.05} Z`}
-                fill="#d4a84b"
-              />
-            </>
-          )}
-        </svg>
+        <div
+          style={{
+            width: size * 1.7,
+            height: size * 1.7,
+            backgroundColor: isRetreat ? '#c85046' : color,
+            WebkitMaskImage: `url('/art/icons/${isRetreat ? 'shield' : 'knight-banner'}.svg')`,
+            maskImage: `url('/art/icons/${isRetreat ? 'shield' : 'knight-banner'}.svg')`,
+            WebkitMaskSize: 'contain',
+            maskSize: 'contain',
+            WebkitMaskRepeat: 'no-repeat',
+            maskRepeat: 'no-repeat',
+            WebkitMaskPosition: 'center',
+            maskPosition: 'center',
+          }}
+        />
       </div>
 
       {/* 兵力数字 */}
