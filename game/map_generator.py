@@ -369,6 +369,28 @@ class MapGenerator:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _normalize_polygons(coords: Any) -> List[Any]:
+        """把省界坐标统一成 [多边形][环][点] 三层结构。
+
+        [修复 2026-10-01] `china_provinces.json` 里 33 个省是标准 MultiPolygon
+        （4 层：面/环/点/坐标），**唯独内蒙古自治区是 Polygon（3 层：环/点/坐标）**。
+        原代码按 4 层解析 → 内蒙古被当成"环里的元素是环"，一个点都取不到 →
+        整个内蒙古被漏读 → 河套/内蒙全变成"境外水域"（黄河几字弯因此出界）。
+        """
+        if not coords:
+            return []
+        depth = 0
+        probe = coords
+        while isinstance(probe, list) and probe:
+            depth += 1
+            probe = probe[0]
+        if depth >= 4:
+            return coords          # [面][环][点]
+        if depth == 3:
+            return [coords]        # [环][点] → 视作单个面
+        return []
+
+    @staticmethod
     def _load_china_geojson() -> List[Dict[str, Any]]:
         """加载中国省界数据
 
@@ -490,7 +512,7 @@ class MapGenerator:
         for prov in provinces:
             modern_name = prov.get("name", "")
             ancient_id = _MODERN_TO_ANCIENT.get(modern_name, modern_name)
-            polygons = prov.get("coordinates", [])
+            polygons = MapGenerator._normalize_polygons(prov.get("coordinates", []))
             # 计算边界框
             min_lon, min_lat = 999.0, 999.0
             max_lon, max_lat = -999.0, -999.0
