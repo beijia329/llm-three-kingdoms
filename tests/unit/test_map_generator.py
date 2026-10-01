@@ -205,11 +205,10 @@ class TestMapQuality:
 
     @requires_mapgen
     def test_land_percentage_reasonable(self):
-        """陆地（=中国版图）应占地图 bbox 约 30-55%
+        """陆地（=中国版图）应占地图 bbox 合理比例
 
-        [2026-10-01 更新] 海陆形状改由**中国省界多边形**决定后，陆地比例 ≈ 中国实际
-        占该 bbox（73-136°E/16-54°N，含大片海域）的比例，约 35-40%。旧断言 55-80%
-        是噪声地形时代的预期。
+        [2026-10-01 更新] 经度范围改为 60-150°E（Δ90°）后，中国 ≈9.6M km² 只占该
+        bbox（≈34.6M km²）的 ~27%，故合理区间下移。旧值 30-55% 是 Δ63° 时代的预期。
         """
         rng = GameRandom(seed=42)
         gen = MapGenerator(rng)
@@ -221,8 +220,8 @@ class TestMapQuality:
             if tile.terrain not in WATER_TERRAINS:
                 land += 1
         ratio = land / total if total > 0 else 0
-        assert 0.30 < ratio < 0.55, (
-            f"Land ratio {ratio:.1%} outside expected China range (30-55%)"
+        assert 0.15 < ratio < 0.55, (
+            f"Land ratio {ratio:.1%} outside expected China range (15-55%)"
         )
 
     @requires_mapgen

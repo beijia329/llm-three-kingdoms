@@ -260,19 +260,21 @@ class GameEngine:
             # 200×120 / 73-136°E·16-54°N → 覆盖后城池会落到海里/错位。
             # data/cities.json 中每个城市自带的 position 才是与新地图匹配的坐标。
 
-            # 验证所有城市位置是否可通行（生成地图可能将城市放在水/山/峰上）
+            # [修复 2026-10-01] 城市地块强制可通行（山/峰 → PLAIN），**不再挪动城市**。
+            # 原实现遇到不可通行地形会把城市搬到最近可通行格 → 13 座城偏离真实地理 1~4 格。
             for city in self.cities.values():
-                coord = city.position
-                tile = self.hex_map.get_tile(coord)
-                if tile is None or not tile.is_passable():
-                    nearest = self._find_nearest_passable(coord)
+                tile = self.hex_map.get_tile(city.position)
+                if tile is None:
+                    nearest = self._find_nearest_passable(city.position)
                     if nearest is not None:
-                        logger.info(
-                            "城市 %s 位置从 %s 修正为 %s（原地形 %s 不可通行）",
-                            city.id, coord, nearest,
-                            tile.terrain.value if tile else "无",
-                        )
                         city.position = nearest
+                    continue
+                if not tile.is_passable():
+                    logger.info(
+                        "城市 %s 所在格地形 %s 不可通行 → 就地改为 PLAIN（保持真实定位）",
+                        city.id, tile.terrain.value,
+                    )
+                    tile.terrain = TerrainType.PLAIN
 
             # 初始化地块归属和产出
             self._initialize_territories()

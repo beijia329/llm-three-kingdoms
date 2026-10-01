@@ -19,6 +19,15 @@ from game.tile import Tile, TerrainType
 
 
 # ---------------------------------------------------------------------------
+# 地图经纬度覆盖范围 —— _hex_to_lonlat 与 _hex_sample_points **必须共用**，
+# 否则会出现"改了经度范围但采样步长没跟着改"的错位（2026-10-01 实际踩过：
+# 陆地边界被啃掉一圈 → 河流入海口/沿海城市落到画出来的陆地之外）。
+# ---------------------------------------------------------------------------
+CHINA_LON_MIN, CHINA_LON_MAX = 60.0, 150.0
+CHINA_LAT_MIN, CHINA_LAT_MAX = 16.0, 54.0
+
+
+# ---------------------------------------------------------------------------
 # 地形分类辅助映射
 # ---------------------------------------------------------------------------
 
@@ -407,11 +416,8 @@ class MapGenerator:
         Returns:
             (longitude, latitude)
         """
-        # [比例修复 2026-10-01] 原 73-136°E（Δ63°）配 200 格宽 + Δ38° 纬 → 横向被拉伸约 1.4×。
-        # 按中国纬度(≈35°N, cosφ≈0.82)换算，经度跨度应≈90° 才与格数比匹配 → 改 60-150°E。
-        # 同时 data/cities.json 的 q 需按 q' = 28.74 + 0.7q − r/2 迁移以保持真实经纬度。
-        lon_min, lon_max = 60.0, 150.0
-        lat_min, lat_max = 16.0, 54.0
+        lon_min, lon_max = CHINA_LON_MIN, CHINA_LON_MAX
+        lat_min, lat_max = CHINA_LAT_MIN, CHINA_LAT_MAX
         # [几何修复 2026-10-01] 六角格渲染时 x ∝ (q + r/2)（轴向坐标），
         # 若 lon 直接按 q 线性映射，中国轮廓会在屏幕上被"水平剪切"（像斜体字）。
         # 让 lon 随 (q + r/2) 走，(lon,lat)→(x,y) 即成为纯缩放，形状不再畸变。
@@ -438,8 +444,10 @@ class MapGenerator:
         import math
 
         center_lon, center_lat = MapGenerator._hex_to_lonlat(q, r, width, height)
-        lon_step = (136.0 - 73.0) / max(width - 1, 1)
-        lat_step = (54.0 - 16.0) / max(height - 1, 1)
+        # [修复 2026-10-01] 步长必须与 CHINA_LON/LAT 常量一致。原来硬编码 73-136，
+        # 经度范围改成 60-150 后没同步 → 采样半径偏小 → 陆地边界被啃掉一圈。
+        lon_step = (CHINA_LON_MAX - CHINA_LON_MIN) / max(width - 1, 1)
+        lat_step = (CHINA_LAT_MAX - CHINA_LAT_MIN) / max(height - 1, 1)
         radius = (lon_step + lat_step) / 2.0 * 0.55
 
         samples = [(center_lon, center_lat)]
