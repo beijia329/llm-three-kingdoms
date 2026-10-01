@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Application, Assets, Container, Graphics, Sprite, Text, TextStyle } from 'pixi.js'
 import type { GameState, HexCoord } from '../types'
-import { UI_COLORS, FACTION_COLORS, TERRAIN_COLORS, hexToNumber } from '../theme'
+import { FACTION_COLORS, TERRAIN_COLORS, hexToNumber } from '../theme'
 import { HEX_SIZE, axialToPixel, hexNeighbors, hexPoints } from '../utils/hex'
 import { CityMarker } from './map/CityMarker'
 import { ArmyMarker } from './map/ArmyMarker'
@@ -67,7 +67,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       const width = container.clientWidth
       const height = container.clientHeight
       await app.init({
-        background: UI_COLORS.bg,
+        background: 0x1d4056,  // 海色（与境外水域一致）→ 版图外不再出现斜边
         width,
         height,
         antialias: true,
@@ -139,25 +139,9 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     Object.values(state.cities).forEach((c) => coords.add(`${c.position.q},${c.position.r}`))
     Object.values(state.armies).forEach((a) => { if (a.current_hex) coords.add(`${a.current_hex.q},${a.current_hex.r}`) })
 
-    // 地图尺寸
-    const hw = state.hex_map?.width || 252
-    const hh = state.hex_map?.height || 152
-
-    // [美术 2026-10-01] 着色改用 province_id 直接判定；
-    // 原 chinaMask 的 flood-fill 会把大片近海水域误判为"内陆水"而刷成蓝色，故弃用。
-
-    // 0. 虚拟边界灰白雾（境外陆地保留暗化地形色，不涂雾）
-    const fogGraphics = new Graphics()
-    const FOG_MARGIN = 6
-    for (let q = -FOG_MARGIN; q < hw + FOG_MARGIN; q++) {
-      for (let r = -FOG_MARGIN; r < hh + FOG_MARGIN; r++) {
-        if (q < 0 || q >= hw || r < 0 || r >= hh) {
-          const { x: fx, y: fy } = axialToPixel({ q, r }, HEX_SIZE)
-          fogGraphics.poly(hexPoints(fx, fy, HEX_SIZE)).fill(0x24242c)
-        }
-      }
-    }
-    camera.addChild(fogGraphics)
+    // [修复 2026-10-01] 去掉"斜"的来源：轴向坐标 (q,r) 的矩形地块集合，在屏幕上是
+    // 平行四边形（逐行右移半格），其外缘/雾层呈斜边。改为把画布底色 = 海色，使版图
+    // 之外自然融为海面，斜边随之消失。着色仍用 province_id 判定。
 
     // 1. 地块（势力色为主，地形微调）
     const tilesGraphics = new Graphics()
@@ -456,7 +440,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
         height: '100%',
         overflow: 'hidden',
         cursor: isDragging ? 'grabbing' : 'grab',
-        backgroundColor: UI_COLORS.bg,
+        backgroundColor: '#1d4056',
       }}
     >
       {/* PixiJS Canvas 由 useEffect 插入 */}
