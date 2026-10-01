@@ -84,6 +84,7 @@ function App() {
         selectedCityId={selectedCityId}
         selectedFaction={selectedFaction}
         setSelectedFaction={setSelectedFaction}
+        onSelectCity={handleSelectCity}
       />
     </div>
   )

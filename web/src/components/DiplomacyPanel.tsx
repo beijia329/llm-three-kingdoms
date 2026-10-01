@@ -85,6 +85,11 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
           </div>
           {myRelations.map((rel, i) => {
             const other = rel.faction_a === humanFaction ? rel.faction_b : rel.faction_a
+            // [修复 2026-10-01] 观战模式（无人类势力）下原代码只渲染 faction_a，
+            // 且关系数据多为"汉室↔X" → 整列全被渲染成"汉室"。改为显示完整 A ↔ B。
+            const label = humanFaction
+              ? (FACTIONS[other] || other)
+              : `${FACTIONS[rel.faction_a] || rel.faction_a} ↔ ${FACTIONS[rel.faction_b] || rel.faction_b}`
             return (
               <div
                 key={i}
@@ -108,8 +113,8 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
                       display: 'inline-block',
                     }}
                   />
-                  <span style={{ fontSize: '13px', color: '#e8e0d0' }}>
-                    {FACTIONS[other] || other}
+                  <span style={{ fontSize: '12px', color: '#e8e0d0' }}>
+                    {label}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -133,8 +138,15 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
           })}
 
           {/* 全矩阵（紧凑模式） */}
-          <div style={{ marginTop: '16px', fontSize: '13px', color: '#d4a84b', marginBottom: '10px' }}>
+          <div style={{ marginTop: '16px', fontSize: '13px', color: '#d4a84b', marginBottom: '6px' }}>
             关系矩阵
+          </div>
+          {/* [修复 2026-10-01] 加图例：原来满屏"中"无任何说明，完全看不懂 */}
+          <div style={{ display: 'flex', gap: '10px', fontSize: '11px', color: '#96918a', marginBottom: '8px' }}>
+            <span><span style={{ color: statusColor.neutral }}>中</span>中立</span>
+            <span><span style={{ color: statusColor.war }}>战</span>敌对</span>
+            <span><span style={{ color: statusColor.alliance }}>盟</span>同盟</span>
+            <span><span style={{ color: statusColor.truce }}>和</span>停战</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '3px' }}>
             {relations.slice(0, 24).map((rel, i) => (

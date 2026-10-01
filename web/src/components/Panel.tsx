@@ -11,6 +11,7 @@ interface PanelProps {
   selectedCityId: string | null
   selectedFaction: string | null
   setSelectedFaction: (fid: string) => void
+  onSelectCity: (cityId: string) => void
 }
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
@@ -24,7 +25,7 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'reasoning', label: '决策', icon: 'fa-brain' },
 ]
 
-export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, setSelectedFaction }: PanelProps) {
+export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, setSelectedFaction, onSelectCity }: PanelProps) {
   if (!state) return (
     <div style={styles.container}>
       <div style={styles.glassCard}>
@@ -54,7 +55,7 @@ export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, set
       </div>
       <div style={styles.content}>
         {tab === 'factions' && <FactionList state={state} selectedFaction={selectedFaction} setSelectedFaction={setSelectedFaction} />}
-        {tab === 'city' && <CityDetail state={state} cityId={selectedCityId} />}
+        {tab === 'city' && <CityDetail state={state} cityId={selectedCityId} onSelectCity={onSelectCity} />}
         {tab === 'generals' && <GeneralList state={state} />}
         {tab === 'diplomacy' && <DiplomacyPanel state={state} />}
         {tab === 'data' && <DataPanel state={state} />}
@@ -124,12 +125,33 @@ function FactionList({
   )
 }
 
-function CityDetail({ state, cityId }: { state: GameState; cityId: string | null }) {
+function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId: string | null; onSelectCity: (id: string) => void }) {
   if (!cityId) {
+    // [修复 2026-10-01] 原来只有一句占位提示 + 大片空白 → 改为可点击的城市列表
+    const cities = Object.values(state.cities)
+    const byFaction: Record<string, typeof cities> = {}
+    cities.forEach((c) => { (byFaction[c.faction] = byFaction[c.faction] || []).push(c) })
     return (
-      <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
-        <i className="fa-solid fa-map-location-dot" style={{ fontSize: '28px', color: '#5a5a72', marginBottom: '10px' }}></i>
-        <div style={styles.dim}>点击地图城市查看详情</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ fontSize: '13px', color: '#d4a84b' }}>城市列表（{cities.length}）</div>
+        {Object.keys(FACTIONS).filter((f) => byFaction[f]?.length).map((f) => (
+          <div key={f} style={styles.card}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: FACTION_COLORS[f] || '#888' }} />
+              <span style={{ fontSize: '12px', color: '#96918a' }}>{FACTIONS[f] || f} · {byFaction[f].length} 城</span>
+            </div>
+            {byFaction[f].map((c) => (
+              <div
+                key={c.id}
+                onClick={() => onSelectCity(c.id)}
+                style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', marginBottom: '4px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                <span style={{ fontSize: '13px', color: '#e8e0d0' }}>{c.name}</span>
+                <span style={{ fontSize: '11px', color: '#96918a' }}>兵 {c.garrison} · 金 {c.gold}</span>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     )
   }
