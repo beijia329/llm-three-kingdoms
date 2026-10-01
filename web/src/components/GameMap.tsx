@@ -26,6 +26,9 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   // 相机状态用 ref（不触发 React 重渲染，通过 DOM 操作同步）
   const cameraRef = useRef<Camera>({ x: -2800, y: -400, zoom: 0.45 })
   const didFitRef = useRef(false)
+  // [修复 2026-10-01] 取景改的是 ref（不触发重渲染）→ 标记拿到的 zoom 仍是旧值。
+  // 取景后用 camVersion 触发一次重渲染，让标记按新 zoom 计算尺寸。
+  const [camVersion, setCamVersion] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   // [修复 2026-10-01] Pixi 初始化是异步的；用 ready 门控渲染，避免首个 state
   // 在 Pixi 就绪前到达导致地图空白且不再重绘。
@@ -126,7 +129,13 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       cameraRef.current = { x: cx, y: cy, zoom: z }
       camera.position.set(cx, cy)
       camera.scale.set(z)
+      // [修复 2026-10-01] 同步 DOM 覆盖层（城市/军队标记）。否则取景后标记仍停在
+      // 初始 transform 上，看起来像"城池漂到海里"。
+      if (overlayRef.current) {
+        overlayRef.current.style.transform = `translate(${cx}px, ${cy}px) scale(${z})`
+      }
       didFitRef.current = true
+      setCamVersion((v) => v + 1)
     }
 
     // === 渲染层 ===
@@ -448,6 +457,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       {/* DOM Overlay 层：城市 + 军队标记 */}
       <div
         ref={overlayRef}
+        data-cam={camVersion}
         style={{
           position: 'absolute',
           top: 0,

@@ -19,8 +19,8 @@ export function ArmyMarker({ army, x, y, zoom }: ArmyMarkerProps) {
   const color = FACTION_COLORS[army.faction] || '#888'
   const glow = FACTION_GLOW[army.faction] || 'rgba(128,128,128,0.5)'
   const isRetreat = army.status === 'retreating'
-  // LOD: 远距离保持可读，近距离自然缩放
-  const scale = Math.max(0.6, Math.min(1.4, 0.8 + zoom * 0.8))
+  // [修复 2026-10-01] 反向补偿缩放：屏幕尺寸恒定（同 CityMarker）
+  const scale = Math.max(0.6, Math.min(14, 0.8 / Math.max(zoom, 0.05)))
   const size = 14
 
   const moraleRatio = Math.max(0, Math.min(1, army.morale / 100))

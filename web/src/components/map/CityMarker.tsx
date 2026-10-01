@@ -19,8 +19,9 @@ export function CityMarker({ city, x, y, zoom, onClick }: CityMarkerProps) {
   const color = FACTION_COLORS[city.faction] || '#888'
   const glow = FACTION_GLOW[city.faction] || 'rgba(128,128,128,0.5)'
   const size = 18 + city.level * 4
-  // LOD: 远距离保持较大尺寸，近距离自然缩放
-  const scale = Math.max(0.7, Math.min(1.6, 0.9 + zoom * 0.8))
+  // [修复 2026-10-01] 反向补偿缩放：让标记的"屏幕尺寸"大致恒定（原公式按 zoom 0.3~1.2 设计，
+  // 取景到整张地图（zoom≈0.09）时标记被缩得几乎不可见）。
+  const scale = Math.max(0.6, Math.min(14, 0.85 / Math.max(zoom, 0.05)))
 
   const maxG = city.level * 1000
   const ratio = Math.min(1, city.garrison / maxG)

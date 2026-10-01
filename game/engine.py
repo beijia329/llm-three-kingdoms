@@ -245,7 +245,6 @@ class GameEngine:
             from game.hex_grid import HexCoord
             from game.tile import Tile, TerrainType
             from game.influence_system import InfluenceSystem
-            from game.data_loader import load_city_positions
 
             from game.constants import HEX_MAP_WIDTH, HEX_MAP_HEIGHT
 
@@ -256,14 +255,10 @@ class GameEngine:
                 height=HEX_MAP_HEIGHT,
             )
 
-            # 从独立坐标文件读取城市位置
-            try:
-                city_positions = load_city_positions()
-                for city_id, pos in city_positions.items():
-                    if city_id in self.cities:
-                        self.cities[city_id].position = HexCoord(pos["q"], pos["r"])
-            except Exception:
-                logger.warning("城市坐标加载失败，城市位置使用默认值")
+            # [修复 2026-10-01] 不再用 hex_map.json 的 city_positions 覆盖城市坐标：
+            # 那份坐标属于 120×90 / 95-125°E·22-45°N 的旧地图空间，而运行时地图是
+            # 200×120 / 73-136°E·16-54°N → 覆盖后城池会落到海里/错位。
+            # data/cities.json 中每个城市自带的 position 才是与新地图匹配的坐标。
 
             # 验证所有城市位置是否可通行（生成地图可能将城市放在水/山/峰上）
             for city in self.cities.values():
