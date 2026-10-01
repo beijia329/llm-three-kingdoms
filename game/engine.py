@@ -944,6 +944,12 @@ class GameEngine:
                 city.faction = ctx.attacker_faction
                 city.morale = max(20, city.morale - 20)  # 占领后民心下降
 
+                # [领地 2026-10-01] "占城即夺地"：把该城所属领地地块一并易主
+                if self.hex_map is not None:
+                    for tile in self.hex_map.iter_tiles():
+                        if tile.owner_city_id == captured_city_id:
+                            tile.faction = ctx.attacker_faction
+
                 # 外交影响：占领城市降低信任度，双方变为交战状态
                 if self._diplomacy_relation_system is not None and old_faction != ctx.attacker_faction:
                     self._diplomacy_relation_system.on_city_captured(ctx.attacker_faction, old_faction)
