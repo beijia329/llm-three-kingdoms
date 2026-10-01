@@ -35,8 +35,61 @@ class OutputParser:
     # 主入口
     # ============================================================
 
+    def parse_response(
+        self,
+        text: str,
+    ) -> Tuple[Optional[List[Dict[str, Any]]], str]:
+        """解析LLM输出，同时提取「决策理由」与「命令列表」
+
+        兼容两种格式：
+        - 新格式（推荐）：``{"reasoning": "...", "commands": [...]}``
+          → reasoning 取对象里的 reasoning 字段
+        - 旧格式：裸 JSON 数组 ``[...]``（或单个命令对象 / ``{"commands":[...]}``）
+          → reasoning 为空；若数组前后带文字，则把 JSON 之前的文字作为 reasoning 兜底
+
+        另外兼容 markdown 代码块包裹（```json ... ```）与 ``思考：...\\n[...]`` 这类
+        前后夹带解释文字的输出。
+
+        Args:
+            text: LLM返回的文本
+
+        Returns:
+            (命令列表, reasoning文本)。
+            解析失败时命令列表为 None，reasoning 为 ""。
+        """
+        if not text or not text.strip():
+            logger.warning("LLM输出为空")
+            return None, ""
+
+        # L2: 尝试直接解析
+        commands, reasoning = self._try_direct_parse(text)
+        if commands is not None:
+            return commands, reasoning
+
+        # L2: 提取markdown代码块
+        commands, reasoning = self._try_extract_code_block(text)
+        if commands is not None:
+            return commands, reasoning
+
+        # L2: 提取JSON数组/对象
+        commands, reasoning = self._try_extract_json_structure(text)
+        if commands is not None:
+            return commands, reasoning
+
+        # L3: json_repair 修复
+        commands, reasoning = self._try_repair_parse(text)
+        if commands is not None:
+            return commands, reasoning
+
+        # 全部失败
+        logger.error("LLM输出解析全部失败:\n%s", text[:500])
+        return None, ""
+
     def parse_commands(self, text: str) -> Optional[List[Dict[str, Any]]]:
-        """解析LLM输出，提取命令列表
+        """解析LLM输出，提取命令列表（向后兼容接口）
+
+        内部委托给 :meth:`parse_response`，仅返回命令列表。
+        需要同时拿到 decision reasoning 时请改用 ``parse_response``。
 
         Args:
             text: LLM返回的文本
@@ -44,72 +97,124 @@ class OutputParser:
         Returns:
             命令列表（每个命令是 dict），解析失败返回 None
         """
-        if not text or not text.strip():
-            logger.warning("LLM输出为空")
-            return None
-
-        # L2: 尝试直接解析
-        result = self._try_direct_parse(text)
-        if result is not None:
-            return result
-
-        # L2: 提取markdown代码块
-        result = self._try_extract_code_block(text)
-        if result is not None:
-            return result
-
-        # L2: 提取JSON数组/对象
-        result = self._try_extract_json_structure(text)
-        if result is not None:
-            return result
-
-        # L3: json_repair 修复
-        result = self._try_repair_parse(text)
-        if result is not None:
-            return result
-
-        # 全部失败
-        logger.error("LLM输出解析全部失败:\n%s", text[:500])
-        return None
+        commands, _ = self.parse_response(text)
+        return commands
 
     # ============================================================
     # 解析策略
+    #
+    # 每个策略返回 (commands, reasoning)：
+    #   - commands 为 None 表示该策略未命中
+    #   - commands 为 [] 或 [...] 表示命中
     # ============================================================
 
     @staticmethod
-    def _try_direct_parse(text: str) -> Optional[List[Dict[str, Any]]]:
+    def _normalize(
+        data: Any,
+        prefix_text: str = "",
+    ) -> Tuple[Optional[List[Dict[str, Any]]], str]:
+        """        将解析出的JSON数据规范化为 (commands, reasoning)
+
+        - dict 且含 commands 数组 → 新格式：commands=data["commands"]，
+          reasoning 优先取对象内 reasoning/thought/strategy，缺失时回退 prefix_text
+        - dict 无 commands 且无 type（典型为被截断、只剩 reasoning 的对象）→
+          commands=[]，reasoning 取对象内的 reasoning/thought/strategy（保住决策理由）
+        - 其他 dict（含 type 的单命令对象）→ [data]，reasoning=prefix_text
+        - list → 旧格式裸数组：commands=data，reasoning=prefix_text
+
+        Args:
+            data: json.loads 后的数据
+            prefix_text: JSON 之前夹带的解释文字（兜底 reasoning）
+
+        Returns:
+            (命令列表, reasoning文本)；无法规范化时 (None, "")
+        """
+        if isinstance(data, dict):
+            if isinstance(data.get("commands"), list):
+                embedded = (
+                    data.get("reasoning")
+                    or data.get("thought")
+                    or data.get("strategy")
+                    or ""
+                )
+                if not isinstance(embedded, str):
+                    embedded = str(embedded)
+                embedded = embedded.strip()
+                return data["commands"], embedded or prefix_text
+            # 无有效 commands 字段：以 type 是否存在区分「单命令对象」与「被截断的响应」
+            if "type" not in data:
+                embedded = (
+                    data.get("reasoning")
+                    or data.get("thought")
+                    or data.get("strategy")
+                    or ""
+                )
+                if not isinstance(embedded, str):
+                    embedded = str(embedded)
+                embedded = embedded.strip()
+                if embedded or "reasoning" in data or "thought" in data:
+                    return [], (embedded or prefix_text)
+            return [data], prefix_text
+        if isinstance(data, list):
+            return data, prefix_text
+        return None, ""
+
+    @staticmethod
+    def _extract_leading_text(text: str, json_start: int) -> str:
+        """提取JSON之前的文字，作为 reasoning 兜底
+
+        会去掉 markdown 代码围栏与“思考：/策略：/reasoning:”这类引导标签。
+
+        Args:
+            text: 完整文本
+            json_start: JSON 子串在 text 中的起始下标
+
+        Returns:
+            清洗后的前置文字；无有效内容时返回 ""
+        """
+        prefix = text[:json_start]
+        if not prefix.strip():
+            return ""
+        # 去掉 markdown 代码围栏标记
+        prefix = prefix.replace("```json", "").replace("```JSON", "").replace("```", "")
+        prefix = prefix.strip()
+        # 去掉“思考：/策略：/reasoning:”等引导标签
+        prefix = re.sub(
+            r'^(思考|策略|理由|分析|判断|reasoning|thinking)\s*[:：]\s*',
+            '',
+            prefix,
+            flags=re.IGNORECASE,
+        ).strip()
+        return prefix
+
+    @staticmethod
+    def _try_direct_parse(text: str) -> Tuple[Optional[List[Dict[str, Any]]], str]:
         """尝试直接解析JSON
 
         Args:
             text: 待解析文本
 
         Returns:
-            解析成功返回命令列表，失败返回None
+            (命令列表, reasoning)，未命中返回 (None, "")
         """
-        text = text.strip()
+        stripped = text.strip()
         try:
-            data = json.loads(text)
-            if isinstance(data, list):
-                return data
-            if isinstance(data, dict) and "commands" in data:
-                return data["commands"]
-            if isinstance(data, dict):
-                return [data]
+            data = json.loads(stripped)
         except json.JSONDecodeError:
-            pass
-        return None
+            return None, ""
+        return OutputParser._normalize(data, "")
 
     @staticmethod
-    def _try_extract_code_block(text: str) -> Optional[List[Dict[str, Any]]]:
+    def _try_extract_code_block(text: str) -> Tuple[Optional[List[Dict[str, Any]]], str]:
         """从markdown代码块中提取JSON
 
-        匹配 ```json 或 ``` 包裹的内容。
+        匹配 ```json 或 ``` 包裹的内容。代码块之前的文字作为 reasoning 兜底。
 
         Args:
             text: 待解析文本
 
         Returns:
-            解析成功返回命令列表，失败返回None
+            (命令列表, reasoning)，未命中返回 (None, "")
         """
         # 匹配 ```json ... ``` 或 ``` ... ```
         patterns = [
@@ -122,54 +227,70 @@ class OutputParser:
                 content = match.group(1).strip()
                 try:
                     data = json.loads(content)
-                    if isinstance(data, list):
-                        return data
-                    if isinstance(data, dict) and "commands" in data:
-                        return data["commands"]
-                    if isinstance(data, dict):
-                        return [data]
                 except json.JSONDecodeError:
                     continue
-        return None
+                prefix = OutputParser._extract_leading_text(text, match.start(1))
+                commands, reasoning = OutputParser._normalize(data, prefix)
+                if commands is not None:
+                    return commands, reasoning
+        return None, ""
 
     @staticmethod
-    def _try_extract_json_structure(text: str) -> Optional[List[Dict[str, Any]]]:
+    def _try_extract_json_structure(text: str) -> Tuple[Optional[List[Dict[str, Any]]], str]:
         """从文本中提取JSON数组或对象
 
-        使用正则匹配最外层的 [] 或 {}。
+        使用正则匹配最外层的 [] 或 {}。优先识别含 commands 字段的对象（新格式），
+        避免外层对象的 reasoning 被内层 commands 数组的正则误吞。
 
         Args:
             text: 待解析文本
 
         Returns:
-            解析成功返回命令列表，失败返回None
+            (命令列表, reasoning)，未命中返回 (None, "")
         """
-        # 先尝试匹配数组
+        obj_match = re.search(r'\{[\s\S]*\}', text)
+
+        # 1) 优先匹配新格式对象 {"reasoning":..., "commands":[...]}
+        if obj_match:
+            try:
+                data = json.loads(obj_match.group())
+            except json.JSONDecodeError:
+                data = None
+            if isinstance(data, dict) and (
+                "commands" in data or "reasoning" in data or "thought" in data
+            ):
+                prefix = OutputParser._extract_leading_text(text, obj_match.start())
+                commands, reasoning = OutputParser._normalize(data, prefix)
+                if commands is not None:
+                    return commands, reasoning
+
+        # 2) 匹配数组（旧格式裸数组）
         array_match = re.search(r'\[[\s\S]*\]', text)
         if array_match:
             try:
                 data = json.loads(array_match.group())
-                if isinstance(data, list):
-                    return data
             except json.JSONDecodeError:
-                pass
+                data = None
+            if isinstance(data, list):
+                prefix = OutputParser._extract_leading_text(text, array_match.start())
+                return data, prefix
 
-        # 再尝试匹配对象
-        obj_match = re.search(r'\{[\s\S]*\}', text)
+        # 3) 单个命令对象（旧格式）
         if obj_match:
             try:
                 data = json.loads(obj_match.group())
-                if isinstance(data, dict) and "commands" in data:
-                    return data["commands"]
-                if isinstance(data, dict):
-                    return [data]
             except json.JSONDecodeError:
-                pass
+                data = None
+            if isinstance(data, dict):
+                prefix = OutputParser._extract_leading_text(text, obj_match.start())
+                commands, reasoning = OutputParser._normalize(data, prefix)
+                if commands is not None:
+                    return commands, reasoning
 
-        return None
+        return None, ""
 
     @staticmethod
-    def _try_repair_parse(text: str) -> Optional[List[Dict[str, Any]]]:
+    def _try_repair_parse(text: str) -> Tuple[Optional[List[Dict[str, Any]]], str]:
         """使用json_repair修复后解析
 
         处理单引号、尾随逗号、注释等常见问题。
@@ -178,18 +299,15 @@ class OutputParser:
             text: 待解析文本
 
         Returns:
-            解析成功返回命令列表，失败返回None
+            (命令列表, reasoning)，未命中返回 (None, "")
         """
+        # 尝试修复整个文本
         try:
-            # 尝试修复整个文本
             repaired = repair_json(text)
             data = json.loads(repaired)
-            if isinstance(data, list):
-                return data
-            if isinstance(data, dict) and "commands" in data:
-                return data["commands"]
-            if isinstance(data, dict):
-                return [data]
+            commands, reasoning = OutputParser._normalize(data, "")
+            if commands is not None:
+                return commands, reasoning
         except Exception:
             pass
 
@@ -199,16 +317,14 @@ class OutputParser:
             if match:
                 repaired = repair_json(match.group())
                 data = json.loads(repaired)
-                if isinstance(data, list):
-                    return data
-                if isinstance(data, dict) and "commands" in data:
-                    return data["commands"]
-                if isinstance(data, dict):
-                    return [data]
+                prefix = OutputParser._extract_leading_text(text, match.start())
+                commands, reasoning = OutputParser._normalize(data, prefix)
+                if commands is not None:
+                    return commands, reasoning
         except Exception:
             pass
 
-        return None
+        return None, ""
 
     # ============================================================
     # 命令校验

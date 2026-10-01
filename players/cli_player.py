@@ -24,6 +24,7 @@ from game.models import (
     General,
 )
 from game.random import GameRandom
+from game.constants import FACTIONS
 from players.base_player import BasePlayer
 
 
@@ -130,21 +131,26 @@ class CLIPlayer(BasePlayer):
                     and self._rng.random() < self._aggression * 1.3):
                 target = self._find_attack_target(city, enemy_ids, observation)
                 if target:
-                    # 目标已知守军（相邻敌城在观测里有值；未知记为 0）
+                    # 目标信息（相邻城在观测里有守军；否则未知）
                     tgt_garrison = 0
+                    tgt_is_neutral = False
                     for kc in observation.known_cities:
-                        if kc.id == target and getattr(kc, "garrison", None):
-                            tgt_garrison = kc.garrison
+                        if kc.id == target:
+                            tgt_garrison = getattr(kc, "garrison", 0) or 0
+                            tgt_is_neutral = kc.faction not in FACTIONS
                             break
                     # 集中兵力：投入足以压倒目标守军的兵力，而非固定 3000×aggr 的小分队
                     desired = int(3000 * max(0.4, self._aggression))
                     if tgt_garrison:
                         desired = max(desired, int(tgt_garrison * 1.3) + 200)
                     troops = min(city.garrison - 100, desired)
-                    # 有把握才打：兵力需明显超过目标守军（守军未知时放宽）
-                    confident = (troops >= 200) and (
-                        tgt_garrison == 0 or troops >= tgt_garrison * 1.2
-                    )
+                    # 门槛分层：中立/无主城 → 低门槛扩张；敌城 → 兵力需达其守军 ~1.0 倍才打
+                    if tgt_is_neutral:
+                        confident = troops >= 200
+                    else:
+                        confident = (troops >= 200) and (
+                            tgt_garrison == 0 or troops >= tgt_garrison * 1.0
+                        )
                     if confident:
                         gen = self._find_general_in_city(city.id, observation)
                         general_id = gen.id if gen else (observation.own_generals[0].id if observation.own_generals else "")
@@ -195,7 +201,20 @@ class CLIPlayer(BasePlayer):
 
     @staticmethod
     def _find_attack_target(city: City, enemy_ids: Set[str], obs: GameObservation) -> str:
+        """选择进攻目标：优先中立/无主邻居（低成本扩张），其次敌城。"""
+        neutral_first = ""
+        enemy_first = ""
         for nid in city.neighbors:
-            if nid in enemy_ids:
-                return nid
-        return ""
+            if nid not in enemy_ids:
+                continue
+            fac = None
+            for kc in obs.known_cities:
+                if kc.id == nid:
+                    fac = kc.faction
+                    break
+            if fac is not None and fac not in FACTIONS:
+                if not neutral_first:
+                    neutral_first = nid
+            elif not enemy_first:
+                enemy_first = nid
+        return neutral_first or enemy_first

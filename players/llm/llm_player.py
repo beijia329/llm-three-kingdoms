@@ -53,6 +53,13 @@ COMMAND_CLASSES = {
     "declare_war": DeclareWarCommand,
 }
 
+# 单次生成的最大 token 预算。
+# 注意：DeepSeek 的 deepseek-flash 等为「推理模型」，其隐藏思维链
+# (message.reasoning_content) 的 token 是计入 max_tokens 的。若预算过小，
+# 隐藏推理会吃光额度，导致 message.content 为空或被截断（表现为解析失败、
+# 命令丢失）。这里给足预算，保证 JSON（reasoning + commands）能完整输出。
+LLM_MAX_TOKENS: int = 4096
+
 # 命令参数映射（LLM输出字段 -> Command类字段）
 PARAM_MAPPING = {
     "develop": {"city": "city", "type": "develop_type"},
@@ -106,6 +113,7 @@ class LLMPlayer(BasePlayer):
         self._parser = OutputParser()
         self._prompt_builder = PromptBuilder()
         self._last_response: str = ""  # 上次的LLM响应（用于重试时反馈）
+        self.last_reasoning: str = ""  # 本回合LLM给出的决策理由（供API/前端「决策」展示）
         self.faction_keys: Optional[list] = None  # 本局参战势力（外交目标提示；None=全部）
 
     # ============================================================
@@ -123,6 +131,9 @@ class LLMPlayer(BasePlayer):
         Returns:
             命令列表（可能为空）
         """
+        # 每回合先清空上一回合的决策理由，避免失败/降级时残留旧值
+        self.last_reasoning = ""
+
         # 如果已降级，使用随机策略
         if self._degraded:
             logger.warning("[%s] 已降级为随机AI", self.faction)
@@ -140,11 +151,11 @@ class LLMPlayer(BasePlayer):
         # 调用LLM（带重试）
         for attempt in range(self.max_retries + 1):
             try:
-                response = self.llm.chat(messages)
+                response = self.llm.chat(messages, max_tokens=LLM_MAX_TOKENS)
                 self._last_response = response
 
-                # 解析输出
-                raw_commands = self._parser.parse_commands(response)
+                # 解析输出（同时取回 reasoning 与 commands）
+                raw_commands, reasoning = self._parser.parse_response(response)
                 if raw_commands is None:
                     logger.warning(
                         "[%s] 解析失败 (尝试 %d/%d)",
@@ -155,7 +166,10 @@ class LLMPlayer(BasePlayer):
                         messages.append({"role": "assistant", "content": response})
                         messages.append({
                             "role": "user",
-                            "content": "JSON格式解析失败，请只输出JSON数组，不要包含解释文字。",
+                            "content": (
+                                "JSON格式解析失败，请重新输出一个包含 reasoning 与 commands "
+                                "字段的JSON对象，不要把解释文字写在对象之外。"
+                            ),
                         })
                     continue
 
@@ -168,10 +182,13 @@ class LLMPlayer(BasePlayer):
                 # 记录成功
                 self._consecutive_fails = 0
 
-                # 保存记忆
+                # 保存本回合的决策理由（供上层/前端展示）
+                self.last_reasoning = reasoning or ""
+
+                # 保存记忆（thought 用 reasoning，缺失时回退到原始响应）
                 self.memory.add_turn_memory(
                     turn=observation.turn,
-                    thought=response,
+                    thought=reasoning or response,
                     commands=valid_commands,
                 )
 

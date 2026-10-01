@@ -55,14 +55,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start-year", type=int, default=184, help="起始年份（默认184年黄巾起义）")
     parser.add_argument("--faction", type=str, default="", help="人类玩家势力（human-vs-ai模式）")
     parser.add_argument("--llm", action="store_true", help="使用LLM玩家（默认使用CLI AI）")
-    parser.add_argument("--model", type=str, default="deepseek-v4-flash", help="LLM模型名称")
+    parser.add_argument("--model", type=str, default="deepseek-flash", help="LLM模型名称")
     parser.add_argument("--api-key", type=str, default="", help="API密钥（默认从环境变量读取）")
     return parser.parse_args()
 
 
 def run_ai_vs_ai(
     seed: int = 42, max_turns: int = 192,
-    use_llm: bool = False, model: str = "deepseek-v4-flash",
+    use_llm: bool = False, model: str = "deepseek-flash",
     api_key: str = "",
 ) -> None:
     """运行 AI vs AI 自动对战
@@ -166,7 +166,7 @@ def run_ai_vs_ai(
 
 def run_gui_mode(
     seed: int = 42, max_turns: int = 192,
-    use_llm: bool = False, model: str = "deepseek-v4-flash",
+    use_llm: bool = False, model: str = "deepseek-flash",
     api_key: str = "",
     human_faction: str = "",
 ) -> None:
@@ -219,7 +219,7 @@ def run_gui_mode(
 def run_infinite_mode(
     seed: int = 42,
     use_llm: bool = False,
-    model: str = "deepseek-v4-flash",
+    model: str = "deepseek-flash",
     api_key: str = "",
     start_year: int = 184,
 ) -> None:

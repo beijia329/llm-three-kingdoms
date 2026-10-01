@@ -287,18 +287,23 @@ class PromptBuilder:
 
 ## 输出格式
 
-请严格按以下JSON格式输出命令数组：
+请严格按以下JSON对象格式输出（一个对象，同时包含 strategy 理由与命令）：
 
-[
-  {"type": "develop", "params": {"city": "xuchang", "type": "economy"}},
-  {"type": "recruit", "params": {"city": "chengdu", "troops": 500}},
-  {"type": "attack", "params": {"from": "changan", "to": "hanzhong", "troops": 1500, "general": "simayi"}}
-]
+{
+  "reasoning": "对局势的判断 + 本回合计划 + 外交意图，2-5句，可用数字算账（如金钱/兵力/粮草/城数）",
+  "commands": [
+    {"type": "develop", "params": {"city": "xuchang", "type": "economy"}},
+    {"type": "recruit", "params": {"city": "chengdu", "troops": 500}},
+    {"type": "attack", "params": {"from": "changan", "to": "hanzhong", "troops": 1500, "general": "simayi"}}
+  ]
+}
 
 【重要说明】
+- reasoning 必填，必须用中文，必须体现你的策略意图（你判断的局势、本回合为什么这么做、想达成什么）
+- commands 是命令数组，可以为空数组 []（例如本回合只想外交或观望）
 - city 参数使用城市 ID（如 xuchang/chengdu/jianye），不是中文名
 - general 参数使用将领 ID（如 caocao/zhugeliang/simayi），不是中文名
-- 只输出JSON数组，不要输出其他解释文字"""
+- 只输出这一个JSON对象，reasoning 写在对象内部，不要在对象之外补充解释文字"""
 
     # ============================================================
     # 完整Prompt组装
