@@ -25,6 +25,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 
   // 相机状态用 ref（不触发 React 重渲染，通过 DOM 操作同步）
   const cameraRef = useRef<Camera>({ x: -2800, y: -400, zoom: 0.45 })
+  const didFitRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
   // [修复 2026-10-01] Pixi 初始化是异步的；用 ready 门控渲染，避免首个 state
   // 在 Pixi 就绪前到达导致地图空白且不再重绘。
@@ -109,6 +110,24 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 
     const camera = pixiCameraRef.current
     camera.removeChildren()
+
+    // [UX 修复 2026-10-01] 首次渲染自动取景整张地图（原默认 zoom 0.45 只看得到局部，
+    // 且缩放下限 0.3 锁死 → 永远看不到全图）。
+    if (!didFitRef.current) {
+      const vw = containerRef.current?.clientWidth || 1300
+      const vh = containerRef.current?.clientHeight || 900
+      const mw = state.hex_map?.width || 200
+      const mh = state.hex_map?.height || 120
+      const wW = HEX_SIZE * (Math.sqrt(3) * (mw - 1) + (Math.sqrt(3) / 2) * (mh - 1))
+      const wH = HEX_SIZE * (1.5 * (mh - 1))
+      const z = Math.max(0.06, Math.min(1.2, Math.min(vw / wW, vh / wH) * 0.96))
+      const cx = (vw - wW * z) / 2
+      const cy = (vh - wH * z) / 2
+      cameraRef.current = { x: cx, y: cy, zoom: z }
+      camera.position.set(cx, cy)
+      camera.scale.set(z)
+      didFitRef.current = true
+    }
 
     // === 渲染层 ===
     // 构建 tileMap + coords
@@ -315,7 +334,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   const PAD = HEX_SIZE * 90
 
   const clampCamera = (cam: Camera, viewW: number, viewH: number): Camera => {
-    const z = Math.max(0.3, Math.min(1.2, cam.zoom))
+    const z = Math.max(0.06, Math.min(1.2, cam.zoom))
     // 摄像机 cx 使得世界坐标 x 映射到屏幕 (x+cx)*z
     // 可见范围: world x ∈ [-cx, (viewW/z)-cx]
     // 约束: 左边界 world x = -PAD 可见 → cx ≤ PAD
@@ -360,7 +379,7 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
 
       const prev = cameraRef.current
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
-      const newZoom = Math.max(0.3, Math.min(1.2, prev.zoom * zoomFactor))
+      const newZoom = Math.max(0.06, Math.min(1.2, prev.zoom * zoomFactor))
       const wx = (mouseX - prev.x) / prev.zoom
       const wy = (mouseY - prev.y) / prev.zoom
       syncCamera({

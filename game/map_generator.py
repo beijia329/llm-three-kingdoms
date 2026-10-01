@@ -526,11 +526,14 @@ class MapGenerator:
                         break
 
                 if in_china and matched_province:
-                    result[r][q] = h
+                    # [修复 2026-10-01] 境内强制为陆地：在噪声高度上叠加（0.45~1.0，保留地形起伏），
+                    # 使海陆形状真正由**中国省界多边形**决定，而不是噪声高度图。
+                    result[r][q] = 0.45 + h * 0.55
                     province_map[(q, r)] = matched_province
                 else:
-                    # 境外：保留原始高度（陆地=未探索，水域=海洋）
-                    result[r][q] = h
+                    # [修复 2026-10-01] 境外强制为水域（< sea_level 0.40），
+                    # 让中国版图成为可辨识的陆块（原实现两个分支都写 h，导致形状来自噪声）。
+                    result[r][q] = 0.0
 
         # 填充中国版图内部的缝隙/洞，让省界在六角格层面连续
         MapGenerator._fill_china_holes(province_map, width, height)
