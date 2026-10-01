@@ -18,32 +18,16 @@ interface CityMarkerProps {
 export function CityMarker({ city, x, y, zoom, onClick }: CityMarkerProps) {
   const color = FACTION_COLORS[city.faction] || '#888'
   const glow = FACTION_GLOW[city.faction] || 'rgba(128,128,128,0.5)'
-  const size = 18 + city.level * 4
-  // [LOD 2026-10-01] 标记屏幕尺寸随地图缩放（9~30px），密集区不糊成一团；过小时隐藏城名。
+  // [LOD 2026-10-01] 标记屏幕尺寸随地图缩放（13~30px）；过小时隐藏城名。
   const markerScreen = Math.max(13, Math.min(30, 64 * zoom * 1.6))
   const scale = markerScreen / (34 * Math.max(zoom, 0.02))
   const showName = markerScreen > 17
+  // [美术 2026-10-01] 不用图标：小圆点（势力色）+ 城名；等级用点径表示（参考三国志极简标记）。
+  const dot = 9 + Math.min(city.level, 5) * 1.8
 
   const maxG = city.level * 1000
   const ratio = Math.min(1, city.garrison / maxG)
   const hpColor = ratio > 0.5 ? '#3cb464' : ratio > 0.2 ? '#c8a032' : '#c85046'
-
-  // [美术 2026-10-01] 城池图标改用 game-icons（CC BY 3.0）的 castle.svg，
-  // 通过 CSS mask 上势力色（game-icons 为单色 currentColor，直接用 <img> 会变黑）。
-  const iconSize = size * 1.25
-  const maskIcon = (url: string, color: string, s: number) => ({
-    width: s,
-    height: s,
-    backgroundColor: color,
-    WebkitMaskImage: `url(${url})`,
-    maskImage: `url(${url})`,
-    WebkitMaskSize: 'contain',
-    maskSize: 'contain',
-    WebkitMaskRepeat: 'no-repeat',
-    maskRepeat: 'no-repeat',
-    WebkitMaskPosition: 'center',
-    maskPosition: 'center',
-  })
 
   return (
     <div
@@ -65,42 +49,43 @@ export function CityMarker({ city, x, y, zoom, onClick }: CityMarkerProps) {
         alignItems: 'center',
       }}
     >
-      {/* 城池图标 */}
+      {/* 城池标记：小圆点（势力色），点径表示等级，不用图标 */}
       <div
         style={{
           position: 'relative',
-          filter: `drop-shadow(0 0 6px ${glow})`,
+          filter: `drop-shadow(0 0 5px ${glow})`,
           animation: city.is_besieged ? 'city-pulse 2s ease-in-out infinite' : 'none',
         }}
       >
-        <div style={{ ...maskIcon('/art/icons/castle.svg', color, iconSize), filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))' }} />
-        {/* 等级星标 */}
-        {city.level >= 3 && (
-          <div style={{ position: 'absolute', top: '-5px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '2px' }}>
-            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#d4a84b' }} />
-            {city.level >= 4 && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#d4a84b' }} />}
-            {city.level >= 5 && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#d4a84b' }} />}
-          </div>
-        )}
+        <div
+          style={{
+            width: `${dot}px`,
+            height: `${dot}px`,
+            borderRadius: '50%',
+            backgroundColor: color,
+            border: '1.5px solid #2a2018',
+            boxSizing: 'border-box',
+          }}
+        />
         {/* 围城警告 */}
         {city.is_besieged && (
           <div
             style={{
               position: 'absolute',
-              top: '-8px',
+              top: '-6px',
               right: '-8px',
-              width: '14px',
-              height: '14px',
+              width: '12px',
+              height: '12px',
               borderRadius: '50%',
               backgroundColor: '#c85046',
-              border: '2px solid #1a1a2e',
+              border: '2px solid #2a2018',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               animation: 'siege-blink 1s ease-in-out infinite',
             }}
           >
-            <i className="fa-solid fa-exclamation" style={{ fontSize: '8px', color: '#fff' }}></i>
+            <i className="fa-solid fa-exclamation" style={{ fontSize: '7px', color: '#fff' }}></i>
           </div>
         )}
       </div>
@@ -110,10 +95,10 @@ export function CityMarker({ city, x, y, zoom, onClick }: CityMarkerProps) {
         <div
           style={{
             marginTop: '2px',
-            color: '#f0e8d8',
+            color: '#2f2418',
             fontSize: '12px',
             fontWeight: 600,
-            textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 1px rgba(0,0,0,1)',
+            textShadow: '0 0 3px rgba(255,250,235,0.9), 0 0 2px rgba(255,250,235,0.9)',
             whiteSpace: 'nowrap',
             fontFamily: 'Noto Sans SC, PingFang SC, sans-serif',
             letterSpacing: '0.5px',

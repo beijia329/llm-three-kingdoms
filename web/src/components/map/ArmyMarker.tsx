@@ -52,17 +52,12 @@ export function ArmyMarker({ army, x, y, zoom }: ArmyMarkerProps) {
       >
         <div
           style={{
-            width: size * 1.7,
-            height: size * 1.7,
+            width: size * 1.15,
+            height: size * 1.15,
             backgroundColor: isRetreat ? '#c85046' : color,
-            WebkitMaskImage: `url('/art/icons/${isRetreat ? 'shield' : 'knight-banner'}.svg')`,
-            maskImage: `url('/art/icons/${isRetreat ? 'shield' : 'knight-banner'}.svg')`,
-            WebkitMaskSize: 'contain',
-            maskSize: 'contain',
-            WebkitMaskRepeat: 'no-repeat',
-            maskRepeat: 'no-repeat',
-            WebkitMaskPosition: 'center',
-            maskPosition: 'center',
+            border: '1.5px solid #2a2018',
+            boxSizing: 'border-box',
+            transform: 'rotate(45deg)',
           }}
         />
       </div>
