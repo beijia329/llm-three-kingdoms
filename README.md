@@ -1,149 +1,102 @@
-# 乱斗三国 - 多模型策略对战平台
+# 乱斗三国 · LLM 大乱斗
 
-> 184年黄巾之乱，12方诸侯逐鹿中原——大语言模型们，谁才是真正的"天命之子"
+> 184 年黄巾之乱，十二路诸侯逐鹿中原——让大语言模型各领一方，谁才是真正的「天命之子」？
 
-> 最后更新：2026-10-01 | 版本：v2.3
+一个 **LLM 驱动的多智能体策略对战平台**。把大模型评测从传统的「PVE 刷分」搬进「PVP 竞技」：让不同的大模型扮演三国诸侯，在同一套规则下真刀真枪地打一局，看谁更会**推理、规划、合纵连横**。
 
----
-
-## 项目简介
-
-这是一个LLM驱动的多智能体策略对战游戏。12个势力（汉室/张角/董卓/袁绍/曹操/刘备/孙坚/刘表/刘焉/公孙瓒/马腾/袁术）在六角格真实中国地图上策略对战。
-
-### 核心特性
-- 🗺️ **六角格真实地图**：120×90 格，覆盖中国全境，带省界矢量底图
-- ⚔️ **12方势力**：184年黄巾之乱全剧本，每方有独特性格参数
-- 🏙️ **22座城池**：经纬度精确投影，地形/资源/控制区系统
-- 🔄 **192回合制**：每回合=1季度，184年→232年完整三国形成期
-- 🤝 **外交博弈**：信使系统 + 口头盟约 + 流言策反
-- 👑 **建国机制**：控3城称王、5城称帝，历史国号 + Buff/Debuff
-- 🧠 **性格驱动AI**：aggression/diplomacy/expand 权重影响决策
-- 🎥 **相机系统**：WASD平移、滚轮缩放、势力边界渲染
-- 📊 **完整回放**：可复现的确定性随机 + 结构化日志
-
-### 技术栈
-- **后端**：Python 3.12+
-- **游戏引擎**：纯 Python（无 UI 依赖），Pydantic 2.0+ 数据校验
-- **GUI（降级 / 调试通道）**：Pygame 2.6+
-- **Web 前端（一等公民渲染通道）**：React 18 + PixiJS 8 + TypeScript 5 + Vite 5
-- **Web 后端桥接**：FastAPI + WebSocket（桥接单局 GameManager）
-- **E2E 测试**：Playwright
-- **测试**：pytest（504 tests）
-- **LLM**：默认 DeepSeek（api.deepseek.com/v1），可经 OpenRouter / OpenAI 封装切换；密钥用环境变量 `LLM_API_KEY`（兼容旧名 `OPENROUTER_API_KEY`）
-- **地图数据**：阿里云 DataV GeoJSON + 六角格投影
+> 灵感来自腾讯云开发者社区《赛博斗蛐蛐：9大模型决战三国志，天命在谁？》
 
 ---
 
-## 快速开始
+## ✨ 核心亮点
+
+- 🧠 **LLM 即玩家**：每个势力由一个 LLM 驱动，每回合先给「决策理由」再下命令，主观智能全程可见
+- 🗺️ **真实中国地图**：六角格 + 省界，古地图美学（羊皮纸 + 墨线 + 半透明势力色域），含黄河/长江/珠江
+- ⚔️ **十二方势力**：184 年黄巾剧本，每方有独特性格（aggression/diplomacy/expand）
+- 🤝 **外交博弈**：信使系统、口头盟约、流言策反、背盟欺诈
+- 🏯 **领地系统**：以城为源多源扩张，占城即夺地，边界随占领实时重划
+- 👑 **建国机制**：控 3 城称王、5 城称帝
+- 🎥 **Web 围观台**：React + PixiJS，实时看 LLM 勾心斗角（决策理由 / 外交 / 事件流 / 回放）
+- 🔁 **确定性**：同 seed 可复现，公平比试
+
+## 📸 效果
+
+（地图 / 决策 tab 截图待补充）
+
+## 🚀 快速开始
+
+### 环境
+
+- Python 3.12+
+- Node.js 18+（仅 Web 前端）
+- 一个 LLM API key（默认 DeepSeek，兼容任意 OpenAI 格式端点）
+
+### 安装 & 运行
 
 ```bash
+# 1. 安装 Python 依赖
 pip install -r requirements.txt
 
-# GUI 模式（六角格地图 + 12方自动对战）
-python3 main.py --mode gui --seed 42
+# 2. 配置 LLM key（二选一）
+export LLM_API_KEY="sk-..."        # 推荐
+export DEEPSEEK_API_KEY="sk-..."   # 兼容旧名
 
-# 纯CLI对战
-python3 main.py --mode ai-vs-ai --seed 42 --max-turns 30
+# 3. CLI 纯 AI 对战（启发式 AI，无 LLM，零成本）
+python main.py --mode ai-vs-ai --max-turns 24
 
-# 无限模式
-python3 main.py --mode infinite --seed 42
-
-# 扮演指定势力
-python3 main.py --mode gui --faction caocao
-
-# GPU操作：WASD平移 | 滚轮缩放 | 空格推进 | A自动 | ESC退出
+# 4. 3 方 LLM 对战（DeepSeek 实跑，24 回合约 $0.04）
+python tests/llm_3p_run.py --turns 24 --factions caocao,liubei,sunjian
 ```
 
----
+### 启动 Web 围观台
 
-## 项目结构
+```bash
+# 构建前端
+cd web && npm install && npm run build && cd ..
 
-```
-llm-sanguo/
-├── game/                    # 游戏引擎（纯逻辑，无pygame依赖）
-│   ├── engine.py            # GameEngine 主类
-│   ├── models.py            # Pydantic 数据模型
-│   ├── constants.py         # 全局常量配置
-│   ├── hex_grid.py          # 六角格坐标系统 (HexCoord)
-│   ├── hex_map.py           # 六角格地图 (A* 寻路)
-│   ├── tile.py              # 地块数据模型 (Tile/TerrainType)
-│   ├── season.py            # 季节枚举
-│   ├── game_mode.py         # 游戏模式枚举
-│   ├── personality.py       # 性格/战略倾向系统
-│   ├── kingdom_system.py    # 建国称王系统
-│   ├── influence_system.py  # 影响力扩散系统
-│   ├── random.py            # 确定性随机数
-│   ├── event_bus.py         # 事件总线
-│   ├── data_loader.py       # 数据加载器
-│   ├── systems/             # 子系统
-│   │   ├── resource_system.py
-│   │   ├── city_system.py
-│   │   ├── general_system.py
-│   │   ├── diplomacy_system.py
-│   │   └── map_system.py
-│   └── battle/              # 战斗系统
-│       ├── battle_scheduler.py
-│       ├── battle_resolver.py
-│       └── army_movement.py
-│
-├── players/                 # 玩家层
-│   ├── base_player.py
-│   ├── cli_player.py        # 性格驱动CLI AI
-│   └── llm/                 # LLM玩家
-│       ├── llm_player.py
-│       ├── prompt_builder.py
-│       └── ...
-│
-├── renderer/                # Pygame 渲染层
-│   ├── game_renderer.py     # 主窗口/循环
-│   ├── hex_map_renderer.py  # 六角格地图 + 省界 + 势力边界
-│   ├── map_renderer.py      # 旧版地图（fallback）
-│   ├── camera.py            # 2D相机（平移/缩放）
-│   ├── ui_panel.py          # 侧边栏面板
-│   └── replay_player.py
-│
-├── data/                    # 游戏数据
-│   ├── hex_map.json         # 120×90 六角格地图
-│   ├── china_provinces.json # 中国34省GeoJSON边界
-│   ├── cities.json          # 22城配置
-│   ├── generals.json        # 47名将
-│   └── terrain_colors.json  # 地形颜色
-│
-├── tests/                   # 399 tests
-└── main.py                  # 入口
+# 起后端（FastAPI 同时托管前端产物 + WebSocket）
+python -m uvicorn api.server:app --host 127.0.0.1 --port 8000
+
+# 打开 http://127.0.0.1:8000
+# 右键 tab 栏「决策」看 LLM 每回合的策略
 ```
 
----
+### LLM 模型说明
 
-## 184年剧本：12方诸侯
+- 默认 `deepseek-flash`（DeepSeek-V4.1-Flash）
+- ⚠️ `deepseek-flash` 是**推理模型**，隐藏思维链计入 `max_tokens`，客户端已按需提升上限
+- 可用模型 id：`deepseek-flash`、`deepseek-v4-pro`
+- 换其它 OpenAI 兼容端点：`LLMClient(provider=..., base_url=...)`
 
-| 势力 | 君主 | 城池 | 性格 |
-|------|------|------|------|
-| 汉室 | 汉灵帝/何进 | 洛阳、长安 | 谨慎 |
-| 张角 | 张角 | 巨鹿、南阳 | 激进 |
-| 董卓 | 董卓 | 天水 | 激进 |
-| 袁绍 | 袁绍 | 邺城 | 野心 |
-| 曹操 | 曹操 | 陈留、许昌 | 野心 |
-| 刘备 | 刘备 | 剑阁、白帝 | 外交 |
-| 孙坚 | 孙坚 | 长沙、柴桑 | 激进 |
-| 刘表 | 刘表 | 襄阳、江陵 | 谨慎 |
-| 刘焉 | 刘焉 | 成都、汉中 | 谨慎 |
-| 公孙瓒 | 公孙瓒 | 蓟 | 激进 |
-| 马腾 | 马腾 | 武威 | 激进 |
-| 袁术 | 袁术 | 寿春、合肥 | 野心 |
+## 🧪 测试
 
----
+```bash
+python -m pytest tests/ -q        # 516 tests
+```
 
-## 版本
+## 📁 项目结构
 
-**v2.3** — 收口质量门修复：API key 变量改名 `LLM_API_KEY`（兼容 `OPENROUTER_API_KEY`）、文档一致性（12方/192回合/22城/胜利条件）、renderer 字体缺陷修复（FONT_CJK_XS）、依赖补 numpy
+```
+game/       游戏引擎（纯逻辑，无 UI 依赖，Pydantic 数据模型）
+players/    玩家层：cli_player（启发式）+ llm/（LLMPlayer、prompt、解析、记忆）
+renderer/   Pygame 渲染（降级/调试通道）
+web/        React + PixiJS Web 前端（一等公民渲染通道）
+api/        FastAPI + WebSocket 桥接
+data/       地图/城市/将领/省界数据
+tests/      单元 + 集成 + 平衡 + LLM runner
+docs/       设计文档 / ADR / QA 报告
+```
 
-**v2.2** — 马腾+武威、袁术+合肥、GameState字段补齐、建国Buff接入、信息迷雾优化
+## 🤝 贡献
 
-**v2.1** — Web 前端（FastAPI + React + PixiJS）、玻璃拟态 UI、Playwright 测试
+欢迎 PR！提交前请 `python -m pytest tests/ -q` 保证全绿。新功能建议附测试。
 
-**v2.0** — 六角格地图 + 12方势力 + 性格系统 + 建国机制
+## 📄 许可
 
----
+[MIT](./LICENSE)
 
-> MIT License | 仅供研究和学习
+## 🙏 素材与致谢
+
+- 地图省界：阿里云 DataV GeoJSON
+- 图标：game-icons.net（CC BY 3.0，详见 `assets/art/ATTRIBUTION.md`）
+- 六角地块：Kenney（CC0）
