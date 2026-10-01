@@ -114,8 +114,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 92,
-      "r": 56
+      "q": 93,
+      "r": 55
     },
     "neighbors": [
       "julu",
@@ -171,7 +171,7 @@
     "garrison": 2000,
     "position": {
       "q": 88,
-      "r": 62
+      "r": 63
     },
     "neighbors": [
       "chenliu",
@@ -247,7 +247,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 76,
+      "q": 77,
       "r": 81
     },
     "neighbors": [
@@ -297,8 +297,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 82,
-      "r": 68
+      "q": 81,
+      "r": 69
     },
     "neighbors": [
       "nanyang",
@@ -324,7 +324,7 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 79,
+      "q": 78,
       "r": 74
     },
     "neighbors": [
@@ -373,8 +373,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 72,
-      "r": 65
+      "q": 71,
+      "r": 66
     },
     "neighbors": [
       "jian_ge",
@@ -449,8 +449,8 @@
     "morale": 70,
     "garrison": 2000,
     "position": {
-      "q": 84,
-      "r": 65
+      "q": 83,
+      "r": 66
     },
     "neighbors": [
       "xiangyang",
@@ -526,7 +526,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 99,
+      "q": 98,
       "r": 71
     },
     "neighbors": [
@@ -576,8 +576,8 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 98,
-      "r": 69
+      "q": 97,
+      "r": 62
     },
     "neighbors": [
       "pengcheng",
@@ -601,7 +601,7 @@
     "garrison": 1000,
     "position": {
       "q": 95,
-      "r": 69
+      "r": 62
     },
     "neighbors": [
       "xiapi",
@@ -624,8 +624,8 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 100,
-      "r": 67
+      "q": 97,
+      "r": 68
     },
     "neighbors": [
       "xiapi",
@@ -649,8 +649,8 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 103,
-      "r": 51
+      "q": 102,
+      "r": 54
     },
     "neighbors": [
       "beihai",
@@ -673,7 +673,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 107,
+      "q": 104,
       "r": 54
     },
     "neighbors": [
@@ -697,8 +697,8 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 94,
-      "r": 47
+      "q": 91,
+      "r": 51
     },
     "neighbors": [
       "ji",
@@ -720,7 +720,7 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 62,
+      "q": 69,
       "r": 97
     },
     "neighbors": [
@@ -742,8 +742,8 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 64,
-      "r": 95
+      "q": 65,
+      "r": 96
     },
     "neighbors": [
       "panyu",
@@ -764,8 +764,8 @@
     "morale": 70,
     "garrison": 1000,
     "position": {
-      "q": 135,
-      "r": 24
+      "q": 120,
+      "r": 40
     },
     "neighbors": [
       "ji",
