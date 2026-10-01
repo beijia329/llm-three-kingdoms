@@ -165,6 +165,30 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     })
     camera.addChild(factionGraphics)
 
+    // 河流（黄河/长江）：真实走向的经纬度折线 → 格坐标 → 像素
+    const riverGraphics = new Graphics()
+    RIVERS.forEach((pts) => {
+      const px = pts.map(([lon, lat]) => {
+        const r = (54 - lat) * 119 / 38
+        const q = (lon - 60) * 199 / 90 - r / 2
+        return axialToPixel({ q, r }, HEX_SIZE)
+      })
+      if (px.length < 2) return
+      const dense: { x: number; y: number }[] = []
+      for (let i = 0; i < px.length - 1; i++) {
+        const a = px[i], b = px[i + 1]
+        for (let t = 0; t < 8; t++) {
+          const f = t / 8
+          dense.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f })
+        }
+      }
+      dense.push(px[px.length - 1])
+      riverGraphics.moveTo(dense[0].x, dense[0].y)
+      for (let i = 1; i < dense.length; i++) riverGraphics.lineTo(dense[i].x, dense[i].y)
+      riverGraphics.stroke({ color: 0x3f6d86, width: 9, alpha: 0.9 })
+    })
+    camera.addChild(riverGraphics)
+
     // [美术 2026-10-01] 线描山脉在"整图缩放"下会糊成噪点，暂不绘制；
     // 保持"平铺羊皮纸 + 墨线省界 + 半透明势力色"的干净古地图风（参考三国志12）。
 
@@ -468,6 +492,18 @@ function darken(color: number, factor: number): number {  const r = Math.min(255
 /** 古地图配色：深色海 + 墨线 */
 const SEA_COLOR = 0x1b3a4b
 const INK_COLOR = 0x4a3a28
+
+/** 两条主河的近似走向（[经度, 纬度]），用于古地图上的水系表现 */
+const RIVERS: [number, number][][] = [
+  // 黄河（源→渤海湾）
+  [[96, 35.0], [100, 35.5], [102, 36.2], [104, 36.0], [106, 37.4], [108, 39.4],
+   [110, 40.6], [111.5, 40.0], [112.5, 38.0], [113.6, 36.6], [115, 35.9],
+   [116.6, 36.3], [118.0, 37.3], [119.1, 37.8]],
+  // 长江（源→长江口）
+  [[91, 33.5], [94, 32.5], [96, 31.5], [98, 29.5], [100, 28.0], [102, 27.5],
+   [104, 28.5], [106, 29.3], [107.5, 30.1], [109, 30.6], [111, 30.4],
+   [113, 30.6], [115, 30.5], [117, 30.8], [118.6, 31.6], [120, 31.8], [121.8, 31.5]],
+]
 
 /** 羊皮纸底：整片统一（参考三国志12 古地图——地形不做花斑，只靠墨线省界与势力色） */
 function parchmentTint(_terrain: string): number {

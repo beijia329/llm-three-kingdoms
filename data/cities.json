@@ -16,14 +16,11 @@
       "r": 61
     },
     "neighbors": [
-      "nanyang",
-      "yecheng",
-      "xuchang",
-      "chenliu",
-      "xiangyang",
-      "julu",
       "changan",
-      "bai_di"
+      "chenliu",
+      "nanyang",
+      "xiangyang",
+      "xuchang"
     ],
     "province_id": "sili"
   },
@@ -44,14 +41,11 @@
       "r": 53
     },
     "neighbors": [
-      "yecheng",
       "chenliu",
       "ji",
-      "luoyang",
-      "xuchang",
+      "jinyang",
       "linzi",
-      "beihai",
-      "jinyang"
+      "yecheng"
     ],
     "province_id": "jizhou"
   },
@@ -93,10 +87,10 @@
       "r": 61
     },
     "neighbors": [
-      "jian_ge",
-      "hanzhong",
       "changan",
       "chengdu",
+      "hanzhong",
+      "jian_ge",
       "wuwei"
     ],
     "province_id": "liangzhou"
@@ -118,16 +112,11 @@
       "r": 55
     },
     "neighbors": [
-      "julu",
       "chenliu",
-      "xuchang",
-      "luoyang",
-      "nanyang",
-      "ji",
-      "linzi",
-      "beihai",
       "jinyang",
-      "xiangping"
+      "julu",
+      "luoyang",
+      "xuchang"
     ],
     "province_id": "jizhou"
   },
@@ -148,12 +137,11 @@
       "r": 60
     },
     "neighbors": [
-      "xuchang",
-      "yecheng",
-      "nanyang",
-      "luoyang",
       "julu",
-      "xiangyang"
+      "luoyang",
+      "pengcheng",
+      "xuchang",
+      "yecheng"
     ],
     "province_id": "yanzhou"
   },
@@ -175,12 +163,10 @@
     },
     "neighbors": [
       "chenliu",
-      "nanyang",
-      "xiangyang",
-      "yecheng",
       "luoyang",
-      "julu",
-      "jiangling"
+      "nanyang",
+      "pengcheng",
+      "xiangyang"
     ],
     "province_id": "yuzhou"
   },
@@ -201,10 +187,11 @@
       "r": 68
     },
     "neighbors": [
-      "hanzhong",
+      "bai_di",
+      "changan",
       "chengdu",
-      "tianshui",
-      "changan"
+      "hanzhong",
+      "tianshui"
     ],
     "province_id": "yizhou"
   },
@@ -225,12 +212,11 @@
       "r": 72
     },
     "neighbors": [
-      "xiangyang",
-      "nanyang",
-      "jiangling",
-      "luoyang",
       "changan",
-      "hanzhong"
+      "hanzhong",
+      "jiangling",
+      "nanyang",
+      "xiangyang"
     ],
     "province_id": "yizhou"
   },
@@ -251,11 +237,11 @@
       "r": 81
     },
     "neighbors": [
-      "jiangling",
+      "bai_di",
+      "cangwu",
       "chai_sang",
-      "xiangyang",
-      "panyu",
-      "cangwu"
+      "jiangling",
+      "xiangyang"
     ],
     "province_id": "jingzhou"
   },
@@ -276,11 +262,11 @@
       "r": 76
     },
     "neighbors": [
-      "he_fei",
-      "shouchun",
-      "jianye",
       "changsha",
-      "jiangling"
+      "he_fei",
+      "jiangling",
+      "jianye",
+      "shouchun"
     ],
     "province_id": "jingzhou"
   },
@@ -301,13 +287,11 @@
       "r": 69
     },
     "neighbors": [
-      "nanyang",
-      "jiangling",
-      "xuchang",
-      "luoyang",
       "bai_di",
-      "chenliu",
-      "changsha"
+      "jiangling",
+      "luoyang",
+      "nanyang",
+      "xuchang"
     ],
     "province_id": "jingzhou"
   },
@@ -328,12 +312,11 @@
       "r": 74
     },
     "neighbors": [
-      "xiangyang",
+      "bai_di",
+      "chai_sang",
       "changsha",
       "nanyang",
-      "bai_di",
-      "xuchang",
-      "chai_sang"
+      "xiangyang"
     ],
     "province_id": "jingzhou"
   },
@@ -354,8 +337,8 @@
       "r": 73
     },
     "neighbors": [
-      "jian_ge",
       "hanzhong",
+      "jian_ge",
       "tianshui"
     ],
     "province_id": "yizhou"
@@ -377,11 +360,11 @@
       "r": 66
     },
     "neighbors": [
-      "jian_ge",
+      "bai_di",
       "changan",
-      "tianshui",
       "chengdu",
-      "bai_di"
+      "jian_ge",
+      "tianshui"
     ],
     "province_id": "yizhou"
   },
@@ -402,12 +385,11 @@
       "r": 44
     },
     "neighbors": [
-      "julu",
-      "yecheng",
-      "linzi",
       "beihai",
       "jinyang",
-      "xiangping"
+      "julu",
+      "linzi",
+      "yecheng"
     ],
     "province_id": "youzhou"
   },
@@ -428,11 +410,11 @@
       "r": 62
     },
     "neighbors": [
+      "bai_di",
       "hanzhong",
       "jian_ge",
       "luoyang",
-      "tianshui",
-      "bai_di"
+      "tianshui"
     ],
     "province_id": "sili"
   },
@@ -453,13 +435,11 @@
       "r": 66
     },
     "neighbors": [
-      "xiangyang",
-      "xuchang",
       "chenliu",
-      "luoyang",
       "jiangling",
-      "yecheng",
-      "bai_di"
+      "luoyang",
+      "xiangyang",
+      "xuchang"
     ],
     "province_id": "yuzhou"
   },
@@ -480,10 +460,11 @@
       "r": 67
     },
     "neighbors": [
+      "guangling",
       "he_fei",
       "jianye",
-      "chai_sang",
-      "pengcheng"
+      "pengcheng",
+      "xiapi"
     ],
     "province_id": "yangzhou"
   },
@@ -504,12 +485,11 @@
       "r": 69
     },
     "neighbors": [
+      "guangling",
       "he_fei",
+      "pengcheng",
       "shouchun",
-      "chai_sang",
-      "wu_jun",
-      "xiapi",
-      "guangling"
+      "wu_jun"
     ],
     "province_id": "yangzhou"
   },
@@ -530,10 +510,11 @@
       "r": 71
     },
     "neighbors": [
-      "jianye",
+      "guangling",
       "he_fei",
-      "xiapi",
-      "guangling"
+      "jianye",
+      "shouchun",
+      "xiapi"
     ],
     "province_id": "yangzhou"
   },
@@ -554,12 +535,11 @@
       "r": 69
     },
     "neighbors": [
-      "shouchun",
-      "jianye",
       "chai_sang",
-      "wu_jun",
+      "guangling",
+      "jianye",
       "pengcheng",
-      "guangling"
+      "shouchun"
     ],
     "province_id": "yangzhou"
   },
@@ -580,10 +560,11 @@
       "r": 62
     },
     "neighbors": [
-      "pengcheng",
       "guangling",
+      "he_fei",
       "jianye",
-      "wu_jun"
+      "pengcheng",
+      "shouchun"
     ],
     "province_id": "xuzhou"
   },
@@ -604,10 +585,11 @@
       "r": 62
     },
     "neighbors": [
-      "xiapi",
-      "guangling",
+      "chenliu",
+      "he_fei",
+      "jianye",
       "shouchun",
-      "he_fei"
+      "xiapi"
     ],
     "province_id": "xuzhou"
   },
@@ -628,11 +610,11 @@
       "r": 68
     },
     "neighbors": [
-      "xiapi",
-      "pengcheng",
-      "jianye",
       "he_fei",
-      "wu_jun"
+      "jianye",
+      "shouchun",
+      "wu_jun",
+      "xiapi"
     ],
     "province_id": "xuzhou"
   },
@@ -654,9 +636,10 @@
     },
     "neighbors": [
       "beihai",
-      "yecheng",
       "julu",
-      "ji"
+      "pengcheng",
+      "xiapi",
+      "yecheng"
     ],
     "province_id": "qingzhou"
   },
@@ -677,10 +660,11 @@
       "r": 54
     },
     "neighbors": [
-      "linzi",
-      "yecheng",
       "julu",
-      "ji"
+      "linzi",
+      "pengcheng",
+      "xiangping",
+      "xiapi"
     ],
     "province_id": "qingzhou"
   },
@@ -701,9 +685,11 @@
       "r": 51
     },
     "neighbors": [
+      "chenliu",
       "ji",
-      "yecheng",
-      "julu"
+      "julu",
+      "luoyang",
+      "yecheng"
     ],
     "province_id": "bingzhou"
   },
@@ -724,8 +710,7 @@
       "r": 97
     },
     "neighbors": [
-      "cangwu",
-      "changsha"
+      "cangwu"
     ],
     "province_id": "jiaozhou"
   },
@@ -746,8 +731,8 @@
       "r": 96
     },
     "neighbors": [
-      "panyu",
-      "changsha"
+      "changsha",
+      "panyu"
     ],
     "province_id": "jiaozhou"
   },
@@ -768,8 +753,7 @@
       "r": 40
     },
     "neighbors": [
-      "ji",
-      "yecheng"
+      "beihai"
     ],
     "province_id": "youzhou"
   }
