@@ -104,14 +104,17 @@ class BattleResolver:
         # 初始化城墙耐久（攻城战才有）
         if context.battle_type == BattleType.SIEGE and context.battle_phase == BattlePhase.SIEGE:
             if context.wall_hp > 0:
-                # 使用实际城市城墙耐久
+                # 使用实际城市城墙耐久（含此前战斗已造成的损伤）
                 self._wall_hp[context.battle_id] = context.wall_hp
+                battle_log.append(
+                    f"城墙耐久: {self._wall_hp[context.battle_id]}"
+                )
             else:
-                # 兼容旧数据：从兵力估算
-                self._wall_hp[context.battle_id] = self._estimate_wall_hp(context)
-            battle_log.append(
-                f"城墙耐久: {self._wall_hp[context.battle_id]}"
-            )
+                # [主系统修复 2026-10-01] 城墙耐久为 0 说明已被先前战斗打穿：
+                # 直接进巷战，绝不用 _estimate_wall_hp 把城墙"复原"。
+                self._wall_hp[context.battle_id] = 0
+                context.battle_phase = BattlePhase.STREET
+                battle_log.append("城墙已破(0)，直接进入巷战阶段")
 
         # 战斗回合循环
         while True:
@@ -142,6 +145,12 @@ class BattleResolver:
                     f"守方{context.defender_total_soldiers}人, "
                     f"城墙剩余{self._wall_hp.get(context.battle_id, 'N/A')}"
                 )
+
+        # [主系统修复 2026-10-01] 回写城墙耐久到 context，
+        # 使 GameEngine 的 defender_city.wall_hp = ctx.wall_hp 能持久化损伤，
+        # 让跨回合围城可以累积（原实现从不回写，城墙每回合复原为满血）。
+        if context.battle_id in self._wall_hp:
+            context.wall_hp = self._wall_hp[context.battle_id]
 
         # 战后处理
         result = self.process_aftermath(

@@ -1022,7 +1022,20 @@ class GameEngine:
                 return
             max_count = max(active_counts.values())
             winners = [f for f, c in active_counts.items() if c == max_count]
-            self.winner = winners[0] if len(winners) == 1 else None  # 平局
+            if len(winners) == 1:
+                self.winner = winners[0]
+            else:
+                # 并列最多城 → 次级指标决胜，保证唯一胜者（确定性）
+                def tiebreak(f):
+                    fac_cities = [c for c in self.cities.values() if c.faction == f]
+                    garri = sum(c.garrison for c in fac_cities)
+                    pop = sum(c.population for c in fac_cities)
+                    gold = sum(c.gold for c in fac_cities)
+                    return (garri, pop, gold, f)
+                self.winner = sorted(
+                    sorted(winners, key=lambda f: f),            # ④ faction 字典序（稳定兜底）
+                    key=lambda f: tiebreak(f)[:3], reverse=True  # ① 守军 ② 人口 ③ 总gold 降序
+                )[0]
 
     # ============================================================
     # 观察数据生成

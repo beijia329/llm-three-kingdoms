@@ -22,11 +22,11 @@ class Personality(str, Enum):
 # 势力战略倾向
 FACTION_PERSONALITY: dict = {
     "han":        {"style": "cautious",    "aggression": 0.3, "diplomacy": 0.5, "expand": 0.2},
-    "zhangjiao":  {"style": "aggressive",  "aggression": 0.8, "diplomacy": 0.1, "expand": 0.1},
+    "zhangjiao":  {"style": "aggressive",  "aggression": 0.6, "diplomacy": 0.1, "expand": 0.1},
     "dongzhuo":   {"style": "aggressive",  "aggression": 0.9, "diplomacy": 0.1, "expand": 0.0},
     "yuanshao":   {"style": "ambitious",   "aggression": 0.5, "diplomacy": 0.3, "expand": 0.2},
     "caocao":     {"style": "ambitious",   "aggression": 0.7, "diplomacy": 0.2, "expand": 0.1},
-    "liubei":     {"style": "diplomatic",  "aggression": 0.3, "diplomacy": 0.5, "expand": 0.2},
+    "liubei":     {"style": "diplomatic",  "aggression": 0.5, "diplomacy": 0.5, "expand": 0.2},
     "sunjian":    {"style": "aggressive",  "aggression": 0.6, "diplomacy": 0.2, "expand": 0.2},
     "liubiao":    {"style": "cautious",    "aggression": 0.2, "diplomacy": 0.4, "expand": 0.4},
     "liuyan":     {"style": "cautious",    "aggression": 0.2, "diplomacy": 0.3, "expand": 0.5},

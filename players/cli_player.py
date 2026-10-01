@@ -124,14 +124,28 @@ class CLIPlayer(BasePlayer):
             if not border:
                 continue
 
-            # 进攻（只要有兵就将领不必须）
+            # 进攻（[主系统修复 2026-10-01] 集中兵力、只打有把握的城，减少进攻-撤退 churn）
             if (city.garrison >= attack_garrison
                     and city.gold >= attack_gold
                     and self._rng.random() < self._aggression * 1.3):
                 target = self._find_attack_target(city, enemy_ids, observation)
                 if target:
-                    troops = min(city.garrison - 100, int(3000 * max(0.4, self._aggression)))
-                    if troops >= 200:
+                    # 目标已知守军（相邻敌城在观测里有值；未知记为 0）
+                    tgt_garrison = 0
+                    for kc in observation.known_cities:
+                        if kc.id == target and getattr(kc, "garrison", None):
+                            tgt_garrison = kc.garrison
+                            break
+                    # 集中兵力：投入足以压倒目标守军的兵力，而非固定 3000×aggr 的小分队
+                    desired = int(3000 * max(0.4, self._aggression))
+                    if tgt_garrison:
+                        desired = max(desired, int(tgt_garrison * 1.3) + 200)
+                    troops = min(city.garrison - 100, desired)
+                    # 有把握才打：兵力需明显超过目标守军（守军未知时放宽）
+                    confident = (troops >= 200) and (
+                        tgt_garrison == 0 or troops >= tgt_garrison * 1.2
+                    )
+                    if confident:
                         gen = self._find_general_in_city(city.id, observation)
                         general_id = gen.id if gen else (observation.own_generals[0].id if observation.own_generals else "")
                         if general_id:

@@ -12,6 +12,7 @@ from game.models import (
     BattleContext, BattleType, BattlePhase, BattleResultType,
 )
 from game.random import GameRandom
+from game.constants import MAX_BATTLE_ROUNDS
 from game.battle.battle_resolver import BattleResolver
 
 
@@ -98,9 +99,9 @@ class TestStreetDamage:
         )
         damage = resolver.calculate_defender_damage(ctx)
         # base=3000*0.1=300, command=1+(60-50)/100=1.1,
-        # morale=70/100=0.7, terrain=1.3
-        # = 300 * 1.1 * 0.7 * 1.3 = 300.3
-        assert damage == pytest.approx(300.3, abs=1)
+        # morale=70/100=0.7, terrain=1.0+DEFENDER_WALL_BONUS(0.1)=1.1
+        # = 300 * 1.1 * 0.7 * 1.1 = 254.1  [主系统修复 2026-10-01：守方加成 0.3→0.1]
+        assert damage == pytest.approx(254.1, abs=1)
 
     def test_low_morale_reduces_damage(self):
         """低士气降低伤害"""
@@ -291,7 +292,7 @@ class TestBattleEnd:
         ctx = _make_siege_context(
             attacker_soldiers=5000, defender_soldiers=2000,
         )
-        ctx.round_count = 10
+        ctx.round_count = MAX_BATTLE_ROUNDS
         result = resolver.check_battle_end(ctx)
         assert result == BattleResultType.DRAW
 

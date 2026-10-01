@@ -47,7 +47,7 @@
     "id": "zhang_jiao",
     "name": "张角",
     "faction": "zhangjiao",
-    "command": 70,
+    "command": 80,
     "politics": 85,
     "bravery": 30,
     "intelligence": 88,
@@ -58,7 +58,7 @@
     "id": "zhang_bao",
     "name": "张宝",
     "faction": "zhangjiao",
-    "command": 65,
+    "command": 72,
     "politics": 55,
     "bravery": 55,
     "intelligence": 60,
@@ -69,7 +69,7 @@
     "id": "zhang_liang",
     "name": "张梁",
     "faction": "zhangjiao",
-    "command": 60,
+    "command": 70,
     "politics": 50,
     "bravery": 60,
     "intelligence": 55,
@@ -278,7 +278,7 @@
     "id": "sun_jian",
     "name": "孙坚",
     "faction": "sunjian",
-    "command": 90,
+    "command": 82,
     "politics": 60,
     "bravery": 92,
     "intelligence": 70,
@@ -289,7 +289,7 @@
     "id": "huang_gai",
     "name": "黄盖",
     "faction": "sunjian",
-    "command": 80,
+    "command": 73,
     "politics": 40,
     "bravery": 85,
     "intelligence": 65,
@@ -299,13 +299,13 @@
   {
     "id": "cheng_pu",
     "name": "程普",
-    "faction": "sunjian",
+    "faction": "dongzhuo",
     "command": 82,
     "politics": 45,
     "bravery": 80,
     "intelligence": 68,
     "loyalty": 95,
-    "location": "changsha"
+    "location": "tianshui"
   },
   {
     "id": "han_dang",
@@ -376,13 +376,13 @@
   {
     "id": "zhang_ren",
     "name": "张任",
-    "faction": "liuyan",
+    "faction": "mateng",
     "command": 82,
     "politics": 45,
     "bravery": 78,
     "intelligence": 68,
     "loyalty": 90,
-    "location": "chengdu"
+    "location": "wuwei"
   },
   {
     "id": "yan_yan",
