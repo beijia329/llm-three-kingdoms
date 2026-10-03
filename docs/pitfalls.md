@@ -441,27 +441,31 @@
 
 ---
 
-## 「假零命中」：搜索命令的四种伪装
+## 「假零命中」：搜索命令的五种伪装
 
-> 添加于 2026-10-03（team-lead）。起因：**一天之内，团队在"判断某符号是否存在"上错了四次**。
+> 添加于 2026-10-03（team-lead）。起因：**一天之内，团队在"判断某符号是否存在"上错了六次**。
 
-搜索的输出为空时，**空 ≠ 不存在**。空输出有四种来源，其中三种与"真的不存在"无关：
+搜索的输出为空时，**空 ≠ 不存在**。空输出有五种来源，其中四种与"真的不存在"无关：
 
 | 伪装 | 机制 | 本项目的真实案例 |
 |---|---|---|
 | **命令根本没跑起来** | 对搜索命令加了 `2>/dev/null`，**报错被吞掉**，空输出被当成"没有匹配" | art-director 连续**两次**报「`engine.py` 里搜不到 `publish(BattleEndedEvent...)`」，实为 `rg ... 2>/dev/null` 中 `rg` 未执行；实际 `engine.py:968`/`:1062` 两处 publish 都在 |
 | **pattern 含跨行结构** | `publish(BattleEndedEvent(...)` 这类带括号/带后续内容的 pattern，遇到换行就匹配不上 | 同上案例的另一可能入口（也是我一开始被误导的地方） |
 | **搜索工具本身不可靠** | 本机 **BSD `grep` 在特定文件上会给出假零命中** | 同日三次：① `RUMOR_BASE_SUCCESS_RATE` 判为"未被使用"（实际在用）② `players/llm/llm_player.py` 全文搜 `chat` 零命中（实际有）③ `api/game_manager.py` 搜 `faction_models` 零命中，导致我一度误判"自己的改动被别人覆盖丢失" |
+| **二进制不存在** | shell 里 `rg` **未安装**时，命令报 `command not found` 到 stderr、stdout 为**空**；不重定向 stderr 时极易把空 stdout 读成"没有匹配" | 2026-10-03 team-lead：用 `rg -l "register_phase_hook\|..." api/ game/ players/ tests/` 搜可插拔钩子引用，返回**空**；实际三钩子已被 `game/engine.py`、`api/game_manager.py` 及 4 个测试文件引用。`which rg` → **not found** |
+| **glob 无匹配直接中止整条命令** | zsh 遇到 `no matches found` 会**终止整行**（不是继续执行），导致同一行后续命令**从未运行** | 2026-10-03 team-lead：`grep -rn ... web/src/types/*.ts web/src/**/*.ts` 中 `web/src/types/*.ts` 不存在 → zsh 中止整行，**第二个 grep 也没跑**，得到"定义位置只有 2 个文件"的残缺结论 |
 | 真的不存在 | — | **只有这一种可以下结论** |
 
-### 规范（四条，缺一不可）
+### 规范（五条，缺一不可）
 
 1. **判断"不存在/无引用"只用 ripgrep（Grep 工具）**，不用 shell `grep` / `rg`
 2. **pattern 只写到符号名**——`rg -n "BattleEndedEvent" game/engine.py`，
    **不要**写成 `rg "publish(BattleEndedEvent("`（括号、跨行结构都会漏）
 3. 🔴 **绝不对搜索命令加 `2>/dev/null`** —— 它把"命令没跑起来"伪装成"没有匹配"，
    而这两者的输出完全一样、含义相反
-4. **报"不存在"前先跑一次裸符号搜索**，并把**命令行本身原样贴进报告**（便于他人复核）
+4. 🔴 **用 shell 搜索工具前先证明它存在**（`which rg`），且**不要**在同一行混用多个 glob
+   —— 一个不匹配的 glob 会静默吃掉后面所有命令
+5. **报"不存在"前先跑一次裸符号搜索**，并把**命令行本身原样贴进报告**（便于他人复核）
 
 ### 为什么单列一节
 
