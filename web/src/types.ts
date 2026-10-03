@@ -86,8 +86,14 @@ export interface GameEvent {
  * 契约来源：`docs/design/v4.1-gameplay-gaps.md` §4.3 的 `BattleReport` DTO。
  * 引擎已算出这些字段，后端只需打包后经 `recent_battles` 广播出来（见该文档 §4.1）。
  *
- * 🔴 `attacker_from_city` / `defender_city` 是「从哪来、打向哪」的关键——
+ * 🔴 `attacker_from_cities` / `defender_city` 是「从哪来、打向哪」的关键——
  *    没有它们只能显示结果，画不出进攻方向。
+ *
+ * 🔴 `attacker_from_cities` 是**复数**（设计文档 §4.3.1 更正）：
+ *    一场战斗可以有**多支来自不同出发城**的攻方部队被合并（`battle_scheduler._group_by_target`），
+ *    实测 **15% 的战斗**是多出发城。后端打包时用 `sorted(set(各军队 from_city))` 去重排序
+ *    （排序是为了不踩集合迭代序的确定性坑，见 ADR-0002）。前端对**每个出发城画一条箭头**。
+ *
  * 所有 `*_city` 是**城市 id**（前端再用 `state.cities[id].position` 转坐标）。
  */
 export interface BattleReport {
@@ -95,7 +101,8 @@ export interface BattleReport {
   turn: number
   attacker_faction: string
   defender_faction: string
-  attacker_from_city: string | null
+  /** 出发城 id 列表（复数！可能多于一，见上方说明） */
+  attacker_from_cities: string[]
   defender_city: string | null
   attacker_soldiers: number
   defender_soldiers: number

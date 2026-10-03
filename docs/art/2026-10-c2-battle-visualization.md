@@ -20,13 +20,17 @@
 
 | 验收项 | 实现 |
 |---|---|
-| 从哪来、打向哪 | `BattleOverlay` 画**世界坐标箭头**：起点 `attacker_from_city` → 终点 `defender_city`；SVG line + 箭头 marker |
+| 从哪来、打向哪 | `BattleOverlay` 画**世界坐标箭头**：**每个出发城各一条** → 目标城（多线汇聚）；SVG line + 箭头 marker |
 | 谁在打谁 | 箭头**颜色 = 攻方势力色**；**粗细 = 兵力比**（攻方占比，屏幕 4–9px 量级）；残留箭保留颜色 |
 | 打的什么结果 | 三态徽标：`attacker_win`→**占领**（金）/ `defender_win`→**守住**（绿）/ `retreat`→**溃退**（褐）/ `draw`→相持（灰） |
 | 回放节奏 | 回合推进后对**最近 ≤3 场**逐场短回放（每场 **1.5s**），`battle_id` 保序；结束后留残留箭 + 700ms 淡出 |
-| 加分项 | 回放标签带**双方兵力与总伤亡**（`2,100 ⚔ 3,800 −2,800`）+ 主将名 |
+| 加分项 | 回放标签带**双方兵力与总伤亡**（`2,100 ⚔ 3,800 −2,800`）+ 主将名；多出发城时显示 **`×N路`** |
 | 色盲友好 | 标签里的势力标识用**单字徽标 + 名称**（不是纯色块）——复用阶段B 的 `FACTION_GLYPH` |
 | 地图认人 | `CityMarker` 加**势力单字小徽标**（放大到一定程度才显示，避免全图糊） |
+
+> ⚠️ **出发城是复数**（`attacker_from_cities: string[]`）。一场战斗常有多支来自不同城的攻方部队被合并
+> （`battle_scheduler._group_by_target`，实测 **15%** 的战斗如此）。所以前端**对每个出发城各画一条箭头**——
+> 单起点会漏画其余进攻线、指向错误（这直接违反 §4.2 的验收标准）。依据见设计文档 §4.3.1 更正。
 
 ### 技术选型
 **DOM + SVG 叠加层**，复用 `GameMap` 已有的世界坐标 overlay `transform`。
@@ -50,7 +54,7 @@ interface BattleReport {
   turn: number
   attacker_faction: string
   defender_faction: string
-  attacker_from_city: string | null   // 城市 id —— 画箭头必须
+  attacker_from_cities: string[]      // 出发城 id **列表**（复数）—— 画箭头必须
   defender_city: string | null        // 城市 id
   attacker_soldiers: number
   defender_soldiers: number
