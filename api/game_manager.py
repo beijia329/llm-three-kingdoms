@@ -68,6 +68,13 @@ MAX_REASONING_HISTORY: int = 400
 12 方长局（576 条）仍会截断，但**有界**、不会无界增长。
 """
 
+MAX_RECENT_BATTLES: int = 20
+"""``recent_battles`` 保留的最近战斗场数上限
+
+战斗可见性（前端画进攻箭头）只需最近若干场；长局（48 回合，可能每回合多场）必须
+**有界**，避免内存无界增长（与 MAX_EVENTS_KEPT 同模式）。取 20 ≈ 覆盖最近 1~2 回合。
+"""
+
 
 def _stable_hash(text: str) -> int:
     """跨进程稳定的字符串哈希（替代内置 hash()）
@@ -159,6 +166,8 @@ class GameManager:
         self.engine: Optional[GameEngine] = None
         self._players: Dict[str, BasePlayer] = {}
         self._events: List[Dict[str, Any]] = []
+        # 最近战斗报告（供前端在地图上画进攻箭头；由 battle_ended 事件累积，有上限）
+        self._recent_battles: List[Dict[str, Any]] = []
         # 决策理由（供前端「决策」面板展示）：每条 = 一次 LLM 决策
         self._reasoning: List[Dict[str, Any]] = []
         # 本局是否已计入模型战绩（幂等标记：process_turn 每回合都会看到 game_over）
@@ -185,6 +194,8 @@ class GameManager:
         # 取代原先 process_turn 末尾的两段手写 _add_event —— 若订阅失效/事件未发布，
         # 这些记录会立刻消失（可观测），而不是静默兜底。
         self.engine.events.subscribe("turn_ended", self._on_turn_ended)
+        # 订阅「战斗结束」：累积 recent_battles（前端地图进攻箭头用）
+        self.engine.events.subscribe("battle_ended", self._on_battle_ended)
 
         # 创建 AI 玩家（人类势力如有则不创建 AI）
         # 参与势力：config.factions 指定则只用这些，None = 全部 12 方
@@ -329,6 +340,8 @@ class GameManager:
         # max_turns / year 现在由 GameState 模型自动序列化（B-03 修复后）
         data["faction_stats"] = faction_stats
         data["events"] = list(self._events[-20:])
+        # 最近战斗报告（近 MAX_RECENT_BATTLES 场；前端 BattleOverlay 据此画进攻箭头）
+        data["recent_battles"] = list(self._recent_battles)
 
         # v4.0：为前端补「将道（五行）」与「称号」。
         # 这两项是武将系统的核心信息（五行相克 + 人设），但既不属于 General
@@ -663,6 +676,34 @@ class GameManager:
             self._add_event(
                 f"第 {event.data.get('turn')} 回合: {battles} 场战斗", "battle"
             )
+
+    def _on_battle_ended(self, event) -> None:
+        """EventBus 订阅者：把每场战斗打包成 BattleReport 累积到 `recent_battles`。
+
+        事件由引擎在战斗结算处（`_apply_battle_result` 之后）发布，携带攻方出发城
+        （复数，`attacker_from_cities`）、双方兵力/伤亡、城墙前后耐久、主将名等。
+        """
+        d = event.data
+        self._recent_battles.append({
+            "battle_id": d.get("battle_id"),
+            "turn": d.get("turn"),
+            "attacker_faction": d.get("attacker_faction"),
+            "defender_faction": d.get("defender_faction"),
+            "attacker_from_cities": list(d.get("attacker_from_cities") or []),
+            "defender_city": d.get("defender_city"),
+            "attacker_soldiers": d.get("attacker_soldiers", 0),
+            "defender_soldiers": d.get("defender_soldiers", 0),
+            "attacker_casualties": d.get("attacker_casualties", 0),
+            "defender_casualties": d.get("defender_casualties", 0),
+            "result": d.get("result", ""),
+            "wall_hp_before": d.get("wall_hp_before", 0),
+            "wall_hp_after": d.get("wall_hp_after", 0),
+            "captured_city": d.get("captured_city"),
+            "attacker_general_name": d.get("attacker_general_name", ""),
+        })
+        # 有界：只保留最近 MAX_RECENT_BATTLES 场
+        if len(self._recent_battles) > MAX_RECENT_BATTLES:
+            self._recent_battles = self._recent_battles[-MAX_RECENT_BATTLES:]
 
     def run_ai_only_turns(self, max_turns: int = 1) -> List[Dict[str, Any]]:
         """连续运行若干纯 AI 回合（观战/回放模式用）

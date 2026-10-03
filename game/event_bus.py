@@ -88,6 +88,31 @@ class BattleEndedEvent(Event):
     captured_city: Optional[str] = None
     turn: int = 0
 
+    # ---- v4.1：为「战斗可见性」补充的打包字段（供 recent_battles 呈现）----
+    defender_city: Optional[str] = None
+    """目标城（守方城市）ID。与 captured_city 不同：守住了时 captured_city 为 None。"""
+
+    attacker_from_cities: List[str] = field(default_factory=list)
+    """该战斗**全部攻方部队**的出发城（去重+排序）。
+
+    🔴 必须是复数：`battle_scheduler` 会把目标城相同的多支攻方军队合并进同一
+    `BattleContext`，而各军队 `from_city` 可不同（实测约 15% 的战斗是多出发城）。
+    后端打包用 `sorted(set(...))` 去重排序，避免集合迭代序非确定性（ADR-0002）。
+    """
+
+    attacker_soldiers: int = 0
+    """攻方战斗前初始总兵力。"""
+    defender_soldiers: int = 0
+    """守方战斗前初始总兵力。"""
+
+    wall_hp_before: int = 0
+    """战斗前城墙耐久。"""
+    wall_hp_after: int = 0
+    """战斗后城墙耐久。"""
+
+    attacker_general_name: str = ""
+    """攻方主将姓名（可选，可能为空）。"""
+
     def __post_init__(self) -> None:
         object.__setattr__(self, "data", {
             "battle_id": self.battle_id,
@@ -98,6 +123,13 @@ class BattleEndedEvent(Event):
             "defender_casualties": self.defender_casualties,
             "captured_city": self.captured_city,
             "turn": self.turn,
+            "defender_city": self.defender_city,
+            "attacker_from_cities": list(self.attacker_from_cities),
+            "attacker_soldiers": self.attacker_soldiers,
+            "defender_soldiers": self.defender_soldiers,
+            "wall_hp_before": self.wall_hp_before,
+            "wall_hp_after": self.wall_hp_after,
+            "attacker_general_name": self.attacker_general_name,
         })
 
 

@@ -961,10 +961,31 @@ class GameEngine:
                 ctx.attacker_morale_bonus = self._kingdom_system.get_morale_bonus(ctx.attacker_faction)
                 ctx.defender_morale_bonus = self._kingdom_system.get_morale_bonus(ctx.defender_faction)
 
+            # 🔴 战斗快照：必须在 _apply_battle_result **删除攻方军队之前**捕获
+            # （攻方胜利会把 attacker_armies 从 self.armies 移除）。
+            # attacker_from_cities 用 sorted(set(...)) 去重+排序，避免集合迭代序非确定性。
+            attacker_from_cities = sorted({
+                self.armies[a_id].from_city
+                for a_id in ctx.attacker_armies
+                if a_id in self.armies
+            })
+            lead_general_id = next(
+                (self.armies[a_id].general_id
+                 for a_id in ctx.attacker_armies if a_id in self.armies),
+                "",
+            )
+            attacker_general_name = (
+                self.generals[lead_general_id].name
+                if lead_general_id in self.generals else ""
+            )
+            wall_hp_before = ctx.wall_hp
+            attacker_soldiers_snapshot = ctx.attacker_initial_soldiers
+            defender_soldiers_snapshot = ctx.defender_initial_soldiers
+
             battle_result = self._battle_resolver.resolve_battle(ctx)
             self._apply_battle_result(ctx, battle_result)
 
-            # 事件总线：战斗结束广播（每场一次）
+            # 事件总线：战斗结束广播（每场一次；含战斗可见性所需字段）
             self.events.publish(BattleEndedEvent(
                 battle_id=ctx.battle_id,
                 result=battle_result.result.value if battle_result.result else "",
@@ -974,6 +995,13 @@ class GameEngine:
                 defender_casualties=battle_result.defender_casualties,
                 captured_city=battle_result.captured_city,
                 turn=self.turn,
+                defender_city=ctx.defender_city,
+                attacker_from_cities=attacker_from_cities,
+                attacker_soldiers=attacker_soldiers_snapshot,
+                defender_soldiers=defender_soldiers_snapshot,
+                wall_hp_before=wall_hp_before,
+                wall_hp_after=ctx.wall_hp,
+                attacker_general_name=attacker_general_name,
             ))
 
             # 回写城墙耐久与守军数量（攻城战中可能被损坏/消灭）
