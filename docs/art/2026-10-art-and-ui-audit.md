@@ -344,3 +344,50 @@
 
 ⚠️ 诚实说明：12 方**仅靠颜色无法对色盲完全友好**（模拟下最小 ΔE 仅 6.8）。需要**非颜色线索**（势力旗号/图案/文字标签）才能真正达标——这属阶段 B/C，已在 §6 可访问性分级里列为 Standard 级要求。
 
+---
+
+## 附三：中文字体「体积账」（阶段 B 前置，实测，2026-10-03）
+
+> team-lead 要求：**先出账再决定上不上**；阈值「首屏 >300K 或 FCP 明显变差则不上」。
+> 方法：Playwright（Chrome，1600×900，禁用缓存）+ CDP `Network.loadingFinished.encodedDataLength`
+> 统计**真实传输字节**；FCP 取 `PerformancePaintTiming`。两组网络：LAN（无节流）与 Fast 3G
+> （latency 150ms / 1.6Mbps）。字体用真实分包源：
+> `https://cdn.jsdelivr.net/npm/@chinese-fonts/lxgwwenkai@3.0.0/dist/LXGWWenKai-Regular/result.css`
+> （cn-font-split 生成，**按 unicode-range 切成 ~1940 个 woff2 分片，浏览器只取用到字的片**）。
+
+### 实测结果
+
+| 方案 | 首屏请求数 | 首屏总传输 | FCP（LAN） | FCP（Fast 3G） |
+|---|---|---|---|---|
+| 基线（现状，Noto Sans SC 走 Google Fonts） | 22 | **1427K** | 508ms | 3180ms |
+| + 霞鹜文楷（CSS **同步**阻塞） | 32 | 1498K | 680ms | 3548ms |
+| + 霞鹜文楷（CSS **异步** preload） | 32 | 1498K | 512ms | 3540ms |
+
+**霞鹜文楷自身开销：19 个请求 / 549K**（其中字体 CSS 69K + woff2 分片 ~480K）。
+
+### 关键发现：它主要在「替换」而不是「叠加」
+
+基线那 1427K 里，**本来就有约 500K 是 Noto Sans SC 的中文 woff2**（Google Fonts 按 unicode-range 分包，
+首屏中文多，于是拉了一大把分片）。把主字体换成霞鹜文楷后，Noto 的分片基本不再请求
+（22 → 13 个非字体请求 + 19 个霞鹜请求）。
+
+→ **净增 ≈ +71K / +10 个请求**，不是 +549K。
+
+### 结论与建议
+
+1. **净增 71K < 300K 阈值**，从体积看不构成否决理由。
+2. **必须异步加载字体 CSS**（`rel=preload as=style onload` 或 `media=print/onload`）：
+   LAN 下 FCP 影响从 +172ms 降到 **+4ms**（可忽略）。同步 `<link>` 会阻塞渲染。
+3. **必须只上需要的字重**。霞鹜文楷有 Light/Regular/Medium（**没有 Bold**）——
+   别把 Light/Mono 一起引。UI 里的 `font-weight:700` 会走合成粗体或回退，需设计上接受。
+4. **Fast 3G 下 FCP 仍 +360ms**：即使异步，480K 分片仍与小 500K 的 JS 抢带宽。
+   若严格要求 FCP 不退化，建议**只在「事件流 / 决策正文」等文本区局部用霞鹜文楷**，
+   控件与数据面板保持系统字体，可显著减少首屏用到的不重复汉字数。
+5. **更省的替代方案（我更推荐先试这个）**：项目**已经在用 Google Fonts**。
+   把标题字体从 `Noto Sans SC` 换成同一家的 **`Noto Serif SC`**（同样是 OFL、同一个 CSS 请求追加一个 family），
+   **零新集成、几乎零额外首屏成本**，就能拿到「宋体标题」的汉风层级。
+   → 建议阶段 B 先做这条，霞鹜文楷仅用于事件流正文，按需局部引入。
+
+> 🔴 待 team-lead 拍板：方案 (a) 全局霞鹜文楷（净 +71K，Fast3G FCP +360ms）；
+> (b) 仅标题换 Noto Serif SC（近零成本）；(c) 先 (b) 再局部 (a)。我建议 (c)。
+
