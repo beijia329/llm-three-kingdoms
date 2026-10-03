@@ -5,7 +5,7 @@
 
 用法：
     python run_web.py
-    python run_web.py --seed 42 --max-turns 192 --no-browser
+    python run_web.py --seed 42 --max-turns 48 --no-browser
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
     """解析命令行参数"""
     parser = argparse.ArgumentParser(description="启动 乱斗三国 Web 服务")
     parser.add_argument("--seed", type=int, default=42, help="随机种子")
-    parser.add_argument("--max-turns", type=int, default=192, help="最大回合数")
+    parser.add_argument("--max-turns", type=int, default=48, help="最大回合数（默认 48；192 为硬上限）")
     parser.add_argument("--mode", choices=["standard", "infinite"], default="standard", help="游戏模式")
     parser.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
     parser.add_argument("--no-frontend", action="store_true", help="仅启动后端")

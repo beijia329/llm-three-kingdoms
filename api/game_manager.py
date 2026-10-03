@@ -100,7 +100,17 @@ class GameConfig:
     """游戏配置"""
 
     seed: int = 42
-    max_turns: int = 192
+    max_turns: int = 48
+    """默认对局回合数（v4.1 决策：192 → 48）
+
+    48 回合 = 184–195 年。依据：实测 192 回合中第 49 回合起零战斗，
+    turn 48/96/144/192 的 12 方城分布逐字节相同 → 后 144 回合完全空转，
+    默认降到 48 可省 ~75% 时间与成本且画面内容零损失。
+
+    🔴 这是「默认对局长度」，**不是硬上限**。硬上限仍是
+    `game.constants.MAX_TURNS = 192`；调用方可显式传 max_turns=192（或更大，
+    如 infinite 模式）跑长线观察档 —— 默认值与上限是两件事，勿混。
+    """
     game_mode: str = "standard"
     human_faction: Optional[str] = None
     # ---- LLM 玩家相关（决策理由暴露使用）----

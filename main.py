@@ -51,7 +51,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--seed", type=int, default=42, help="随机种子")
     parser.add_argument("--file", type=str, help="回放文件路径")
-    parser.add_argument("--max-turns", type=int, default=192, help="最大回合数")
+    parser.add_argument(
+        "--max-turns",
+        type=int,
+        default=48,
+        help="最大回合数（默认 48；192 为硬上限，见 game/constants.MAX_TURNS）",
+    )
     parser.add_argument("--start-year", type=int, default=184, help="起始年份（默认184年黄巾起义）")
     parser.add_argument("--faction", type=str, default="", help="人类玩家势力（human-vs-ai模式）")
     parser.add_argument("--llm", action="store_true", help="使用LLM玩家（默认使用CLI AI）")
@@ -61,7 +66,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def run_ai_vs_ai(
-    seed: int = 42, max_turns: int = 192,
+    seed: int = 42, max_turns: int = 48,
     use_llm: bool = False, model: str = "deepseek-flash",
     api_key: str = "",
 ) -> None:
@@ -69,7 +74,7 @@ def run_ai_vs_ai(
 
     Args:
         seed: 随机种子
-        max_turns: 最大回合数
+        max_turns: 最大回合数（默认 48，192 为硬上限）
         use_llm: 是否使用LLM玩家
         model: LLM模型名称
         api_key: API密钥
@@ -165,7 +170,7 @@ def run_ai_vs_ai(
 
 
 def run_gui_mode(
-    seed: int = 42, max_turns: int = 192,
+    seed: int = 42, max_turns: int = 48,
     use_llm: bool = False, model: str = "deepseek-flash",
     api_key: str = "",
     human_faction: str = "",
@@ -174,7 +179,7 @@ def run_gui_mode(
 
     Args:
         seed: 随机种子
-        max_turns: 最大回合数
+        max_turns: 最大回合数（默认 48，192 为硬上限）
         use_llm: 是否使用LLM玩家
         model: LLM模型名称
         api_key: API密钥
