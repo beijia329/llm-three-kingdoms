@@ -293,7 +293,9 @@ class CitySystem:
         1. 资源产出（金钱、粮草）
         2. 人口增长
         3. 守军粮草消耗
-        4. 民心自然变化
+
+        🔴 民心自然变化**不在本方法内**：已迁至引擎的 AFTER_MOVEMENT 相位钩子
+        （`game/engine.py::_hook_city_morale`，注册名 `city_morale`），见下方注释。
 
         Args:
             city: 要更新的城市
@@ -310,9 +312,15 @@ class CitySystem:
         city.food += resource_result["food_change"]
         city.population += resource_result["population_change"]
 
-        # 民心自然变化
-        morale_change = self._calculate_morale_change(city)
-        city.morale = max(0, min(100, city.morale + morale_change))
+        # 民心自然变化**已迁出本方法**，改由引擎 AFTER_MOVEMENT 相位钩子统一施加：
+        #   game/engine.py::_hook_city_morale（name="city_morale"）
+        #
+        # 🔴 为什么必须迁：本方法只在 `process_turn` 的「无六角地图」else 分支被调用
+        #   （engine.py 资源产出段），而**生产环境恒有 hex_map** → 恒走 if 分支 →
+        #   放在这里的 `_calculate_morale_change` 从未执行（探针实测：
+        #   tests/balance/exp18_siege_morale_reachability.py → 5 局 × 48 回合调用数 = 0），
+        #   导致民心除「文化发展」外只降不升、无自校正。
+        #   迁到相位钩子后无论有无地图一律生效；同时从本方法移除可**避免降级路径下双次应用**。
 
         # 确保资源不为负
         city.gold = max(0, city.gold)
@@ -323,7 +331,8 @@ class CitySystem:
             gold_change=resource_result["gold_change"],
             food_change=resource_result["food_change"],
             population_change=resource_result["population_change"],
-            morale_change=morale_change,
+            # 恒为 0：民心自然变化已迁至相位钩子（见上）。保留字段以兼容既有调用方。
+            morale_change=0,
         )
 
     # ============================================================

@@ -1699,3 +1699,46 @@ register_phase_hook(
     TurnPhase.AFTER_MOVEMENT, _hook_nature_strain,
     priority=100, name="nature_strain",
 )
+
+
+def _hook_city_morale(engine: "GameEngine", result: Dict[str, Any]) -> None:
+    """相位钩子（after_movement）：城市的民心自然变化。
+
+    承载 `CitySystem._calculate_morale_change` 的全部四条自然规则：
+      1. 被围困        -3 / 回合
+      2. 粮草为 0      -5 / 回合
+      3. 粮草充足盈余  +1 / 回合
+      4. 民心向 50 回归（>70 微降、<30 微升）—— **全局唯一的自校正项**
+
+    🔴 为什么必须迁到这里（历史缺陷，务必保留本注释）
+    -------------------------------------------------
+    本机制原在 `CitySystem.update_city` 内，而 `update_city` **只在 `process_turn`
+    的资源产出段的「无六角地图」else 分支被调用**（生产恒有 hex_map → 恒走 if 分支
+    走 `calculate_resources`）→ 整段逻辑从未执行。`tests/balance/
+    exp18_siege_morale_reachability.py`（原名 exp16）实测：修复前 5 局 × 48 回合
+    `_calculate_morale_change` 调用数 = **0**；修复后 = 城市数 × 回合数（实测 7440）。
+    （同类缺陷还有 `defender_generals`，见 docs/design/modding-guide.md §4 第 5 条。）
+
+    🔴 为什么是 AFTER_MOVEMENT 这个相位
+    -----------------------------------
+    `is_besieged` 在**行军相位**被写入（`game/battle/army_movement.py:364`，军队抵达敌城），
+    在**战斗结算**被清 0（`_apply_battle_result` 内 `defender_city.is_besieged = False`）。
+    只有夹在两者之间的相位它才为真 —— 这正是 AFTER_MOVEMENT
+    （`tests/balance/exp17_siege_flag_leak.py`（原名 exp15）阳性对照实测该相位峰值有 5–6 座城为真）。
+    若放在资源产出相位（更早），则恒为 False。
+
+    遍历按 `city.id` 升序 —— 确定性，绝不依赖 set/dict 迭代序（ADR-0002）。
+    """
+    if engine._city_system is None:
+        return
+    for city in sorted(engine.cities.values(), key=lambda c: c.id):
+        change = engine._city_system._calculate_morale_change(city)
+        if change:
+            city.morale = max(0, min(100, city.morale + change))
+
+
+register_phase_hook(
+    TurnPhase.AFTER_MOVEMENT, _hook_city_morale,
+    priority=100, name="city_morale",
+)
+

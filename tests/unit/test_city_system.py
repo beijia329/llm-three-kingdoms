@@ -250,6 +250,69 @@ class TestCityUpdate:
         assert result.gold_change >= 0
 
 
+class TestMoraleNaturalChange:
+    """民心自然变化规则（CitySystem._calculate_morale_change）
+
+    🔴 v4.1 补测：本文件此前对民心**一条断言都没有** —— 这正是
+    「_calculate_morale_change 在生产中从未执行却无人发现」能持续至今的原因
+    （见 tests/balance/exp18_siege_morale_reachability.py、docs/design/modding-guide.md §4 第 5 条）。
+
+    四条规则：被围困 -3 / 断粮 -5 / 粮草盈余 +1 / 民心向 50 回归。
+    """
+
+    def test_starvation_drops_morale(self):
+        """断粮（food<=0）→ -5"""
+        city = _make_city(morale=50, food=0, garrison=500)
+        assert CitySystem._calculate_morale_change(city) == -5
+
+    def test_besieged_drops_morale(self):
+        """被围困 → -3"""
+        city = _make_city(morale=50, food=1000, garrison=500)
+        city.is_besieged = True
+        assert CitySystem._calculate_morale_change(city) == -3
+
+    def test_low_morale_recovers(self):
+        """民心 <30 且 >0 → 向 50 回升 +1（全局唯一自校正项）"""
+        city = _make_city(morale=20, food=1000, garrison=500)
+        assert CitySystem._calculate_morale_change(city) == 1
+
+    def test_high_morale_drifts_down(self):
+        """民心 >70 → 微降 -1"""
+        city = _make_city(morale=90, food=1000, garrison=500)
+        assert CitySystem._calculate_morale_change(city) == -1
+
+    def test_food_surplus_raises_morale(self):
+        """粮草充足盈余（food > garrison*2）→ +1"""
+        city = _make_city(morale=50, food=2000, garrison=500)
+        assert CitySystem._calculate_morale_change(city) == 1
+
+    def test_besieged_and_starving_stack(self):
+        """围困 + 断粮 同时发生 → -8（两条惩罚叠加）"""
+        city = _make_city(morale=50, food=0, garrison=500)
+        city.is_besieged = True
+        assert CitySystem._calculate_morale_change(city) == -8
+
+    def test_equilibrium_at_neutral_food(self):
+        """中性粮草（恰为 garrison*2，不构成盈余）且民心居中 → 0（平衡点）"""
+        city = _make_city(morale=50, food=1000, garrison=500)
+        assert CitySystem._calculate_morale_change(city) == 0
+
+    def test_update_city_no_longer_touches_morale(self):
+        """民心自然变化已迁至相位钩子；update_city 不得再改民心【v4.1】
+
+        锁死迁移：若有人把旧逻辑加回 update_city，则「有地图的生产路径」仍不执行、
+        「无地图降级路径」会与相位钩子**双次应用** —— 这条断言防止回归。
+        """
+        cs = CitySystem()
+        city = _make_city(morale=40, food=0, garrison=500)  # 断粮：旧逻辑会 -5
+        before = city.morale
+
+        result = cs.update_city(city)
+
+        assert city.morale == before            # 民心不再由本方法改动
+        assert result.morale_change == 0        # 字段恒 0（保留仅为兼容）
+
+
 # ============================================================
 # 辅助函数
 # ============================================================
