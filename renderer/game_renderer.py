@@ -724,7 +724,12 @@ class GameRenderer:
         ks = getattr(self.engine, '_kingdom_system', None)
         if ks:
             for f, k in ks.get_all_kingdoms().items():
-                self.add_event(f"🏰 {FACTIONS.get(f, f)} 称{k['type']}！国号【{k['name']}】", COLOR_GOLD)
+                # v4.1：同 api/game_manager.py，避免 'kingdom'/'emperor' 英文枚举
+                # 直接拼进中文文案
+                from game.kingdom_system import KINGDOM_TYPE_LABELS
+
+                label = KINGDOM_TYPE_LABELS.get(k["type"], k["type"])
+                self.add_event(f"🏰 {FACTIONS.get(f, f)} 称{label}！国号【{k['name']}】", COLOR_GOLD)
 
         self._turn_just_executed = True
         logger.info("第%d回合完成 (战斗:%d)", turn, battles)

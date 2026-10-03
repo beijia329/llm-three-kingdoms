@@ -616,7 +616,12 @@ class GameManager:
         ks = getattr(self.engine, '_kingdom_system', None)
         if ks:
             for f, k in ks.get_all_kingdoms().items():
-                self._add_event(f"🏰 {FACTIONS.get(f, f)} 称{k['type']}！国号【{k['name']}】", "kingdom")
+                # v4.1：type 是 'kingdom'/'emperor' 英文枚举，直接拼进中文会显示
+                # 「汉室称kingdom！」→ 走 KINGDOM_TYPE_LABELS 映射
+                from game.kingdom_system import KINGDOM_TYPE_LABELS
+
+                label = KINGDOM_TYPE_LABELS.get(k["type"], k["type"])
+                self._add_event(f"🏰 {FACTIONS.get(f, f)} 称{label}！国号【{k['name']}】", "kingdom")
 
         if turn_result.get("battles_fought", 0) > 0:
             self._add_event(f"第 {turn_result['turn']} 回合: {turn_result['battles_fought']} 场战斗", "battle")

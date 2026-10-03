@@ -26,6 +26,21 @@ from game.models import City
 KINGDOM_MIN_CITIES: int = 3
 EMPEROR_MIN_CITIES: int = 5
 
+KINGDOM_TYPE_LABELS: Dict[str, str] = {
+    "kingdom": "王",
+    "emperor": "帝",
+}
+"""建国类型 → 中文展示（v4.1 新增）
+
+🔴 修复「英文 enum 泄漏到中文界面」：
+`api/game_manager.py:619` 与 `renderer/game_renderer.py:727` 都直接
+`f"…称{k['type']}！国号【{k['name']}】"`，而 `type` 的取值是
+`'kingdom'` / `'emperor'` —— 于是中文界面上显示出
+「汉室称kingdom！国号【汉】」这种半英文句子（art-director 截图取证发现）。
+
+放在本模块（类型定义之处）作为唯一事实源，避免两个调用点各写一份映射。
+"""
+
 # Buff/Debuff 数值
 KINGDOM_PRODUCTION_BONUS: float = 0.10
 KINGDOM_MORALE_BONUS: int = 5
