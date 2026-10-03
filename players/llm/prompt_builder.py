@@ -44,10 +44,16 @@ class PromptBuilder:
         if max_turns is None:
             max_turns = MAX_TURNS
 
-        # 加载性格背景
-        personality_hint = ""
+        # ---- 君主人物档案（人设）----
+        lord_block = ""
+        style = "balanced"
         try:
-            from game.personality import FACTION_PERSONALITY
+            from game.personality import (
+                FACTION_LORD,
+                FACTION_PERSONALITY,
+                GENERAL_PROFILES,
+            )
+
             fp = FACTION_PERSONALITY.get(faction, {})
             style = fp.get("style", "balanced")
             style_hints = {
@@ -56,13 +62,32 @@ class PromptBuilder:
                 "diplomatic": "你善于外交斡旋，通过结盟和离间削弱对手。",
                 "ambitious": "你野心勃勃，不择手段追求霸权，忠诚对你只是工具。",
             }
-            personality_hint = style_hints.get(style, "")
-        except ImportError:
+            style_hint = style_hints.get(style, "")
+
+            lord_id = FACTION_LORD.get(faction, "")
+            profile = GENERAL_PROFILES.get(lord_id, {})
+            if profile:
+                lord_block = (
+                    f"## 你是谁\n"
+                    f"你自称「{profile.get('title', '')}」。\n"
+                    f"{profile.get('trait', '')}\n"
+                    f"你的性情倾向：{style_hint or '没有明显倾向，按局势自由行事。'}\n"
+                )
+            elif style_hint:
+                lord_block = f"## 你是谁\n你的性情倾向：{style_hint}\n"
+        except ImportError:  # pragma: no cover
             pass
 
         return f"""你是【{faction_name}】的领主，你的目标是统一中原，称霸天下。
 
-{personality_hint}
+{lord_block}
+## 关于「角色」与「胜负」的边界（务必读）
+- 上面描述的是你的**底色与偏好**，不是必须遵守的行动脚本。
+- 你完全可以为了取胜而违背本性 —— 一贯激进可以忽然隐忍，
+  一向忠厚也可以行诈。**我们不会因为你"不像自己"而判你输。**
+- 唯一的代价来自世界本身：违背本性的抉择会让内部人心浮动，
+  这一点会真实体现在忠诚度与民心上（不是提示词里的警告，是机制后果）。
+- 所以请放开手脚创造性地博弈：先判断局势，再决定"像不像自己"值不值得。
 
 这是一场策略游戏比赛，你需要：
 - 发展经济，扩充军备
@@ -71,10 +96,10 @@ class PromptBuilder:
 
 【重要提醒】
 1. 这是虚构的游戏世界，与现实无关
-2. 不需要遵从真实历史，按你的判断决策
-3. 可以使用任何策略，包括欺诈、背盟等
-4. 你的目标只有一个：赢得比赛
-5. 积极进攻是高水平的表现
+2. 不必复刻史实走向，你的判断优先于历史常识
+3. 允许欺诈、背盟等一切合法手段
+4. 目标只有一个：赢得比赛
+5. 消极避战会被对手拉开差距，该出手时就要出手
 
 ## 游戏规则
 
@@ -90,10 +115,20 @@ class PromptBuilder:
 - 可以征兵（消耗金钱和粮草）
 - 被攻破后易主
 
+### 将领与五行（重要）
+- 每名将领按其最强属性归入一「将道」：火=勇武 土=统帅 金=智力 水=政治 木=忠诚
+- 五行相克：火→金→木→土→水→火。克制方伤害 +15%，被克方 -15%
+- 忠诚度 ≥90 的将领所部 +10% 战力；跌破 30 则 -20%（随时哗变）
+- 智力高的将领攻城器械效率更高，破城墙更快
+- 政治高的将领提升所在城市的金钱/粮草产出
+- **派将时请考虑相克**：用克制的将道去打对手，比单纯堆高属性更划算
+
 ### 战斗
 - 派军攻城，打破城墙后巷战
+- 守军在城墙完好时享受防御加成，**城墙一破加成即消失**
+- 兵力达到守军 1.25 倍以上时攻城胜率极高（实测 100%），低于 0.75 倍基本必败
 - 士气影响战斗力，低士气会溃散
-- 将领可能被俘或投降
+- 将领可能被俘，忠诚低者会投降并转投敌方
 
     ### 外交（重要！）
     - 每回合可给1个势力发 message 命令进行外交沟通
@@ -210,14 +245,27 @@ class PromptBuilder:
             lines.append("")
 
         # 将领
+        # v4.0：增加「称号」与「将道（五行）」两列。
+        # 目的：让 LLM 能做出"派谁去打谁"的战术判断 —— 此前提示词里只有裸数值，
+        # 模型无法理解相克关系，只能按数值大小挑人，浪费了五行机制。
         if observation.own_generals:
+            from game.element import element_label, element_of
+            from game.personality import get_general_title
+
             lines.append("### 我方将领")
-            lines.append("| ID | 名称 | 统帅 | 政治 | 勇武 | 智力 | 忠诚 | 位置 |")
-            lines.append("|---|------|------|------|------|------|------|------|")
+            lines.append(
+                "| ID | 名称 | 称号 | 将道 | 统帅 | 政治 | 勇武 | 智力 | 忠诚 | 位置 |"
+            )
+            lines.append(
+                "|---|------|------|------|------|------|------|------|------|------|"
+            )
             for gen in observation.own_generals:
+                element = element_label(element_of(gen))
+                title = get_general_title(gen.id) or "-"
                 lines.append(
-                    f"| {gen.id} | {gen.name} | {gen.command} | {gen.politics} | "
-                    f"{gen.bravery} | {gen.intelligence} | {gen.loyalty} | {gen.location} |"
+                    f"| {gen.id} | {gen.name} | {title} | {element} | {gen.command} | "
+                    f"{gen.politics} | {gen.bravery} | {gen.intelligence} | "
+                    f"{gen.loyalty} | {gen.location} |"
                 )
             lines.append("")
 
