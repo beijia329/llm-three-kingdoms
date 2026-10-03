@@ -5,6 +5,20 @@
 - 事件是不可变的（使用 NamedTuple / frozen dataclass）
 - 一个事件可以有多个订阅者
 - 一个订阅者可以订阅多个事件
+
+🔴 2026-10 接线说明（原为「定义了但无人用」的死基础设施）：
+本模块原来定义了 10 个事件类，但全仓只有 1 处 `publish`、0 处生产 `subscribe`，
+被审计判为「假 Accepted」（ADR-0001 写了事件驱动，实际却全在轮询）。
+
+现按「保留有真实产生点的事件、删掉无人产生的事件类」收口：
+- **保留并接线（有产生点）**：
+  `TurnStartedEvent` / `TurnEndedEvent` / `CityCapturedEvent` / `BattleEndedEvent`
+  —— 由 `GameEngine.process_turn` 等发布；`GameManager` 订阅 `TurnEndedEvent`
+    并据此产生事件记录（见 `api/game_manager.py`）。
+  `DiplomacyMessageSentEvent` —— 由 `_execute_message` 发布（沿用既有产生点）。
+- **删除（无产生点、且无订阅者）**：`BattleStartedEvent` / `ArmyCreatedEvent` /
+  `GeneralRecruitedEvent` / `GeneralDefectedEvent` / `GameOverEvent`。
+  待真要做「主动叛逃 / 阵亡」等机制时再按需加回，不预先挂空类。
 """
 
 from __future__ import annotations
@@ -61,31 +75,6 @@ class CityCapturedEvent(Event):
 
 
 @dataclass(frozen=True)
-class BattleStartedEvent(Event):
-    """战斗开始事件"""
-
-    event_type: str = field(default="battle_started", init=False)
-    battle_id: str = ""
-    battle_type: str = ""
-    attacker_faction: str = ""
-    defender_faction: str = ""
-    attacker_soldiers: int = 0
-    defender_soldiers: int = 0
-    turn: int = 0
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "data", {
-            "battle_id": self.battle_id,
-            "battle_type": self.battle_type,
-            "attacker_faction": self.attacker_faction,
-            "defender_faction": self.defender_faction,
-            "attacker_soldiers": self.attacker_soldiers,
-            "defender_soldiers": self.defender_soldiers,
-            "turn": self.turn,
-        })
-
-
-@dataclass(frozen=True)
 class BattleEndedEvent(Event):
     """战斗结束事件"""
 
@@ -108,52 +97,6 @@ class BattleEndedEvent(Event):
             "attacker_casualties": self.attacker_casualties,
             "defender_casualties": self.defender_casualties,
             "captured_city": self.captured_city,
-            "turn": self.turn,
-        })
-
-
-@dataclass(frozen=True)
-class ArmyCreatedEvent(Event):
-    """军队创建事件"""
-
-    event_type: str = field(default="army_created", init=False)
-    army_id: str = ""
-    faction: str = ""
-    general: str = ""
-    soldiers: int = 0
-    from_city: str = ""
-    to_city: str = ""
-    turn: int = 0
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "data", {
-            "army_id": self.army_id,
-            "faction": self.faction,
-            "general": self.general,
-            "soldiers": self.soldiers,
-            "from_city": self.from_city,
-            "to_city": self.to_city,
-            "turn": self.turn,
-        })
-
-
-@dataclass(frozen=True)
-class GeneralRecruitedEvent(Event):
-    """将领招募事件"""
-
-    event_type: str = field(default="general_recruited", init=False)
-    general_id: str = ""
-    general_name: str = ""
-    faction: str = ""
-    city: str = ""
-    turn: int = 0
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "data", {
-            "general_id": self.general_id,
-            "general_name": self.general_name,
-            "faction": self.faction,
-            "city": self.city,
             "turn": self.turn,
         })
 
@@ -206,46 +149,6 @@ class DiplomacyMessageSentEvent(Event):
             "to_faction": self.to_faction,
             "content": self.content,
             "turn": self.turn,
-        })
-
-
-@dataclass(frozen=True)
-class GeneralDefectedEvent(Event):
-    """将领叛逃事件"""
-
-    event_type: str = field(default="general_defected", init=False)
-    general_id: str = ""
-    general_name: str = ""
-    from_faction: str = ""
-    to_faction: str = ""
-    turn: int = 0
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "data", {
-            "general_id": self.general_id,
-            "general_name": self.general_name,
-            "from_faction": self.from_faction,
-            "to_faction": self.to_faction,
-            "turn": self.turn,
-        })
-
-
-@dataclass(frozen=True)
-class GameOverEvent(Event):
-    """游戏结束事件"""
-
-    event_type: str = field(default="game_over", init=False)
-    winner: str = ""
-    final_turn: int = 0
-    reason: str = ""
-    city_counts: Dict[str, int] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "data", {
-            "winner": self.winner,
-            "final_turn": self.final_turn,
-            "reason": self.reason,
-            "city_counts": dict(self.city_counts),
         })
 
 

@@ -180,6 +180,12 @@ class GameManager:
             raise RuntimeError("无法加载游戏数据")
         self.engine.init_game(data)
 
+        # 🔴 EventBus 的真实订阅者（此前 EventBus 定义 10 类事件却 0 订阅 = 假 Accepted）。
+        # 订阅「回合结束」事件：由 _on_turn_ended 产生「建国/称王」「战斗」事件记录，
+        # 取代原先 process_turn 末尾的两段手写 _add_event —— 若订阅失效/事件未发布，
+        # 这些记录会立刻消失（可观测），而不是静默兜底。
+        self.engine.events.subscribe("turn_ended", self._on_turn_ended)
+
         # 创建 AI 玩家（人类势力如有则不创建 AI）
         # 参与势力：config.factions 指定则只用这些，None = 全部 12 方
         participant_factions = (
@@ -609,22 +615,11 @@ class GameManager:
         if len(self._reasoning) > MAX_REASONING_HISTORY:
             self._reasoning = self._reasoning[-MAX_REASONING_HISTORY:]
 
-        # 推进引擎回合
+        # 推进引擎回合。
+        # 「建国/称王」「战斗」两条事件记录由订阅者 _on_turn_ended 在引擎内部广播
+        # TurnEndedEvent 时产生（见上方 events.subscribe），此处不再手写——
+        # 这样订阅者一旦失效会立刻暴露，而不会静默兜底。
         turn_result = self.engine.process_turn()
-
-        # 记录建国事件
-        ks = getattr(self.engine, '_kingdom_system', None)
-        if ks:
-            for f, k in ks.get_all_kingdoms().items():
-                # v4.1：type 是 'kingdom'/'emperor' 英文枚举，直接拼进中文会显示
-                # 「汉室称kingdom！」→ 走 KINGDOM_TYPE_LABELS 映射
-                from game.kingdom_system import KINGDOM_TYPE_LABELS
-
-                label = KINGDOM_TYPE_LABELS.get(k["type"], k["type"])
-                self._add_event(f"🏰 {FACTIONS.get(f, f)} 称{label}！国号【{k['name']}】", "kingdom")
-
-        if turn_result.get("battles_fought", 0) > 0:
-            self._add_event(f"第 {turn_result['turn']} 回合: {turn_result['battles_fought']} 场战斗", "battle")
 
         if self.engine.game_over:
             if self.engine.winner:
@@ -642,6 +637,32 @@ class GameManager:
             "winner": self.engine.winner,
             "ai_events": ai_events,
         }
+
+    def _on_turn_ended(self, event) -> None:
+        """EventBus 订阅者：回合结束时产生「建国/称王」「战斗」事件记录。
+
+        取代原先 `process_turn` 末尾的两段手写 `_add_event`。触发时机由引擎在
+        `process_turn` 末尾 `publish(TurnEndedEvent)` 驱动——此时引擎的 turn 已递增、
+        日志已落，与原先「process_turn 返回后再手写」的时序一致，故事件内容与顺序不变。
+
+        参数是 `game.event_bus.TurnEndedEvent`，其 `data` 含 turn / battles_fought 等。
+        """
+        # 建国/称王（对全部已建国势力逐条记录，与原实现一致）
+        ks = getattr(self.engine, "_kingdom_system", None)
+        if ks:
+            from game.kingdom_system import KINGDOM_TYPE_LABELS
+
+            for f, k in ks.get_all_kingdoms().items():
+                label = KINGDOM_TYPE_LABELS.get(k["type"], k["type"])
+                self._add_event(
+                    f"🏰 {FACTIONS.get(f, f)} 称{label}！国号【{k['name']}】", "kingdom"
+                )
+
+        battles = event.data.get("battles_fought", 0)
+        if battles > 0:
+            self._add_event(
+                f"第 {event.data.get('turn')} 回合: {battles} 场战斗", "battle"
+            )
 
     def run_ai_only_turns(self, max_turns: int = 1) -> List[Dict[str, Any]]:
         """连续运行若干纯 AI 回合（观战/回放模式用）

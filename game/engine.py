@@ -35,7 +35,13 @@ from game.constants import (
     NATURE_STRAIN_MORALE_PENALTY,
     CITY_LOSS_LOYALTY_PENALTY,
 )
-from game.event_bus import EventBus
+from game.event_bus import (
+    BattleEndedEvent,
+    CityCapturedEvent,
+    EventBus,
+    TurnEndedEvent,
+    TurnStartedEvent,
+)
 from game.command_registry import get_handler, register_command
 from game.models import (
     Army,
@@ -822,6 +828,11 @@ class GameEngine:
             "winner": None,
         }
 
+        # 事件总线：回合开始广播（订阅者据此感知新回合）
+        self.events.publish(
+            TurnStartedEvent(turn=self.turn, faction_order=list(FACTIONS.keys()))
+        )
+
         # 更新季节和年份（每 4 回合 = 1 年）
         from game.season import Season
         self.season = Season.from_turn(self.turn)
@@ -944,6 +955,18 @@ class GameEngine:
             battle_result = self._battle_resolver.resolve_battle(ctx)
             self._apply_battle_result(ctx, battle_result)
 
+            # 事件总线：战斗结束广播（每场一次）
+            self.events.publish(BattleEndedEvent(
+                battle_id=ctx.battle_id,
+                result=battle_result.result.value if battle_result.result else "",
+                attacker_faction=ctx.attacker_faction,
+                defender_faction=ctx.defender_faction,
+                attacker_casualties=battle_result.attacker_casualties,
+                defender_casualties=battle_result.defender_casualties,
+                captured_city=battle_result.captured_city,
+                turn=self.turn,
+            ))
+
             # 回写城墙耐久与守军数量（攻城战中可能被损坏/消灭）
             if defender_city and ctx.wall_hp >= 0:
                 defender_city.wall_hp = ctx.wall_hp
@@ -980,6 +1003,19 @@ class GameEngine:
             events=[result],
         ))
 
+        # 事件总线：回合结束广播（放在最后——此时 turn 已递增、日志已落，
+        # 使订阅者拿到的 self.engine.turn 与「原先在 process_turn 之后手写」一致）。
+        self.events.publish(TurnEndedEvent(
+            turn=result["turn"],
+            summary={
+                "battles_fought": result["battles_fought"],
+                "armies_moved": result["armies_moved"],
+                "cities_updated": result["cities_updated"],
+                "game_over": self.game_over,
+                "winner": self.winner,
+            },
+        ))
+
         return result
 
     # ============================================================
@@ -1006,6 +1042,15 @@ class GameEngine:
                 city.faction = ctx.attacker_faction
                 # 占领后民心下降
                 city.morale = max(20, city.morale - 20)
+
+                # 事件总线：城市被占领广播
+                self.events.publish(CityCapturedEvent(
+                    city_id=city.id,
+                    city_name=city.name,
+                    attacker_faction=ctx.attacker_faction,
+                    defender_faction=old_faction,
+                    turn=self.turn,
+                ))
 
                 # v4.0：失城打击 —— 原主其余将领忠诚度下降。
                 # 这让忠诚度不再是一个恒等于初始值的静止数字：

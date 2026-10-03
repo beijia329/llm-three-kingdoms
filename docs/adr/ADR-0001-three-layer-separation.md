@@ -72,3 +72,24 @@
 
 - 提交清单（AGENTS.md 6.4）：`Engine 层没有 import pygame`、`Renderer 层没有修改游戏状态`、`没有破坏确定性`。
 - 持续验证：`grep -rn "import pygame" game/` 必须为空。
+
+---
+
+## 落地更新（2026-10，engineering-lead）
+
+本 ADR 第 4 条「状态变更走事件驱动 / UI 与日志订阅事件」长期只是**纸面 Accepted**：
+`game/event_bus.py` 定义了 10 类事件，但全仓只有 1 处 `publish`、**生产 0 处 `subscribe`**，
+前端 / API 实际一直轮询 `get_state()`（即「假 Accepted」）。2026-10 已做**最小接线**：
+
+- `GameEngine.process_turn` 现在真的广播 `TurnStartedEvent` / `TurnEndedEvent`，
+  战斗结算广播 `BattleEndedEvent`，占城广播 `CityCapturedEvent`（`DiplomacyMessageSentEvent` 沿用既有产生点）。
+- `api/game_manager.py` 成为**第一个真实订阅者**：订阅 `TurnEndedEvent`，据此产生
+  「建国/称王」「战斗」事件记录（取代原先 `process_turn` 末尾两段手写 `_add_event`；
+  订阅者若失效，这些记录会立刻消失——已验证其「承重」）。
+- 删除 5 个**无任何产生点**的事件类（`BattleStartedEvent` / `ArmyCreatedEvent` /
+  `GeneralRecruitedEvent` / `GeneralDefectedEvent` / `GameOverEvent`）。
+- 约束：`GET /api/state` 的 `events` 字段与接线前**逐字节一致**（已快照比对）；
+  `tests/integration/test_api_endpoints.py` 22 项全绿。
+
+仍未做（后续任务，另行排期）：把 `_add_event` 的其余调用也迁移为订阅驱动；
+前端改为消费事件流（需 `web/` 侧配合）。

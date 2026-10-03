@@ -5,15 +5,10 @@ from game.event_bus import (
     Event,
     EventBus,
     CityCapturedEvent,
-    BattleStartedEvent,
     BattleEndedEvent,
-    ArmyCreatedEvent,
-    GeneralRecruitedEvent,
     TurnStartedEvent,
     TurnEndedEvent,
     DiplomacyMessageSentEvent,
-    GeneralDefectedEvent,
-    GameOverEvent,
 )
 
 
@@ -48,19 +43,6 @@ class TestSpecificEvents:
         assert event.attacker_faction == "wei"
         assert event.data["city_name"] == "成都"
 
-    def test_battle_started_event(self):
-        event = BattleStartedEvent(
-            battle_id="battle_001",
-            battle_type="siege",
-            attacker_faction="wei",
-            defender_faction="shu",
-            attacker_soldiers=5000,
-            defender_soldiers=3000,
-            turn=8,
-        )
-        assert event.battle_type == "siege"
-        assert event.attacker_soldiers == 5000
-
     def test_battle_ended_event(self):
         event = BattleEndedEvent(
             battle_id="battle_001",
@@ -74,28 +56,6 @@ class TestSpecificEvents:
         )
         assert event.result == "attacker_win"
         assert event.captured_city == "chengdu"
-
-    def test_army_created_event(self):
-        event = ArmyCreatedEvent(
-            army_id="army_001",
-            faction="shu",
-            general="zhaoyun",
-            soldiers=3000,
-            from_city="chengdu",
-            to_city="hanzhong",
-            turn=5,
-        )
-        assert event.general == "zhaoyun"
-
-    def test_general_recruited_event(self):
-        event = GeneralRecruitedEvent(
-            general_id="machao",
-            general_name="马超",
-            faction="shu",
-            city="chengdu",
-            turn=7,
-        )
-        assert event.general_name == "马超"
 
     def test_turn_started_and_ended(self):
         start = TurnStartedEvent(turn=5, faction_order=["wei", "shu", "wu"])
@@ -115,27 +75,6 @@ class TestSpecificEvents:
             turn=6,
         )
         assert event.content == "我们结盟吧"
-
-    def test_general_defected_event(self):
-        event = GeneralDefectedEvent(
-            general_id="mengda",
-            general_name="孟达",
-            from_faction="shu",
-            to_faction="wei",
-            turn=12,
-        )
-        assert event.to_faction == "wei"
-
-    def test_game_over_event(self):
-        event = GameOverEvent(
-            winner="wei",
-            final_turn=24,
-            reason="max_turns_reached",
-            city_counts={"wei": 8, "shu": 4, "wu": 3},
-        )
-        assert event.winner == "wei"
-        assert event.city_counts["wei"] == 8
-
 
 class TestEventBus:
     """事件总线核心功能测试"""
