@@ -5,6 +5,7 @@
 > 方法：全量实读 62 份文档 + 用 `Grep`（ripgrep 内核）复核代码事实。所有裁定均基于实读，引用给 `文件:行号`。未核实的地方直接写明「未核实」。
 > 口径警告：本机 `rg` 未在 PATH，改用内置 Grep（ripgrep 内核）；BSD `grep` 全程未用。
 > 🔴 **修订记录（2026-10-03，v2）**：§3-5 原稿误判「忠诚不影响战力」——实为 v4.0 已接线（详见 §3-5 的自我更正）。§1.10 与 C-14 同步更正；§④bis 增补主理人拍板的 4 项决策。此误判本身是本报告 §2 所指「旧报告结论已失效却未标注」的现场案例。
+> 🔴 **修订记录（2026-10-03，v3）**：两处经复核更正——(1) **C-8 不成立**：provider 描述（`AGENTS.md:44`、`llm-integration.md:489`、`deployment-guide.md:109`）当前**已是「默认 DeepSeek」**，我误引了 2026-06-24 `doc-reconciliation.md` 的旧结论；(2) `CAPTURE_SURRENDER_BASE_CHANCE` / `CAPTURE_SURRENDER_LOYALTY_FACTOR` 两个旧投降常量（**定义 + import**）已于 v4.1 删除（`6667a9d`，`constants.py:375` 留注释）。P0 文档修正见 `349d8d8`。
 
 ---
 
@@ -29,7 +30,7 @@
 |---|---|---|---|
 | `README.md` | **UPDATE** | 功能描述与 v4 一致，但「测试 572」`README.md:166` 与 AGENTS/MAINT 的 504 打架；「建议回合默认 48」`README.md:79` 与代码默认 192 不符 | `README.md:79,166`；`main.py:54` |
 | `CHANGELOG.md` | **KEEP** | v4.0.0 记录与代码一致，是版本权威；建议补一条 4.0.1（用户口径） | `CHANGELOG.md:7` |
-| `AGENTS.md` | **UPDATE** | 目录结构列了 5 个不存在的文件（见②C-7）；「504 tests」「22 城」「统一 OpenRouter」全过时 | `AGENTS.md:37,342,408` |
+| `AGENTS.md` | **UPDATE**（已修 `349d8d8`） | 目录结构列了 5 个不存在的文件（见②C-7）；「504 tests」「22 城」过时（provider 描述本已正确，见 C-8） | `AGENTS.md:37,342,408` |
 | `MAINTENANCE.md` | **UPDATE** | 「504 tests」「22 城 /47 将」`MAINTENANCE.md:17,31` 全过时；技术债表部分项已修 | `MAINTENANCE.md:17,31,67` |
 | `施工指南.md` | **ARCHIVE** | 最后更新 2026-06-24 `施工指南.md:446`，通篇 v2.0/v2.3 阶段进度，已被 `concept.md` + 实际代码取代 | `施工指南.md:18,28,446` |
 | `LLM三国志施工手册（已过时）.md` | **DELETE** | 标题即自认过时；内容是旧「魏蜀吴 3 方 / 24 回合 / OpenRouter」设计，与现状全面冲突，会误导新人 | 全文；`LLM三国志施工手册（已过时）.md:14,15,337` |
@@ -145,7 +146,7 @@
 | **C-5** | 覆盖年份上限 | 232（`constants.py:23` 注释、多篇文档） | **231**（`(192-1)//4+184=231`） | **231** | `v31-turn-year-audit.md:131` 实算，复核通过 |
 | **C-6** | 地图尺寸 | 120×90（README/AGENTS/concept） | 200×120（`kimi-rendering-handoff.md:10`） | **120×90** | `kimi-rendering-handoff.md:10` 自己标注「历史预研草案，已废弃」 |
 | **C-7** | 目录结构含不存在文件 | `AGENTS.md:72-95` 列 `state_manager.py`/`state_validator.py`/`game_logger.py`/`battle_context.py`/`gui_player.py` | 文件系统**均无** | 文件系统对 | 实扫：5 个文件全部 MISSING |
-| **C-8** | LLM provider | 「统一通过 OpenRouter」（`AGENTS.md:44`、`llm-integration.md:489`、`deployment-guide.md:109`） | **默认 deepseek**（`llm_client` 默认 provider=deepseek） | 代码对 | `doc-reconciliation.md:80` 已指出；API key 已改 `LLM_API_KEY`（部分修） |
+| **C-8** | LLM provider | ~~「统一通过 OpenRouter」~~ **（已核：不成立）** | `AGENTS.md:44` / `llm-integration.md:489` / `deployment-guide.md:109` 当前**已是「默认 DeepSeek」** | **无冲突** | 复核实读 2026-10-03；原条目误引 `doc-reconciliation.md`（2026-06-24）的旧结论 |
 | **C-9** | 势力 key | AGENTS/MAINT 明令禁用 `wei/shu/wu` | 但 `deployment-guide.md:130`、`superpowers/plans:1740`、`prompts:1740` 仍在用 | 禁用的对（应为 `caocao/liubei/sunjian`） | `MAINTENANCE.md:87` |
 | **C-10** | 版本号 | README/AGENTS/MAINT「v2.3」；`web/package.json`/`api/server.py`「2.2.0」；`build_release.sh`「2.3.0」；Info.plist「2.2」 | 实际发布 **v4.0.1** | 4.0.1 | `git log` 与用户口径；构建脚本落后两个大版本 |
 | **C-11** | 平衡验收口径 | 「三方胜率 25%-40%」（`milestone-acceptance.md`旧稿、`testing.md:290`） | 12 方公平份额=8.33%，25-40% 数学不可达 | 12 方基准（`balance-tuning-plan.md:159`） | `QA acceptance-2026-10-01.md:137` 已证 |
