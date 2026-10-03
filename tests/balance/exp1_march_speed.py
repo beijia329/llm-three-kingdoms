@@ -2,7 +2,8 @@
 """实验 1+2：行军速度单变量对照（4/ 6 / 8 / 10 四档）+ 基线复现。
 
 严格单变量：只有 `game.constants.ARMY_MARCH_SPEED` 变化，其余（seed 列表、
-max_turns、地图数据、CLIPlayer 策略）全部固定。max_turns 默认沿用生产值 192，
+max_turns、地图数据、CLIPlayer 策略）全部固定。max_turns 默认沿用 192
+（**刻意长跑，非对局默认长度**——生产默认已为 48，192 仅为硬上限），
 另用 --max-turns 可切到 24/36/48 做实验 3。
 
 **对照组设计**：

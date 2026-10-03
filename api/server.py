@@ -33,7 +33,7 @@ def _env_int(name: str, default: int) -> int:
 
     run_web.py 会把 --seed/--max-turns/--mode 写进 GAME_SEED/GAME_MAX_TURNS/GAME_MODE
     再拉起 uvicorn。此前本文件从不读这三个变量，等于启动参数全部失效
-    （`python run_web.py --seed 42 --max-turns 48` 跑出来的仍是默认 seed=42/192 回合）。
+    （`python run_web.py --seed 42 --max-turns 96` 跑出来的仍是默认 seed=42、48 回合）。
     """
     raw = os.environ.get(name)
     if raw is None or not raw.strip():
@@ -194,7 +194,7 @@ async def game_websocket(websocket: WebSocket) -> None:
     """WebSocket 游戏连接
 
     客户端消息格式：
-    - {"type": "init", "seed": 42, "max_turns": 192}
+    - {"type": "init", "seed": 42, "max_turns": 48}
     - {"type": "command", "command": {...}}
     - {"type": "next_turn"}
     - {"type": "auto", "enabled": true, "interval_ms": 500}
