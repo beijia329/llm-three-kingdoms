@@ -106,23 +106,38 @@ class GameManager:
         #   串行执行。势力越多、延迟越高，单回合耗时线性增长。后续可考虑
         #   并发/异步化，本次仅打通「决策理由」链路，不做并发。
         llm_client: Optional[LLMClient] = None
+        # 前端「降级提示」用：记录 LLM 实际是否真的启用，以及失败原因。
+        # 🔴 历史教训：此前 key 缺失只 logger.warning，前端无任何提示 →
+        #    用户以为在跑 LLM，实际已回退 CLIPlayer，决策 tab 恒空，极难排查。
+        self.llm_active: bool = False
+        self.llm_error: str = ""
         if self.config.use_llm:
             api_key = (
                 os.environ.get("LLM_API_KEY")
                 or os.environ.get("DEEPSEEK_API_KEY")
                 or ""
             ).strip()
-            if api_key:
+            # 占位符检测：.env 里若残留 sk-你的key 之类，会"存在但必失败"
+            _PLACEHOLDER_HINTS = ("你的", "your", "yourkey", "xxx", "<", "你的key")
+            if api_key and any(h in api_key.lower() for h in _PLACEHOLDER_HINTS):
+                self.llm_error = (
+                    f"检测到 LLM_API_KEY 是占位符（{api_key[:12]}…），"
+                    "请在环境变量中注入真实 key（见 .env 注释）"
+                )
+                logger.error("use_llm=True 但 key 为占位符: %s", self.llm_error)
+            elif api_key:
                 llm_client = LLMClient(
                     provider=self.config.provider,
                     model=self.config.model,
                     api_key=api_key,
                 )
+                self.llm_active = True
             else:
-                logger.warning(
-                    "use_llm=True 但未找到 LLM_API_KEY / DEEPSEEK_API_KEY，"
-                    "回退为 CLIPlayer（无真实决策理由）"
+                self.llm_error = (
+                    "未找到 LLM_API_KEY / DEEPSEEK_API_KEY 环境变量，"
+                    "已回退为 CLI AI（决策理由不可用）"
                 )
+                logger.warning("use_llm=True 但未找到 key：%s", self.llm_error)
 
         self._players = {}
         for faction in participant_factions:
@@ -188,8 +203,14 @@ class GameManager:
         data["faction_stats"] = faction_stats
         data["events"] = list(self._events[-20:])
         # 决策理由（前端「决策」面板）：最近若干条 LLM 决策
-        data["reasoning"] = self._reasoning
+        data["reasoning"] = list(self._reasoning)
         data["human_faction"] = self.config.human_faction
+        # LLM 实际启用状态 + 降级原因（前端要显式提示，不能让用户误以为在跑 LLM）
+        data["llm_requested"] = bool(self.config.use_llm)
+        data["llm_active"] = bool(self.llm_active)
+        data["llm_error"] = self.llm_error
+        data["llm_model"] = self.config.model if self.llm_active else ""
+        data["llm_factions"] = list(self._players.keys())
         data["hex_map"] = {
             "width": self.engine.hex_map.width if self.engine.hex_map else 0,
             "height": self.engine.hex_map.height if self.engine.hex_map else 0,
