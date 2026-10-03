@@ -923,11 +923,8 @@ class GameEngine:
         # 2.5 收容"走投无路"的撤退军队（v4.0）
         self._sweep_stranded_armies()
 
-        # 相位钩子：行军之后（例：人设代价）
+        # 相位钩子：行军之后（人设代价已迁移为此相位的钩子，见文件底部注册）
         self._run_phase_hooks(TurnPhase.AFTER_MOVEMENT, result)
-
-        # 2.6 人设代价：违背君主本性的抉择带来轻微、可逆的人心浮动（v4.0）
-        self._apply_nature_strain(result)
 
         # 3. 将领忠诚度衰减
         for general in self.generals.values():
@@ -1659,4 +1656,18 @@ def _hook_spread_influence(engine: "GameEngine", result: Dict[str, Any]) -> None
 register_phase_hook(
     TurnPhase.AFTER_PRODUCTION, _hook_spread_influence,
     priority=100, name="influence_spread",
+)
+
+
+def _hook_nature_strain(engine: "GameEngine", result: Dict[str, Any]) -> None:
+    """相位钩子（after_movement）：结算「人设代价」。
+
+    自 process_turn 内联迁移而来，位置不变（行军/收容撤退军之后、忠诚衰减之前）。
+    """
+    engine._apply_nature_strain(result)
+
+
+register_phase_hook(
+    TurnPhase.AFTER_MOVEMENT, _hook_nature_strain,
+    priority=100, name="nature_strain",
 )
