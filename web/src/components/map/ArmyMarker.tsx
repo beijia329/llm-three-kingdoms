@@ -1,9 +1,11 @@
-import { FACTION_COLORS, FACTION_GLOW } from '../../theme'
+import { FACTION_COLORS, FACTION_GLOW, FACTIONS } from '../../theme'
 // [阶段A 2026-10-03] 接入 game-icons 素材（CC BY 3.0）：
 // 行军→马首、进攻/围城→交叉刀剑、撤退→盾牌。原来军队只是一个旋转方块，看不出状态。
 import horseIcon from '../../assets/icons/horse-head.svg'
 import swordsIcon from '../../assets/icons/crossed-swords.svg'
 import shieldIcon from '../../assets/icons/shield.svg'
+// [交互 2026-10-03] 军队 hover 悬浮卡（审计 §4-3）：替代原来只有一行数字的原生 title。
+import { useHintProps } from '../Tooltip'
 
 interface ArmyMarkerProps {
   army: {
@@ -23,6 +25,11 @@ interface ArmyMarkerProps {
   selected?: boolean
   /** 点击选中军队（此前 pointerEvents:none，整支军队点不了） */
   onClick?: () => void
+  /** 主将名（供 hover 悬浮卡显示；未传则只显示兵力/士气） */
+  generalName?: string
+  /** 出发/目标城名（供 hover 显示行军路线） */
+  fromName?: string
+  toName?: string
 }
 
 function maskStyle(url: string, color: string, size: number) {
@@ -42,7 +49,21 @@ function maskStyle(url: string, color: string, size: number) {
   }
 }
 
-export function ArmyMarker({ army, x, y, zoom, selected, onClick }: ArmyMarkerProps) {
+const STATUS_LABELS: Record<string, string> = {
+  marching: '行军中', attacking: '进攻中', besieging: '围城中',
+  retreating: '撤退中', defending: '驻守中', idle: '待命',
+}
+
+export function ArmyMarker({ army, x, y, zoom, selected, onClick, generalName, fromName, toName }: ArmyMarkerProps) {
+  const hint = useHintProps(() => ({
+    title: `${generalName || '未知将领'} 的部队${army.faction ? ` · ${FACTIONS[army.faction] || army.faction}` : ''}`,
+    lines: [
+      `兵力 ${army.soldiers.toLocaleString()} · 士气 ${army.morale}`,
+      `状态 ${STATUS_LABELS[army.status] || army.status || '—'}`,
+      fromName || toName ? `${fromName ? `自 ${fromName}` : ''}${toName ? ` → ${toName}` : ''}` : '',
+      '单击查看详情',
+    ].filter(Boolean),
+  }))
   if (army.soldiers <= 0) return null
 
   const color = FACTION_COLORS[army.faction] || '#888'
@@ -59,8 +80,9 @@ export function ArmyMarker({ army, x, y, zoom, selected, onClick }: ArmyMarkerPr
 
   return (
     <div
+      {...hint}
+      data-army-id={army.id}
       onClick={onClick ? (e) => { e.stopPropagation(); onClick() } : undefined}
-      title={`军队 · ${army.soldiers} 兵 · 士气 ${army.morale}`}
       style={{
         position: 'absolute',
         left: x,

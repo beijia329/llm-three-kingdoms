@@ -8,6 +8,10 @@ import castleIcon from '../../assets/icons/castle.svg'
 import hillFortIcon from '../../assets/icons/hill-fort.svg'
 import crownIcon from '../../assets/icons/crown.svg'
 import siegeTowerIcon from '../../assets/icons/siege-tower.svg'
+// [交互 2026-10-03] hover 悬浮卡（审计 §4-3）：地图标记在被 transform 缩放的覆盖层里，
+// 用 portal 悬浮提示不会跟着缩放，位置由 getBoundingClientRect 计算。
+import { useHintProps } from '../Tooltip'
+import { FACTIONS } from '../../theme'
 
 interface CityMarkerProps {
   city: {
@@ -16,12 +20,17 @@ interface CityMarkerProps {
     faction: string
     level: number
     garrison: number
+    wall_hp?: number
+    wall_max_hp?: number
+    morale?: number
     is_besieged: boolean
   }
   x: number
   y: number
   zoom: number
   onClick: () => void
+  /** 是否为当前选中的城池（金色环形高亮 + 放大） */
+  selected?: boolean
 }
 
 // 等级 → 城池剪影（1 级小城 → 4/5 级大城/都城）
@@ -49,9 +58,18 @@ function maskStyle(url: string, color: string, size: number) {
   }
 }
 
-export function CityMarker({ city, x, y, zoom, onClick }: CityMarkerProps) {
+export function CityMarker({ city, x, y, zoom, onClick, selected }: CityMarkerProps) {
   const color = FACTION_COLORS[city.faction] || '#888'
   const glow = FACTION_GLOW[city.faction] || 'rgba(128,128,128,0.5)'
+  const hint = useHintProps(() => ({
+    title: `${city.name} · ${FACTIONS[city.faction] || city.faction}`,
+    lines: [
+      `等级 ${city.level} · 守军 ${city.garrison.toLocaleString()}`,
+      city.wall_max_hp ? `城墙 ${city.wall_hp?.toLocaleString() ?? '?'} / ${city.wall_max_hp.toLocaleString()}` : '',
+      typeof city.morale === 'number' ? `民心 ${city.morale}` : '',
+      city.is_besieged ? '⚠ 被围困中' : '单击查看详情',
+    ].filter(Boolean),
+  }))
   // [LOD 2026-10-01] 标记屏幕尺寸随地图缩放（13~30px）；过小时隐藏城名。
   // [阶段A] 下限由 13→16：剪影图标比圆点更需要像素，否则糊成一团。
   const markerScreen = Math.max(16, Math.min(32, 64 * zoom * 1.6))
@@ -67,6 +85,8 @@ export function CityMarker({ city, x, y, zoom, onClick }: CityMarkerProps) {
 
   return (
     <div
+      {...hint}
+      data-city-id={city.id}
       onClick={(e) => {
         e.stopPropagation()
         onClick()
@@ -75,16 +95,35 @@ export function CityMarker({ city, x, y, zoom, onClick }: CityMarkerProps) {
         position: 'absolute',
         left: x,
         top: y,
-        transform: `translate(-50%, -50%) scale(${scale})`,
+        transform: `translate(-50%, -50%) scale(${scale * (selected ? 1.18 : 1)})`,
         transformOrigin: 'center bottom',
         pointerEvents: 'auto',
         cursor: 'pointer',
-        zIndex: city.is_besieged ? 20 : 10,
+        zIndex: selected ? 30 : city.is_besieged ? 20 : 10,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
       }}
     >
+      {/* 选中高亮：金色脉冲环（此前点城市只切 tab，地图毫无反馈 —— 审计 §3-4） */}
+      {selected && (
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: '48%',
+            left: '50%',
+            width: '46px',
+            height: '46px',
+            transform: 'translate(-50%, -50%)',
+            border: '2px solid #d4a84b',
+            borderRadius: '50%',
+            boxShadow: '0 0 14px rgba(212, 168, 75, 0.85), inset 0 0 8px rgba(212, 168, 75, 0.4)',
+            animation: 'city-select-pulse 1.6s ease-in-out infinite',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
       {/* 城池标记：等级剪影（势力色），外加深描边保证在羊皮纸与势力色块上都能读 */}
       <div
         style={{

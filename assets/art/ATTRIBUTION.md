@@ -40,5 +40,27 @@
 - 阿里云 DataV GeoJSON（中国省界，项目已在用）
 - 六角格地图：项目自生成（`data/hex_map.json`）
 
+## 5. UI 面板边框（`web/src/assets/ui/`，2026-10-03 新增）
+- 🔴 **状态：已接入**（城池详情卡 `CityCard.tsx` + 快捷键说明面板 `ShortcutHelp.tsx` 的九宫格边框）。
+- **来源**：Kenney — *UI Pack*（https://kenney.nl/assets/ui-pack；镜像 https://opengameart.org/content/ui-pack）
+- **文件**：`web/src/assets/ui/panel-frame.svg`
+  - 由包内 `Vector/Grey/button_rectangle_border.svg` **改色**而来：三档灰（#989AAF/#FFFFFF/#DADCE7）
+    替换为本作暗金主题色（#5a4a24/#f0e2b4/#b9974a），并删除原作者用于标注九宫格切片线的两枚 2px 红色
+    标记（#FF0000）—— 那两枚标记在 `border-image` 下会在边框中部露出红点。
+- **授权**：**CC0 1.0（公共领域）** —— 可商用、可修改、**无需署名**
+- **用途**：卡片边框（`border-image: url(panel-frame.svg) 8 / 8px / 0 stretch`）
+- **规格 / 体积**：SVG，192×64，**约 1.1 KB**（远低于 300 KB 单文件上限）
+- **下载校验**（2026-10-03）：
+  - 包文件 `kenney_ui-pack.zip` = **1,229,750 bytes**
+  - `file kenney_ui-pack.zip` → `Zip archive data, at least v2.0 to extract, compression method=deflate`
+  - 解压后 `file .../button_rectangle_border.svg` → `SVG Scalable Vector Graphics image`
+- **署名**：CC0 不要求署名。因本素材现已**真实用于产物**，`AttributionBar.tsx` 亦一并列出 Kenney（礼节性致谢）。
+
+## 6. 评估后「决定不接入」的素材（留档，勿再重复评估）
+- **Kenney Cursor Pixel Pack**（https://opengameart.org/content/cursor-pixel-pack，CC0）
+  - 下载校验：`kenney_cursor-pixel-pack.zip` = 91,411 bytes；`file` → Zip archive data；含 185 个 PNG。
+  - **不接入原因**：全部为**像素风**（Preview 实测为粗像素黑白图形），与本作「平涂羊皮纸 + 墨线省界」的
+    平滑古地图定位冲突，用作光标会明显割裂。**证据**：`docs/qa/web-ui-elements-2026-10-03/pixel-cursor-rejected.png`。
+
 ---
 > 新增素材时，请把「来源 / 授权 / 署名要求」补到本文件，避免授权风险。

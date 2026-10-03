@@ -7,6 +7,8 @@ import { useWenKai, WENKAI_STACK } from '../utils/wenKai'
 import { FactionBadge } from './FactionBadge'
 import { commandIcon, commandLabel } from '../constants/commands'
 import { DiplomacyPanel } from './DiplomacyPanel'
+// [交互 2026-10-03] hover 悬浮说明（审计 §4-3）：资源数字此前无任何解释
+import { Hint } from './Tooltip'
 
 type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning'
 
@@ -129,18 +131,24 @@ function FactionList({
               {row.cities >= 3 && row.cities < 5 && <i className="fa-solid fa-gem" style={{ color: '#64a0d2', fontSize: '11px' }} title="称王"></i>}
             </div>
             <div style={styles.statGrid}>
-              <span style={styles.statItem}>
-                <i className="fa-solid fa-chess-rook" style={{ color: '#d4a84b', fontSize: '10px', marginRight: '3px' }}></i>
-                {row.cities}城
-              </span>
-              <span style={styles.statItem}>
-                <i className="fa-solid fa-users" style={{ color: '#5ab464', fontSize: '10px', marginRight: '3px' }}></i>
-                {row.garrison}
-              </span>
-              <span style={styles.statItem}>
-                <i className="fa-solid fa-coins" style={{ color: '#d4a84b', fontSize: '10px', marginRight: '3px' }}></i>
-                {row.gold}
-              </span>
+              <Hint content={{ title: '城池', lines: ['该势力当前控制的城池数'] }}>
+                <span style={styles.statItem}>
+                  <i className="fa-solid fa-chess-rook" style={{ color: '#d4a84b', fontSize: '10px', marginRight: '3px' }}></i>
+                  {row.cities}城
+                </span>
+              </Hint>
+              <Hint content={{ title: '总守军', lines: ['各城守军兵力之和'] }}>
+                <span style={styles.statItem}>
+                  <i className="fa-solid fa-users" style={{ color: '#5ab464', fontSize: '10px', marginRight: '3px' }}></i>
+                  {row.garrison}
+                </span>
+              </Hint>
+              <Hint content={{ title: '金钱', lines: ['各城金库之和；征兵/发展/赏赐都要花钱'] }}>
+                <span style={styles.statItem}>
+                  <i className="fa-solid fa-coins" style={{ color: '#d4a84b', fontSize: '10px', marginRight: '3px' }}></i>
+                  {row.gold}
+                </span>
+              </Hint>
             </div>
           </div>
         )
@@ -149,115 +157,60 @@ function FactionList({
   )
 }
 
+/**
+ * 城市列表
+ *
+ * 原先此 tab 在选中城市后渲染一张**纯只读**详情卡（审计 §1「城市详情卡：整卡无 button」）。
+ * 现把详情卡迁到地图浮层 `CityCard.tsx`（带真实可执行操作），此 tab 只负责
+ * 「可选中、可高亮」的城市清单 —— 点击任一城 → 地图居中并弹出详情卡。
+ */
 function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId: string | null; onSelectCity: (id: string) => void }) {
-  if (!cityId) {
-    // [修复 2026-10-01] 原来只有一句占位提示 + 大片空白 → 改为可点击的城市列表
-    const cities = Object.values(state.cities)
-    const byFaction: Record<string, typeof cities> = {}
-    cities.forEach((c) => { (byFaction[c.faction] = byFaction[c.faction] || []).push(c) })
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div style={{ fontSize: '13px', color: '#d4a84b' }}>城市列表（{cities.length}）</div>
-        {Object.keys(FACTIONS).filter((f) => byFaction[f]?.length).map((f) => (
-          <div key={f} style={styles.card}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: FACTION_COLORS[f] || '#888' }} />
-              <span style={{ fontSize: '12px', color: '#96918a' }}>{FACTIONS[f] || f} · {byFaction[f].length} 城</span>
-            </div>
-            {byFaction[f].map((c) => (
-              <div
-                key={c.id}
-                onClick={() => onSelectCity(c.id)}
-                style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', marginBottom: '4px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', cursor: 'pointer' }}
-              >
-                <span style={{ fontSize: '13px', color: '#e8e0d0' }}>{c.name}</span>
-                <span style={{ fontSize: '11px', color: '#96918a' }}>兵 {c.garrison} · 金 {c.gold}</span>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    )
-  }
-  const city = state.cities[cityId]
-  if (!city) {
-    return (
-      <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
-        <i className="fa-solid fa-circle-question" style={{ fontSize: '28px', color: '#5a5a72', marginBottom: '10px' }}></i>
-        <div style={styles.dim}>城市不存在</div>
-      </div>
-    )
-  }
-
-  const color = FACTION_COLORS[city.faction] || '#888888'
-  const gens = Object.values(state.generals).filter((g) => g.location === city.id)
-
+  const cities = Object.values(state.cities)
+  const byFaction: Record<string, typeof cities> = {}
+  cities.forEach((c) => { (byFaction[c.faction] = byFaction[c.faction] || []).push(c) })
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      <div style={{ ...styles.card, borderLeft: `3px solid ${color}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <h3 className="font-serif" style={{ color, margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <i className="fa-solid fa-city"></i>
-            {city.name}
-          </h3>
-          <div style={{ display: 'flex', gap: '2px' }}>
-            {Array.from({ length: city.level }).map((_, i) => (
-              <i key={i} className="fa-solid fa-star" style={{ color: '#d4a84b', fontSize: '10px' }}></i>
-            ))}
-          </div>
-        </div>
-
-        <div style={styles.detailGrid}>
-          <span style={styles.dim}><i className="fa-solid fa-flag" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>势力</span>
-          <span style={{ color: '#e8e0d0' }}>{FACTIONS[city.faction] || city.faction}</span>
-
-          <span style={styles.dim}><i className="fa-solid fa-shield-halved" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>城墙</span>
-          <span style={{ color: '#e8e0d0' }}>{city.wall_hp} / {city.wall_max_hp}</span>
-
-          <span style={styles.dim}><i className="fa-solid fa-users" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>守军</span>
-          <span style={{ color: '#e8e0d0' }}>{city.garrison}</span>
-
-          <span style={styles.dim}><i className="fa-solid fa-coins" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>金钱</span>
-          <span style={{ color: '#d4a84b' }}>{city.gold}</span>
-
-          <span style={styles.dim}><i className="fa-solid fa-bread-slice" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>粮草</span>
-          <span style={{ color: '#5ab464' }}>{city.food}</span>
-
-          <span style={styles.dim}><i className="fa-solid fa-people-group" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>人口</span>
-          <span style={{ color: '#e8e0d0' }}>{city.population}</span>
-
-          <span style={styles.dim}><i className="fa-solid fa-heart" style={{ marginRight: '4px', width: '14px', textAlign: 'center' }}></i>民心</span>
-          <span style={{ color: city.morale > 70 ? '#5ab464' : city.morale > 40 ? '#d4a84b' : '#c85046' }}>{city.morale}</span>
-        </div>
-
-        {city.is_besieged && (
-          <div style={{ marginTop: '10px', padding: '8px 10px', backgroundColor: 'rgba(200, 80, 70, 0.15)', borderRadius: '6px', color: '#c85046', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <i className="fa-solid fa-triangle-exclamation"></i>
-            被围困中
-          </div>
-        )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ fontSize: '13px', color: '#d4a84b' }}>
+        城市列表（{cities.length}）<span style={{ color: '#8a86a0', fontSize: '11px' }}> · 点击在地图定位并查看详情</span>
       </div>
-
-      {gens.length > 0 && (
-        <div style={styles.card}>
-          <div style={{ color: '#d4a84b', marginBottom: '8px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <i className="fa-solid fa-user-shield"></i>
-            驻守武将
+      {Object.keys(FACTIONS).filter((f) => byFaction[f]?.length).map((f) => (
+        <div key={f} style={styles.card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: FACTION_COLORS[f] || '#888' }} />
+            <span style={{ fontSize: '12px', color: '#96918a' }}>{FACTIONS[f] || f} · {byFaction[f].length} 城</span>
           </div>
-          {gens.map((g) => (
-            <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '12px' }}>
-              <i className="fa-solid fa-user" style={{ color: '#96918a', fontSize: '10px' }}></i>
-              <span style={{ color: '#e8e0d0', minWidth: '50px' }}>{g.name}</span>
-              <ElementBadge general={g} />
-              <span style={{ color: STAT_COLORS.command }}>统{g.command}</span>
-              <span style={{ color: STAT_COLORS.politics }}>政{g.politics}</span>
-              <span style={{ color: STAT_COLORS.bravery }}>武{g.bravery}</span>
-              <span style={{ color: STAT_COLORS.intelligence }}>智{g.intelligence}</span>
-              <span style={{ color: STAT_COLORS.loyalty }}>忠{g.loyalty}</span>
-            </div>
-          ))}
+          {byFaction[f].map((c) => {
+            const selected = cityId === c.id
+            return (
+              <Hint
+                key={c.id}
+                style={{ display: 'block' }}
+                content={{
+                  title: `${c.name} · ${FACTIONS[c.faction] || c.faction}`,
+                  lines: [`守军 ${c.garrison.toLocaleString()} · 金钱 ${c.gold.toLocaleString()}`, c.is_besieged ? '⚠ 被围困中' : '单击定位并打开详情卡'],
+                }}
+              >
+                <div
+                  data-panel-city-id={c.id}
+                  onClick={() => onSelectCity(c.id)}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '6px 8px', marginBottom: '4px', borderRadius: '6px', cursor: 'pointer',
+                    background: selected ? 'rgba(212, 168, 75, 0.14)' : 'rgba(255,255,255,0.03)',
+                    border: selected ? '1px solid rgba(212, 168, 75, 0.45)' : '1px solid transparent',
+                  }}
+                >
+                  <span style={{ fontSize: '13px', color: selected ? '#e8c877' : '#e8e0d0' }}>
+                    {selected && <i className="fa-solid fa-location-crosshairs" style={{ marginRight: '5px', fontSize: '10px' }}></i>}
+                    {c.name}
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#96918a' }}>兵 {c.garrison} · 金 {c.gold}</span>
+                </div>
+              </Hint>
+            )
+          })}
         </div>
-      )}
+      ))}
     </div>
   )
 }

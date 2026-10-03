@@ -13,6 +13,8 @@ interface GameMapProps {
   /** 选中地图上的军队（补上「军队完全点不了」的缺口） */
   onSelectArmy?: (armyId: string) => void
   selectedArmyId?: string | null
+  /** 当前选中的城池：地图上金色高亮 + 自动居中（审计 §4-4） */
+  selectedCityId?: string | null
 }
 
 interface Camera {
@@ -21,7 +23,7 @@ interface Camera {
   zoom: number
 }
 
-export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId }: GameMapProps) {
+export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, selectedCityId }: GameMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<Application | null>(null)
   const pixiCameraRef = useRef<Container | null>(null)
@@ -449,6 +451,26 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId }: G
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pixiReady])
 
+  // [交互 2026-10-03] 选中城池 → 地图自动居中（审计 §4-4：此前点城市只切 tab，地图毫无变化）。
+  // 只在"选中的城变了"时聚焦一次，避免每次 state 推送（每回合）都把镜头拽回去。
+  const focusedCityRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!selectedCityId) { focusedCityRef.current = null; return }
+    if (focusedCityRef.current === selectedCityId) return
+    const city = state?.cities[selectedCityId]
+    const container = containerRef.current
+    if (!city || !container || !appRef.current) return
+    focusedCityRef.current = selectedCityId
+    const vw = container.clientWidth
+    const vh = container.clientHeight
+    if (vw <= 0 || vh <= 0) return
+    const { x, y } = axialToPixel(city.position, HEX_SIZE)
+    // 放大到至少 0.42，让城名/剪影可读；已更大则保持
+    const z = Math.max(cameraRef.current.zoom, 0.42)
+    syncCamera({ x: vw / 2 - x * z, y: vh / 2 - y * z, zoom: z })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCityId, state?.cities])
+
   // 计算城市/军队的世界像素坐标
   const cityMarkers = state
     ? Object.values(state.cities).map((city) => {
@@ -552,6 +574,7 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId }: G
             x={pos.x}
             y={pos.y}
             zoom={cam.zoom}
+            selected={selectedCityId === city.id}
             onClick={() => onSelectCity(city.id)}
           />
         ))}
@@ -564,6 +587,9 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId }: G
             zoom={cam.zoom}
             selected={selectedArmyId === army.id}
             onClick={onSelectArmy ? () => onSelectArmy(army.id) : undefined}
+            generalName={state?.generals[army.general_id]?.name}
+            fromName={army.from_city ? state?.cities[army.from_city]?.name : undefined}
+            toName={army.to_city ? state?.cities[army.to_city]?.name : undefined}
           />
         ))}
         {/* 战斗回放层（箭头 + 回放标签），与城市/军队同一世界坐标 transform */}
@@ -594,9 +620,46 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId }: G
           50% { transform: translate(2px, -1px); }
           75% { transform: translate(-1px, 2px); }
         }
+        @keyframes city-select-pulse {
+          0%, 100% { opacity: 0.65; }
+          50% { opacity: 1; }
+        }
       `}</style>
+
+      {/* 加载/等待态（审计 §3-10：此前 hex_map 解析期间只有顶栏一行字，地图纯黑无反馈） */}
+      {!state && (
+        <div style={styles.loadingOverlay}>
+          <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '30px', color: '#d4a84b', marginBottom: '14px' }}></i>
+          <div style={{ color: '#e8e0d0', fontSize: '15px', fontWeight: 600 }}>正在连接后端并载入地图…</div>
+          <div style={{ color: '#a8a29a', fontSize: '12px', marginTop: '6px' }}>
+            首次载入需解析约 2.4 万格六角地图，请稍候
+          </div>
+        </div>
+      )}
+      {state && !pixiReady && (
+        <div style={styles.loadingOverlay}>
+          <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '26px', color: '#d4a84b', marginBottom: '12px' }}></i>
+          <div style={{ color: '#e8e0d0', fontSize: '14px' }}>正在绘制地图…</div>
+        </div>
+      )}
     </div>
   )
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  loadingOverlay: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(12, 12, 24, 0.72)',
+    backdropFilter: 'blur(2px)',
+    zIndex: 40,
+    pointerEvents: 'auto',
+    textAlign: 'center',
+  },
 }
 
 // ---- 辅助函数 ----

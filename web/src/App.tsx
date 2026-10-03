@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { AttributionBar } from './components/AttributionBar'
+import { CityCard } from './components/CityCard'
 import { EventTicker } from './components/EventTicker'
 import { GameMap } from './components/GameMap'
 import { GameOverOverlay } from './components/GameOverOverlay'
 import { LlmSetupBar } from './components/LlmSetupBar'
 import { Panel } from './components/Panel'
+import { ShortcutHelp } from './components/ShortcutHelp'
+import { TooltipProvider, useHintProps } from './components/Tooltip'
 import { TopBar } from './components/TopBar'
 import { FACTION_COLORS, FACTIONS } from './theme'
 import { useGame } from './hooks/useGame'
@@ -25,12 +28,14 @@ function App() {
   const {
     state, connected, auto, nextTurn, toggleAuto, restart,
     restarting, restartError, thinking, thinkingSeconds, llmActive, llmError,
+    runCommand, commandPending, commandResult,
   } = useGame()
   const [tab, setTab] = useState<TabKey>('factions')
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null)
   const [selectedFaction, setSelectedFaction] = useState<string | null>(null)
   const [selectedArmyId, setSelectedArmyId] = useState<string | null>(null)
   const [gameOverDismissed, setGameOverDismissed] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
 
   // 新一局开始时复位结算层的关闭状态
   useEffect(() => {
@@ -42,6 +47,23 @@ function App() {
       // [交互修复 2026-10-03] 输入框/下拉聚焦时不再吞键：此前在 <select> 里
       // 按空格/字母/数字会推进回合、切自动、切 tab，完全无法正常输入。
       if (isEditableTarget(e.target)) return
+
+      // 快捷键说明面板 / 全局取消
+      if (e.key === '?' || e.key === 'h' || e.key === 'H') {
+        e.preventDefault()
+        setHelpOpen((v) => !v)
+        return
+      }
+      if (e.key === 'Escape') {
+        // 逐层关闭：帮助 → 城池卡 → 军队卡
+        setHelpOpen(false)
+        setSelectedCityId((cur) => (cur ? null : cur))
+        setSelectedArmyId((cur) => (cur ? null : cur))
+        return
+      }
+      // 帮助面板打开时，屏蔽其余玩法快捷键，避免误触推进回合
+      if (helpOpen) return
+
       if (e.code === 'Space') {
         e.preventDefault()
         if (!auto) nextTurn()
@@ -67,118 +89,174 @@ function App() {
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [auto, nextTurn, toggleAuto])
+  }, [auto, nextTurn, toggleAuto, helpOpen])
+
   const handleSelectCity = (cityId: string) => {
     setSelectedCityId(cityId)
     setTab('city')
   }
 
+  const selectedCity = selectedCityId && state ? state.cities[selectedCityId] : null
+  const army = selectedArmyId && state ? state.armies[selectedArmyId] : null
+
   return (
-    <div style={styles.app}>
-      <div style={styles.main}>
-        <div style={styles.mapArea}>
-        <TopBar state={state} connected={connected} />
-        <LlmSetupBar
-          llmActive={llmActive}
-          llmError={llmError}
-          llmModel={state?.llm_model}
-          activeFactions={state?.llm_factions}
-          restarting={restarting}
-          restartError={restartError}
-          thinking={thinking}
-          thinkingSeconds={thinkingSeconds}
-          onRestart={restart}
-        />
-        <GameMap
-          state={state}
-          onSelectCity={handleSelectCity}
-          onSelectArmy={(id) => setSelectedArmyId((cur) => (cur === id ? null : id))}
-          selectedArmyId={selectedArmyId}
-        />
-        <EventTicker events={state?.events || []} />
+    <TooltipProvider>
+      <div style={styles.app}>
+        <div style={styles.main}>
+          <div style={styles.mapArea}>
+          <TopBar state={state} connected={connected} />
+          <LlmSetupBar
+            llmActive={llmActive}
+            llmError={llmError}
+            llmModel={state?.llm_model}
+            activeFactions={state?.llm_factions}
+            restarting={restarting}
+            restartError={restartError}
+            thinking={thinking}
+            thinkingSeconds={thinkingSeconds}
+            onRestart={restart}
+          />
 
-        <button
-          style={{
-            ...styles.nextButton,
-            opacity: auto || thinking ? 0.5 : 1,
-            cursor: auto || thinking ? 'not-allowed' : 'pointer',
-          }}
-          onClick={() => !auto && !thinking && nextTurn()}
-          disabled={auto || thinking}
-        >
-          <i
-            className={`fa-solid ${thinking ? 'fa-spinner fa-spin' : 'fa-forward-step'}`}
-            style={{ color: '#d4a84b', fontSize: '16px' }}
-          ></i>
-          <div style={{ color: '#d4a84b', fontSize: '14px', fontWeight: 600 }}>
-            {thinking ? '思考中...' : '下一回合'}
-          </div>
-          <div style={{ color: '#a8a29a', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <i className="fa-solid fa-keyboard" style={{ fontSize: '9px' }}></i>空格 / A
-          </div>
-        </button>
+          <HelpButton onClick={() => setHelpOpen(true)} />
 
-        {auto && (
-          <div style={styles.autoIndicator}>
-            <i className="fa-solid fa-play" style={{ marginRight: '6px' }}></i>
-            自动推进中
-            <button
-              style={styles.stopBtn}
-              onClick={() => toggleAuto()}
-              title="停止自动推进（快捷键 A）"
-            >
-              <i className="fa-solid fa-stop" style={{ marginRight: '4px' }}></i>
-              停止
-            </button>
-          </div>
-        )}
+          <GameMap
+            state={state}
+            onSelectCity={handleSelectCity}
+            onSelectArmy={(id) => setSelectedArmyId((cur) => (cur === id ? null : id))}
+            selectedArmyId={selectedArmyId}
+            selectedCityId={selectedCityId}
+          />
+          <EventTicker events={state?.events || []} />
 
-        {/* 军队详情卡：点地图上的军队后浮现（此前军队完全点不了） */}
-        {selectedArmyId && state?.armies[selectedArmyId] && (() => {
-          const a = state.armies[selectedArmyId]
-          const gen = state.generals[a.general_id]
-          const color = FACTION_COLORS[a.faction] || '#888'
-          return (
-            <div style={{ ...styles.armyCard, borderLeft: `3px solid ${color}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ color: '#e8e0d0', fontWeight: 600, fontSize: '13px' }}>
-                  <i className="fa-solid fa-person-military-rifle" style={{ marginRight: '5px', color }}></i>
-                  {gen?.name || '未知将领'} 的部队
-                </span>
-                <button style={styles.armyClose} onClick={() => setSelectedArmyId(null)} aria-label="关闭">
-                  <i className="fa-solid fa-xmark"></i>
-                </button>
-              </div>
-              <div style={{ fontSize: '12px', color: '#a8a29a', lineHeight: 1.7 }}>
-                <div>势力：{FACTIONS[a.faction] || a.faction}</div>
-                <div>兵力：{a.soldiers} · 士气：{a.morale}</div>
-                <div>状态：{a.status || '—'}</div>
-                {(a.from_city || a.to_city) && (
-                  <div>
-                    {a.from_city ? `自 ${state.cities[a.from_city]?.name || a.from_city}` : ''}
-                    {a.to_city ? ` → ${state.cities[a.to_city]?.name || a.to_city}` : ''}
-                  </div>
-                )}
-              </div>
+          <button
+            style={{
+              ...styles.nextButton,
+              opacity: auto || thinking ? 0.5 : 1,
+              cursor: auto || thinking ? 'not-allowed' : 'pointer',
+            }}
+            onClick={() => !auto && !thinking && nextTurn()}
+            disabled={auto || thinking}
+          >
+            <i
+              className={`fa-solid ${thinking ? 'fa-spinner fa-spin' : 'fa-forward-step'}`}
+              style={{ color: '#d4a84b', fontSize: '16px' }}
+            ></i>
+            <div style={{ color: '#d4a84b', fontSize: '14px', fontWeight: 600 }}>
+              {thinking ? '思考中...' : '下一回合'}
             </div>
-          )
-        })()}
+            <div style={{ color: '#a8a29a', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <i className="fa-solid fa-keyboard" style={{ fontSize: '9px' }}></i>空格 / A
+            </div>
+          </button>
 
-        {state?.game_over && !gameOverDismissed && (
-          <GameOverOverlay state={state} onDismiss={() => setGameOverDismissed(true)} />
-        )}
+          {auto && (
+            <div style={styles.autoIndicator}>
+              <i className="fa-solid fa-play" style={{ marginRight: '6px' }}></i>
+              自动推进中
+              <button
+                style={styles.stopBtn}
+                onClick={() => toggleAuto()}
+                title="停止自动推进（快捷键 A）"
+              >
+                <i className="fa-solid fa-stop" style={{ marginRight: '4px' }}></i>
+                停止
+              </button>
+            </div>
+          )}
+
+          {/* 回合推进中：全局可见的等待条（不必盯着按钮也知道 AI 在跑） */}
+          {thinking && (
+            <div style={styles.thinkingBar}>
+              <i className="fa-solid fa-brain fa-beat" style={{ marginRight: '8px', color: '#d4a84b' }}></i>
+              AI 思考中 · 已等待 {thinkingSeconds}s
+              <span style={styles.thinkingHint}>（LLM 单回合约 30 秒）</span>
+            </div>
+          )}
+
+          {/* 城池详情卡（含真实可执行操作） */}
+          {state && selectedCity && (
+            <CityCard
+              state={state}
+              city={selectedCity}
+              onClose={() => setSelectedCityId(null)}
+              onSelectCity={handleSelectCity}
+              runCommand={runCommand}
+              commandPending={commandPending}
+              commandResult={commandResult}
+            />
+          )}
+
+          {/* 军队详情卡：点地图上的军队后浮现（此前军队完全点不了） */}
+          {state && army && (
+            <ArmyCard state={state} armyId={selectedArmyId!} onClose={() => setSelectedArmyId(null)} />
+          )}
+
+          {state?.game_over && !gameOverDismissed && (
+            <GameOverOverlay state={state} onDismiss={() => setGameOverDismissed(true)} />
+          )}
+
+          {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
+          </div>
+          <Panel
+            state={state}
+            tab={tab}
+            setTab={setTab}
+            selectedCityId={selectedCityId}
+            selectedFaction={selectedFaction}
+            setSelectedFaction={setSelectedFaction}
+            onSelectCity={handleSelectCity}
+          />
         </div>
-        <Panel
-          state={state}
-          tab={tab}
-          setTab={setTab}
-          selectedCityId={selectedCityId}
-          selectedFaction={selectedFaction}
-          setSelectedFaction={setSelectedFaction}
-          onSelectCity={handleSelectCity}
-        />
+        <AttributionBar />
       </div>
-      <AttributionBar />
+    </TooltipProvider>
+  )
+}
+
+/** 快捷键帮助入口（审计 §4-7：此前快捷键只零散写在按钮小字里） */
+function HelpButton({ onClick }: { onClick: () => void }) {
+  const hint = useHintProps(() => ({ lines: ['查看全部快捷键（? 或 H）'] }))
+  return (
+    <button {...hint} style={styles.helpBtn} onClick={onClick} aria-label="快捷键说明">
+      <i className="fa-solid fa-keyboard"></i>
+      <span style={{ fontSize: '12px', marginLeft: '6px' }}>快捷键</span>
+      <kbd style={styles.helpKbd}>?</kbd>
+    </button>
+  )
+}
+
+/** 军队详情卡（从 App 内联抽出，附 hover 说明） */
+function ArmyCard({ state, armyId, onClose }: { state: NonNullable<ReturnType<typeof useGame>['state']>; armyId: string; onClose: () => void }) {
+  const a = state.armies[armyId]
+  if (!a) return null
+  const gen = state.generals[a.general_id]
+  const color = FACTION_COLORS[a.faction] || '#888'
+  const statusLabels: Record<string, string> = {
+    marching: '行军中', attacking: '进攻中', besieging: '围城中',
+    retreating: '撤退中', defending: '驻守中', idle: '待命',
+  }
+  return (
+    <div style={{ ...styles.armyCard, borderLeft: `3px solid ${color}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+        <span style={{ color: '#e8e0d0', fontWeight: 600, fontSize: '13px' }}>
+          <i className="fa-solid fa-person-military-rifle" style={{ marginRight: '5px', color }}></i>
+          {gen?.name || '未知将领'} 的部队
+        </span>
+        <button style={styles.armyClose} onClick={onClose} aria-label="关闭" title="关闭（Esc）">
+          <i className="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div style={{ fontSize: '12px', color: '#a8a29a', lineHeight: 1.7 }}>
+        <div>势力：{FACTIONS[a.faction] || a.faction}</div>
+        <div>兵力：{a.soldiers.toLocaleString()} · 士气：{a.morale}</div>
+        <div>状态：{statusLabels[a.status] || a.status || '—'}</div>
+        {(a.from_city || a.to_city) && (
+          <div>
+            {a.from_city ? `自 ${state.cities[a.from_city]?.name || a.from_city}` : ''}
+            {a.to_city ? ` → ${state.cities[a.to_city]?.name || a.to_city}` : ''}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -238,6 +316,27 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
   },
+  /** 回合推进中的全局等待条（顶部居中） */
+  thinkingBar: {
+    position: 'absolute',
+    top: '12px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    padding: '8px 18px',
+    background: 'rgba(18, 18, 34, 0.9)',
+    border: '1px solid rgba(212, 168, 75, 0.5)',
+    borderRadius: '10px',
+    color: '#e8c877',
+    fontSize: '13px',
+    fontWeight: 600,
+    zIndex: 35,
+    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.35)',
+    backdropFilter: 'blur(12px)',
+    display: 'flex',
+    alignItems: 'center',
+    whiteSpace: 'nowrap',
+  },
+  thinkingHint: { color: '#8a86a0', fontSize: '11px', fontWeight: 400, marginLeft: '4px' },
   /** 自动推进的「停止」按钮（此前只能按 A 键，界面无入口） */
   stopBtn: {
     marginLeft: '10px',
@@ -253,11 +352,35 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
   },
+  /** 快捷键帮助入口按钮 */
+  helpBtn: {
+    position: 'absolute',
+    top: '74px',
+    right: '12px',
+    padding: '6px 10px',
+    background: 'rgba(18, 18, 34, 0.82)',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
+    borderRadius: '8px',
+    color: '#b8b3aa',
+    fontSize: '12px',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+    zIndex: 25,
+    display: 'flex',
+    alignItems: 'center',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+    backdropFilter: 'blur(12px)',
+  },
+  helpKbd: {
+    marginLeft: '8px', padding: '0 6px', borderRadius: '4px',
+    background: 'rgba(212, 168, 75, 0.16)', border: '1px solid rgba(212, 168, 75, 0.4)',
+    color: '#e8c877', fontSize: '10px', fontWeight: 600,
+  },
   /** 军队详情卡（点地图军队后浮现） */
   armyCard: {
     position: 'absolute',
-    top: '74px',
-    left: '12px',
+    top: '116px',
+    right: '12px',
     width: '240px',
     padding: '12px',
     background: 'rgba(18, 18, 34, 0.92)',

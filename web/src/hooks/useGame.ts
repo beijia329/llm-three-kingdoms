@@ -24,6 +24,19 @@ const API_BASE = import.meta.env.VITE_API_BASE || ''
 /** 单回合等待上限（秒）。超过则判定异常并解除按钮禁用，避免永久卡死 */
 const TURN_TIMEOUT_S = 240
 
+/** 单条命令等待上限（秒）。超时则解除按钮禁用并提示，避免命令按钮永久转圈 */
+const COMMAND_TIMEOUT_S = 20
+
+/** 命令执行结果（命令按钮的可见反馈；成功/失败都要给用户一个交代） */
+export interface CommandResult {
+  success: boolean
+  description: string
+  /** 后端命令 type，如 recruit/develop/attack */
+  type: string
+  /** 自增序号，供前端判断"这是最新一次结果" */
+  seq: number
+}
+
 export interface ResetOptions {
   /** true = LLM 围观模式；false = CLI 规则 AI */
   useLlm: boolean
@@ -58,6 +71,12 @@ export interface UseGameReturn {
   llmActive: boolean
   /** 请求了 LLM 但被静默回退时的原因 */
   llmError: string
+  /** 正在执行的命令（按钮禁用 + 转圈）；null 表示空闲 */
+  commandPending: { type: string; label: string } | null
+  /** 最近一次命令的执行结果（成功/失败都回显） */
+  commandResult: CommandResult | null
+  /** 执行一条命令：立即进入 pending，收到 command_result 或超时后解除 */
+  runCommand: (command: Record<string, unknown>, label: string) => void
 }
 
 /**
@@ -141,6 +160,10 @@ export function useGame(): UseGameReturn {
   // 回合推进中：LLM 单回合 27~42s，必须有明确反馈，否则用户以为按钮坏了
   const [pendingTurn, setPendingTurn] = useState<number | null>(null)
   const [thinkingSeconds, setThinkingSeconds] = useState(0)
+  // 命令执行中/结果：城市详情卡的「征兵/发展/出征」按钮据此转圈并回显成败
+  const [commandPending, setCommandPending] = useState<{ type: string; label: string } | null>(null)
+  const [commandResult, setCommandResult] = useState<CommandResult | null>(null)
+  const commandSeqRef = useRef(0)
 
   // hex_map 缓存（性能核心，2026-10-03）：后端整图/增量/空三态，前端据此维护缓存。
   const hexCacheRef = useRef<HexCache>({})
@@ -210,12 +233,29 @@ export function useGame(): UseGameReturn {
             setPendingTurn((pending) =>
               pending !== null && next.turn >= pending ? null : pending,
             )
+          } else if (msg.type === 'command_result') {
+            // 后端 execute_command 的真实回执：{ success, type, description }
+            const r = (msg.data || {}) as {
+              success?: boolean
+              type?: string
+              description?: string
+              error?: string
+            }
+            commandSeqRef.current += 1
+            setCommandResult({
+              success: r.success === true,
+              type: r.type || '',
+              description: r.description || r.error || (r.success ? '执行成功' : '执行失败'),
+              seq: commandSeqRef.current,
+            })
+            setCommandPending(null)
           } else if (msg.type === 'event') {
             console.log('[GAME]', msg.text)
           } else if (msg.type === 'error') {
             console.error('[GAME ERROR]', msg.message)
             // 出错也要解锁，否则用户会被永久禁用在"思考中"
             setPendingTurn(null)
+            setCommandPending(null)
           }
         } catch (e) {
           console.error('Failed to parse message:', e)
@@ -262,9 +302,45 @@ export function useGame(): UseGameReturn {
     send({ type: 'command', command })
   }, [send])
 
+  /**
+   * 执行一条命令并进入可见的 pending 态。
+   *
+   * 🔴 为什么不让调用方直接用 sendCommand：命令是**异步**的（后端处理后才回
+   * `command_result`），若按钮点了不改任何状态，观感就是"点了没反应"——
+   * 正是玩家最恨的那类控件。这里统一切到 pending、禁用按钮、转圈，
+   * 收到回执或超时后再解除，并把后端的人类可读 description 回显出来。
+   */
+  const runCommand = useCallback((command: Record<string, unknown>, label: string) => {
+    const type = String(command?.type || '')
+    setCommandResult(null)
+    setCommandPending({ type, label })
+    sendCommand(command)
+  }, [sendCommand])
+
+  // 命令超时兜底：后端异常/未回执时不能永久转圈
+  useEffect(() => {
+    if (!commandPending) return
+    const t = setTimeout(() => {
+      commandSeqRef.current += 1
+      setCommandResult({
+        success: false,
+        type: commandPending.type,
+        description: '命令超时未收到后端回执（后端可能繁忙或已断开）',
+        seq: commandSeqRef.current,
+      })
+      setCommandPending(null)
+    }, COMMAND_TIMEOUT_S * 1000)
+    return () => clearTimeout(t)
+  }, [commandPending])
+
   const stateTurnRef = useRef<number>(1)
   useEffect(() => {
     if (state?.turn) stateTurnRef.current = state.turn
+  }, [state?.turn])
+
+  // 回合推进后，上一条命令的回显已过时（资源/守军都变了），清掉避免误导
+  useEffect(() => {
+    setCommandResult(null)
   }, [state?.turn])
 
   const nextTurn = useCallback(() => {
@@ -356,9 +432,12 @@ export function useGame(): UseGameReturn {
     thinkingSeconds,
     llmActive,
     llmError,
+    commandPending,
+    commandResult,
+    runCommand,
   }), [
     state, connected, auto, sendCommand, nextTurn, toggleAuto, reset,
     restart, restarting, restartError, pendingTurn, thinkingSeconds,
-    llmActive, llmError,
+    llmActive, llmError, commandPending, commandResult, runCommand,
   ])
 }

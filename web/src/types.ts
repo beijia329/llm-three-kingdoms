@@ -28,6 +28,18 @@ export interface City {
   position: HexCoord
   is_besieged: boolean
   besieging_armies: string[]
+  /**
+   * 以下字段后端 `get_state()` 一直返回（见 `api/game_manager.py`），
+   * 此前前端类型未声明 → 城池详情卡拿不到「驻守将领 / 相邻城池 / 州郡」。
+   * 城池详情卡的「出征」目标下拉依赖 `neighbors`。均为只读，可选以免旧快照报错。
+   */
+  province_id?: string
+  /** 驻守本城的将领 id 列表 */
+  generals?: string[]
+  /** 相邻城市 id 列表（六角格图上的连通城） */
+  neighbors?: string[]
+  /** 经济发展累计加成（%） */
+  economic_bonus?: number
 }
 
 export interface Army {
