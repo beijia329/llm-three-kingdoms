@@ -107,6 +107,35 @@ async def get_state() -> Dict[str, Any]:
     return _manager.get_state()
 
 
+@app.get("/api/models")
+async def get_models() -> Dict[str, Any]:
+    """列出各 provider 的候选模型（前端「模型分配」下拉的数据源）
+
+    v4.0.1 新增。只返回**静态候选清单**，不实时请求外网 ——
+    避免前端每次打开设置都打一次 API 请求。
+    真实可用性以首次调用为准（填错模型会在对局第一回合报错）。
+    """
+    from players.llm.llm_client import PROVIDER_BASE_URLS, PROVIDER_MODELS
+
+    return {
+        "providers": list(PROVIDER_BASE_URLS.keys()),
+        "models": PROVIDER_MODELS,
+        "default_provider": "deepseek",
+        "default_model": "deepseek-flash",
+    }
+
+
+@app.get("/api/model_records")
+async def get_model_records() -> Dict[str, Any]:
+    """获取跨局模型战绩排行榜（「LLM 大乱斗」的核心产物）
+
+    单局有随机性，跨局累计才能回答「哪个大模型更会玩」。
+    """
+    if _manager is None:
+        return {"error": "游戏管理器未初始化"}
+    return _manager.get_model_records()
+
+
 @app.post("/api/command")
 async def post_command(command: Dict[str, Any]) -> Dict[str, Any]:
     """执行一个命令"""

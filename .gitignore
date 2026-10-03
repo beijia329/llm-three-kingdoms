@@ -44,3 +44,9 @@ web/dist/
 
 # Release
 release/
+
+# 运行时数据：跨局模型战绩（v4.0.1 新增，不进版本库）
+data/model_records.json
+
+# 运行时数据：本地对局存档
+runtime/

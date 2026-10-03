@@ -5,11 +5,14 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import zlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from game.constants import FACTIONS
@@ -35,6 +38,35 @@ from players.llm.llm_client import LLMClient
 from players.llm.llm_player import LLMPlayer
 
 logger = logging.getLogger(__name__)
+
+MODEL_RECORDS_PATH: Path = Path(__file__).resolve().parents[1] / "data" / "model_records.json"
+"""跨局「模型战绩」落盘位置（v4.0.1 新增）
+
+🔴 为什么需要跨局累计：单局有随机性（地图、性格、初始位置），
+一局分不出高低。而「LLM 大乱斗」的核心价值恰恰是回答
+「**哪个大模型更会玩这个游戏**」——那必须跨局统计。
+本文件已被 .gitignore 忽略（运行时数据，不进版本库）。
+"""
+
+MAX_RECORDS_KEPT: int = 200
+"""战绩文件最多保留的对局数（防止无限增长）"""
+
+MAX_EVENTS_KEPT: int = 200
+"""内部事件日志 ``self._events`` 的上限（防止长局内存无界增长）
+
+前端只展示最后 20 条（``get_state`` 里 ``list(self._events[-20:])``），
+取 200 = 10 倍余量：既留足回看空间，又给无限增长的列表一个安全阀。
+**只裁剪内部列表，不改变 ``get_state()`` 的输出切片行为**（仍是最后 20 条）。
+"""
+
+MAX_REASONING_HISTORY: int = 400
+"""决策理由 ``self._reasoning`` 的上限
+
+「决策」tab 是围观台的核心：观众要看的是"这个模型怎么一步步走下坡路"，
+早期决策被丢弃 = 回看不到演化过程（产品级缺陷，原上限 40）。
+取 400 ≈ 覆盖 3 方整局（48 回合 × 3 = 144，余量充足）；
+12 方长局（576 条）仍会截断，但**有界**、不会无界增长。
+"""
 
 
 def _stable_hash(text: str) -> int:
@@ -68,11 +100,32 @@ class GameConfig:
     use_llm: bool = False
     """为参与势力创建 LLMPlayer（真实大模型决策）而非 CLIPlayer"""
     model: str = "deepseek-flash"
-    """LLM 模型名（DeepSeek-V4.1-Flash 的 API id 即 deepseek-flash）"""
+    """**默认**模型名（未在 faction_models 中单独指定的势力使用它）
+
+    可用 id 见 players/llm/llm_client.py 的 PROVIDER_MODELS，
+    或调 GET /api/models 获取。
+    """
     provider: str = "deepseek"
-    """LLM 提供商（deepseek / openai / openrouter）"""
+    """**默认** LLM 提供商（deepseek / openai / openrouter）"""
     factions: Optional[List[str]] = None
     """只给这些势力建玩家；None = 全部 12 方参战"""
+
+    # ---- 多模型对战（v4.0.1 新增，「LLM 大乱斗」的核心）----
+    faction_models: Optional[Dict[str, str]] = None
+    """势力键 → 模型名。未列出的势力回退到 config.model。
+
+    🔴 为什么需要这个字段：本项目的定位源自《9 大模型决战三国志》——
+    让**不同**的大模型各领一方同台竞技。但 v4.0.0 之前整个 GameManager
+    只创建一个 LLMClient，所有势力共用同一个 model，
+    实际只能做到"一个模型自己打自己"，核心设定并不成立。
+    现在每个势力可以拿到独立的 LLMClient，从而支持：
+        {"caocao": "deepseek-v4-pro", "liubei": "deepseek-flash", ...}
+    """
+    faction_providers: Optional[Dict[str, str]] = None
+    """势力键 → provider（可选）。未列出时回退到 config.provider。
+
+    支持跨厂商对战（如 DeepSeek vs OpenRouter 上的其它模型）。
+    """
     # ---- 并发采集（v4.0）----
     parallel_players: bool = True
     """并发采集各势力决策。
@@ -108,6 +161,8 @@ class GameManager:
         self._events: List[Dict[str, Any]] = []
         # 决策理由（供前端「决策」面板展示）：每条 = 一次 LLM 决策
         self._reasoning: List[Dict[str, Any]] = []
+        # 本局是否已计入模型战绩（幂等标记：process_turn 每回合都会看到 game_over）
+        self._match_recorded: bool = False
         self._init_engine()
 
     def _init_engine(self) -> None:
@@ -138,12 +193,20 @@ class GameManager:
         #   LLM API 的**阻塞网络调用**，在 process_turn 的势力循环中逐个
         #   串行执行。势力越多、延迟越高，单回合耗时线性增长。后续可考虑
         #   并发/异步化，本次仅打通「决策理由」链路，不做并发。
-        llm_client: Optional[LLMClient] = None
+        # use_llm=True 时，尽量用 LLMPlayer（真实大模型决策）；
+        # 缺少 API Key 时回退为 CLIPlayer，保证游戏仍可运行。
+        #
+        # v4.0.1：从「单 client 全体共用」改为「每方独立 client」，
+        # 以支持 faction_models（不同势力用不同模型 = 真正的大乱斗）。
+        # 并发说明见 _collect_decisions（v4.0 已由线程池并发采集决策）。
+        llm_clients: Dict[str, LLMClient] = {}
         # 前端「降级提示」用：记录 LLM 实际是否真的启用，以及失败原因。
         # 🔴 历史教训：此前 key 缺失只 logger.warning，前端无任何提示 →
         #    用户以为在跑 LLM，实际已回退 CLIPlayer，决策 tab 恒空，极难排查。
         self.llm_active: bool = False
         self.llm_error: str = ""
+        # 势力 → 实际使用的模型名（前端展示「这一方是谁在指挥」）
+        self.llm_model_by_faction: Dict[str, str] = {}
         if self.config.use_llm:
             api_key = (
                 os.environ.get("LLM_API_KEY")
@@ -159,12 +222,25 @@ class GameManager:
                 )
                 logger.error("use_llm=True 但 key 为占位符: %s", self.llm_error)
             elif api_key:
-                llm_client = LLMClient(
-                    provider=self.config.provider,
-                    model=self.config.model,
-                    api_key=api_key,
-                )
+                faction_models = self.config.faction_models or {}
+                faction_providers = self.config.faction_providers or {}
+                for faction in participant_factions:
+                    if faction == self.config.human_faction:
+                        continue
+                    model = faction_models.get(faction) or self.config.model
+                    provider = faction_providers.get(faction) or self.config.provider
+                    llm_clients[faction] = LLMClient(
+                        provider=provider,
+                        model=model,
+                        api_key=api_key,
+                    )
+                    self.llm_model_by_faction[faction] = model
                 self.llm_active = True
+                models_in_play = sorted(set(self.llm_model_by_faction.values()))
+                logger.info(
+                    "LLM 已启用：%d 方参战，使用 %d 个不同模型 %s",
+                    len(llm_clients), len(models_in_play), models_in_play,
+                )
             else:
                 self.llm_error = (
                     "未找到 LLM_API_KEY / DEEPSEEK_API_KEY 环境变量，"
@@ -176,8 +252,10 @@ class GameManager:
         for faction in participant_factions:
             if faction == self.config.human_faction:
                 continue
-            if llm_client is not None:
-                player = LLMPlayer(faction=faction, llm_client=llm_client)
+            faction_client = llm_clients.get(faction)
+            if faction_client is not None:
+                # 每方持有自己的 client（模型可能不同）—— 这是「多模型对战」的落点
+                player = LLMPlayer(faction=faction, llm_client=faction_client)
                 # 仅把参战势力作为外交目标提示，避免对不存在的势力发消息
                 player.faction_keys = list(participant_factions)
                 self._players[faction] = player
@@ -219,6 +297,9 @@ class GameManager:
                 "gold": sum(c.gold for c in cities),
                 "food": sum(c.food for c in cities),
                 "population": sum(c.population for c in cities),
+                # v4.0.1：该势力由哪个大模型指挥（多模型对战的关键信息）
+                "model": self.llm_model_by_faction.get(fid, ""),
+                "is_alive": len(cities) > 0,
             }
 
         # 补充六角格地图（用于前端地形渲染）
@@ -262,6 +343,9 @@ class GameManager:
         data["llm_active"] = bool(self.llm_active)
         data["llm_error"] = self.llm_error
         data["llm_model"] = self.config.model if self.llm_active else ""
+        # v4.0.1：势力 → 实际模型（前端据此显示「这一方是谁在指挥」）。
+        # 多模型对战时各方模型不同，单靠 llm_model 一个字段表达不了。
+        data["llm_model_by_faction"] = dict(self.llm_model_by_faction)
         data["llm_factions"] = list(self._players.keys())
         data["hex_map"] = {
             "width": self.engine.hex_map.width if self.engine.hex_map else 0,
@@ -511,9 +595,9 @@ class GameManager:
                         "description": result.description,
                     })
 
-        # 只保留最近 40 条决策理由
-        if len(self._reasoning) > 40:
-            self._reasoning = self._reasoning[-40:]
+        # 只保留最近 MAX_REASONING_HISTORY 条决策理由（见常量说明）
+        if len(self._reasoning) > MAX_REASONING_HISTORY:
+            self._reasoning = self._reasoning[-MAX_REASONING_HISTORY:]
 
         # 推进引擎回合
         turn_result = self.engine.process_turn()
@@ -533,6 +617,8 @@ class GameManager:
                 self._add_event(f"🏆 {w} 一统天下！", "victory")
             else:
                 self._add_event("游戏结束：平局", "victory")
+            # v4.0.1：对局结束 → 计入跨局模型战绩（幂等，只记一次）
+            self._record_match_result()
 
         return {
             "turn": turn_result.get("turn"),
@@ -558,6 +644,132 @@ class GameManager:
             results.append(self.process_turn())
         return results
 
+    # ============================================================
+    # 模型战绩（跨局累计）
+    # ============================================================
+
+    @staticmethod
+    def _read_records() -> Dict[str, Any]:
+        """读取战绩文件；不存在或损坏时返回空结构（绝不抛异常影响对局）"""
+        if not MODEL_RECORDS_PATH.exists():
+            return {"matches": []}
+        try:
+            payload = json.loads(MODEL_RECORDS_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("模型战绩文件读取失败，按空处理: %r", exc)
+            return {"matches": []}
+        if not isinstance(payload, dict):
+            return {"matches": []}
+        payload.setdefault("matches", [])
+        return payload
+
+    def _record_match_result(self) -> None:
+        """对局结束时把结果计入「模型战绩」（幂等）
+
+        🔴 为什么需要跨局累计：单局受地图、初始位置、性格随机影响，
+        一局分不出模型高低。而本项目的核心价值就是回答
+        「**哪个大模型更会玩**」——必须跨局统计才有意义。
+
+        写入失败只记 warning，**绝不影响对局本身**（战绩是附加产物）。
+        """
+        if self._match_recorded or self.engine is None:
+            return
+        self._match_recorded = True
+
+        if not self.llm_model_by_faction:
+            # 纯 CLI（启发式 AI）对局没有「模型」这一维度，不计入模型战绩，
+            # 否则排行榜会被"(未记录模型)"污染，看不出模型之间的差别。
+            logger.info("本局无 LLM 参战，跳过模型战绩记录")
+            return
+
+        counts: Dict[str, int] = {}
+        for city in self.engine.cities.values():
+            # 🔴 只统计**本局参战方**（self._players）。
+            # 不参战的势力城池仍留在图上但无人指挥 —— 实测把它们计入后，
+            # 一局 3 方参战的记录会膨胀成 12 条，其中 9 条 model 为空。
+            if city.faction in self._players:
+                counts[city.faction] = counts.get(city.faction, 0) + 1
+
+        ranked = sorted(
+            ((f, n) for f, n in counts.items() if n > 0),
+            key=lambda x: (-x[1], x[0]),  # 城多者先；并列按势力键，保证确定性
+        )
+        results = [
+            {
+                "faction": faction,
+                "faction_name": FACTIONS.get(faction, faction),
+                "model": self.llm_model_by_faction.get(faction, ""),
+                "cities": n,
+                "rank": rank,
+                "winner": faction == self.engine.winner,
+            }
+            for rank, (faction, n) in enumerate(ranked, start=1)
+        ]
+
+        record = {
+            "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "seed": self.config.seed,
+            "max_turns": self.config.max_turns,
+            "turns": self.engine.turn,
+            "winner": self.engine.winner,
+            "results": results,
+        }
+
+        try:
+            payload = self._read_records()
+            payload["matches"].append(record)
+            payload["matches"] = payload["matches"][-MAX_RECORDS_KEPT:]
+            MODEL_RECORDS_PATH.parent.mkdir(parents=True, exist_ok=True)
+            MODEL_RECORDS_PATH.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8"
+            )
+            logger.info("模型战绩已记录：%d 方参战", len(results))
+        except OSError as exc:
+            logger.warning("模型战绩写入失败（不影响对局）: %r", exc)
+
+    def get_model_records(self) -> Dict[str, Any]:
+        """聚合模型战绩排行榜 + 最近对局
+
+        Returns:
+            leaderboard: 按胜率（其次平均排名）排序的模型榜
+            recent:      最近若干局的明细
+            total_matches: 累计对局数
+        """
+        payload = self._read_records()
+        matches = payload.get("matches", [])
+
+        agg: Dict[str, Dict[str, Any]] = {}
+        for match in matches:
+            for row in match.get("results", []):
+                model = row.get("model") or "(未记录模型)"
+                slot = agg.setdefault(
+                    model, {"matches": 0, "wins": 0, "ranks": [], "cities": []}
+                )
+                slot["matches"] += 1
+                if row.get("winner"):
+                    slot["wins"] += 1
+                slot["ranks"].append(row.get("rank", 0))
+                slot["cities"].append(row.get("cities", 0))
+
+        leaderboard = []
+        for model, slot in agg.items():
+            n = max(slot["matches"], 1)
+            leaderboard.append({
+                "model": model,
+                "matches": slot["matches"],
+                "wins": slot["wins"],
+                "win_rate": round(slot["wins"] / n, 3),
+                "avg_rank": round(sum(slot["ranks"]) / n, 2),
+                "avg_cities": round(sum(slot["cities"]) / n, 2),
+            })
+        leaderboard.sort(key=lambda x: (-x["win_rate"], x["avg_rank"], x["model"]))
+
+        return {
+            "leaderboard": leaderboard,
+            "recent": matches[-10:],
+            "total_matches": len(matches),
+        }
+
     def _add_event(self, text: str, event_type: str = "info") -> None:
         """添加事件日志"""
         self._events.append({
@@ -565,3 +777,7 @@ class GameManager:
             "type": event_type,
             "text": text,
         })
+        # 只保留最近 MAX_EVENTS_KEPT 条，防止长局（48 回合 × 12 方）内存无界增长。
+        # get_state() 仍只暴露最后 20 条，故此处裁剪对前端零影响。
+        if len(self._events) > MAX_EVENTS_KEPT:
+            del self._events[:-MAX_EVENTS_KEPT]

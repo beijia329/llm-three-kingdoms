@@ -54,11 +54,20 @@ COMMAND_CLASSES = {
 }
 
 # 单次生成的最大 token 预算。
-# 注意：DeepSeek 的 deepseek-flash 等为「推理模型」，其隐藏思维链
-# (message.reasoning_content) 的 token 是计入 max_tokens 的。若预算过小，
-# 隐藏推理会吃光额度，导致 message.content 为空或被截断（表现为解析失败、
-# 命令丢失）。这里给足预算，保证 JSON（reasoning + commands）能完整输出。
-LLM_MAX_TOKENS: int = 4096
+# 注意：DeepSeek 的 deepseek-flash / deepseek-v4-pro 都是「推理模型」，其隐藏思维链
+# (message.reasoning_content) 的 token **计入 max_tokens**。若预算过小，
+# 隐藏推理会吃光额度，导致 message.content 为空或被截断（表现为解析失败、命令丢失）。
+#
+# 🔴 v4.0.1 实测（真实游戏 prompt 5308 字符，2026-10-03）：
+#     max_tokens=4096  → **两个模型全部失败**：
+#         finish_reason=length, reasoning_tokens=4095, content 长度=0
+#     max_tokens=8192  → deepseek-flash 成功（reasoning 1382 / 正文 699 字）
+#                        deepseek-v4-pro **仍失败**（reasoning 8192 吃满，正文 0 字）
+#     max_tokens=12288 → 两个模型均成功（flash reasoning 3014；v4-pro reasoning 6786）
+# 结论：v4-pro 的推理量是 flash 的 2~3 倍，预算必须按最"话多"的模型来配。
+# 另：v4-pro 单次耗时约 70s（flash 约 18s），会显著拉长回合时间 ——
+#     多模型对战时请把这点算进去（并发采集下，回合耗时 ≈ 最慢的一方）。
+LLM_MAX_TOKENS: int = 12288
 
 # 命令参数映射（LLM输出字段 -> Command类字段）
 PARAM_MAPPING = {

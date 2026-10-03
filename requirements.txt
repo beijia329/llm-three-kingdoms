@@ -17,6 +17,7 @@ httpx>=0.28.0            # HTTP客户端（调用 LLM API，默认 DeepSeek，�
 
 # --- 工具 ---
 json_repair>=0.60.0      # LLM输出JSON容错修复
+python-dotenv>=1.0.0     # 加载项目根 .env（v4.0.1 起真正生效；此前是隐式依赖）
 
 # --- 测试 ---
 pytest>=7.0.0            # 测试框架
