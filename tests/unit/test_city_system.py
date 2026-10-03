@@ -138,7 +138,9 @@ class TestRecruit:
     def test_recruit_basic(self):
         """基础征兵"""
         cs = CitySystem()
-        city = _make_city(level=2, gold=2000, food=2000, garrison=500)
+        # v4.0 征兵涨价（金1→3 粮2→6）：招 500 兵需 1500 金 / 3000 粮，
+        # 故粮草提高到 5000 使该场景在"资源充足"下成立（原 2000 粮已不够）。
+        city = _make_city(level=2, gold=2000, food=5000, garrison=500)
 
         result = cs.recruit(city, troops=500)
         assert isinstance(result, RecruitResult)
@@ -150,7 +152,8 @@ class TestRecruit:
     def test_recruit_increases_garrison(self):
         """征兵后守军增加"""
         cs = CitySystem()
-        city = _make_city(level=2, gold=5000, food=5000, garrison=500)
+        # v4.0 征兵涨价：招 1000 兵需 3000 金 / 6000 粮，粮草相应提高到 10000。
+        city = _make_city(level=2, gold=5000, food=10000, garrison=500)
 
         cs.recruit(city, troops=1000)
         assert city.garrison == 1500
@@ -194,11 +197,12 @@ class TestRecruit:
         city = _make_city(level=2, gold=5, food=5000, garrison=500)
 
         result = cs.recruit(city, troops=1000)
-        # 只有5金币，最多招5人（5/1=5）
+        # v4.0 征兵涨价：单价 3 金 / 6 粮。只有 5 金币 → 最多招 1 人（5//3=1），
+        # 花掉 3 金，余 2 金；粮草 5000 足够。此为"预期内的数值变更"。
         assert result.success is True
-        assert result.troops_recruited == 5
-        assert city.gold == 0  # 花光了
-        assert city.garrison == 505  # 增加了5人
+        assert result.troops_recruited == 1
+        assert city.gold == 2  # 5 − 3
+        assert city.garrison == 501  # 增加了1人
 
     def test_recruit_max_limit(self):
         """征兵不能超过守军上限"""
