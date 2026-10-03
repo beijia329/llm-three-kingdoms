@@ -12,9 +12,7 @@ from typing import Any, Dict, List, Optional
 from game.constants import (
     EXPLORE_BASE_CHANCE,
     EXPLORE_MORALE_FACTOR,
-    LOYALTY_DECAY_PER_TURN,
     REWARD_LOYALTY_BONUS_PER_100_GOLD,
-    CAPTURE_SURRENDER_BASE_CHANCE,
     CAPTURE_SURRENDER_LOYALTY_FACTOR,
     # v4.0 忠诚度机制重写新增
     DEFAULT_LOYALTY_BASELINE,

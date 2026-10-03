@@ -412,3 +412,30 @@
 > **文档版本**：v2.2
 > **创建日期**：2026-06-23
 > **持续更新**：遇到新坑就加进来
+
+---
+
+## 未接入的常量（v4.0.1 核实）
+
+以下常量在 `game/constants.py` **已定义但全仓 0 引用**（`grep` 实测），
+即「写了参数、没接线逻辑」。**不删除**的原因：直接删会丢失设计意图，
+标注出来才能被后来者看见；需要实现时把它们接进对应系统即可。
+三者在 `constants.py` 上均带有 `# ⚠️ 尚未接入任何逻辑` 注释。
+
+| 常量 | 位置 | 预期用途 | 现状 |
+|------|------|---------|------|
+| `OVERTIME_EXTRA_SOLDIERS` | `game/constants.py`（游戏规则段） | 突死加时：并列无法分胜负时每回合为各方 +500 兵，强制制造冲突收口 | 加时机制从未实现；当前靠确定性指标判胜（见 `docs/design/balance-tuning-plan.md`） |
+| `EXPLORE_COOLDOWN_TURNS` | `game/constants.py`（将领系统段） | 探索人才的冷却回合数（防止连续探索刷将） | 探索流程从未读取该值 |
+| `INTELLIGENCE_STRATEGY_SUCCESS_RATE` | `game/constants.py`（将领属性段） | 每点智力 +0.667% 计谋成功率——「智力影响计谋」设计的唯一实现入口 | 需要有「计谋」命令类型才能接线；现有 9 类命令中无计谋（见 `docs/design/v31-generals-audit.md` I-3） |
+
+> 核实日期：2026-10-03（v4.0.1）。若后续实现，请同步移除本表对应行与 `constants.py` 上的 `⚠️` 注释。
+
+### 另：`general_system.py` 的残留死 import
+
+`game/systems/general_system.py` 顶部 `from game.constants import (...)` 中，
+`LOYALTY_DECAY_PER_TURN` 与 `CAPTURE_SURRENDER_BASE_CHANCE` 已在 v4.0.1 清理删除
+（二者自 v4.0 忠诚度/投降逻辑重写后即不再被任何代码读取，仅在注释文本里出现过一次）。
+
+**仍未清理**：`CAPTURE_SURRENDER_LOYALTY_FACTOR` 同样是死 import
+（全文件仅第 18 行 import 一处，无任何使用；投降概率改由
+`SURRENDER_CHANCE_*` 分档常量驱动）。本轮未动，留待确认。

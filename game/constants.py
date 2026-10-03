@@ -67,6 +67,7 @@ TOTAL_CITIES: int = 31
 如需改动请与 data/cities.json 同步，否则依赖本常量的逻辑会算错。
 """
 
+# ⚠️ 尚未接入任何逻辑（v4.0.1 核实：全仓 0 引用），保留待实现
 OVERTIME_EXTRA_SOLDIERS: int = 500
 """加时赛每回合自动增兵数"""
 
@@ -375,6 +376,7 @@ EXPLORE_BASE_CHANCE: float = 0.20
 EXPLORE_MORALE_FACTOR: float = 0.002
 """每点民心增加0.2%探索概率"""
 
+# ⚠️ 尚未接入任何逻辑（v4.0.1 核实：全仓 0 引用），保留待实现
 EXPLORE_COOLDOWN_TURNS: int = 3
 """探索冷却回合数"""
 
@@ -429,6 +431,7 @@ v4.0 新增。即使把全城塞满高政治将领，单城产出倍率也不超
 BRAVERY_CRITICAL_CHANCE_RATE: float = 0.005
 """每点勇武增加0.5%暴击率"""
 
+# ⚠️ 尚未接入任何逻辑（v4.0.1 核实：全仓 0 引用），保留待实现
 INTELLIGENCE_STRATEGY_SUCCESS_RATE: float = 0.00667
 """每点智力增加0.667%计谋成功率"""
 
