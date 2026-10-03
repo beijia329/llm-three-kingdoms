@@ -32,6 +32,8 @@ from game.constants import (
     NUM_FACTIONS,
     FACTIONS,
     ARMY_FOOD_COST_PER_SOLDIER,
+    NATURE_STRAIN_MORALE_PENALTY,
+    CITY_LOSS_LOYALTY_PENALTY,
 )
 from game.event_bus import EventBus
 from game.models import (
@@ -61,6 +63,7 @@ from game.models import (
     TurnLog,
 )
 from game.random import GameRandom
+from game.personality import FACTION_PERSONALITY, get_general_profile
 from game.systems.city_system import CitySystem, GARRISON_CAP_PER_LEVEL
 from game.systems.diplomacy_system import DiplomacySystem
 from game.systems.diplomacy_relation import DiplomacyRelationSystem
@@ -164,6 +167,10 @@ class GameEngine:
 
         # 日志
         self.turn_logs: List[TurnLog] = []
+
+        # v4.0：本回合各势力实际发出的命令类型 (faction, cmd_type)
+        # 用途见 _apply_nature_strain：判断该势力本回合的抉择是否违背其君主本性
+        self._turn_actions: List[Tuple[str, str]] = []
         self._messages: List[DiplomacyMessage] = []
         self._pending_battles: List[BattleContext] = []
         self._army_counter: int = 0
@@ -188,6 +195,18 @@ class GameEngine:
         # 2. 加载将领
         for gen_data in data.get("generals", []):
             general = General(**gen_data)
+            # v4.0：把开局忠诚度固化为该将领的「忠诚基准」
+            # 忠诚度每回合向基准回归（而非单向衰减到 0），
+            # 使赏赐/被俘/失城造成的偏离会自动缓慢回归人物本性。
+            if general.loyalty_baseline is None:
+                general.loyalty_baseline = general.loyalty
+            # v4.0：从人设档案回填性格。
+            # data/generals.json 里没有 personality 字段（全为 None → 默认 balanced），
+            # 原 GENERAL_PERSONALITIES 的 key 又与数据 ID 对不上（17/19 失配），
+            # 所以性格此前从未真正进入过游戏。
+            profile = get_general_profile(general.id)
+            if profile is not None:
+                general.personality = profile["personality"]
             self.generals[general.id] = general
 
         # 3. 加载州数据
@@ -408,6 +427,10 @@ class GameEngine:
         """
         command_type = command.type
 
+        # v4.0：记录本回合各势力实际发出的命令类型，供「人设代价」判定使用。
+        # 放在最前面记录（无论成败），因为"想做什么"比"做成了什么"更能体现本性。
+        self._turn_actions.append((command.faction, command_type))
+
         try:
             if command_type == "develop" and isinstance(command, DevelopCommand):
                 return self._execute_develop(command)
@@ -619,7 +642,9 @@ class GameEngine:
                 politics=result.general_politics,
                 bravery=result.general_bravery,
                 intelligence=result.general_intelligence,
-                loyalty=60,
+                # v4.0：忠诚度与基准都用人才池中的史实值（原为硬编码 60）
+                loyalty=result.general_loyalty or 70,
+                loyalty_baseline=result.general_loyalty or 70,
                 location=cmd.city,
             )
             self.generals[gen_id] = new_general
@@ -766,6 +791,9 @@ class GameEngine:
         Returns:
             回合处理结果摘要
         """
+        # v4.0：本回合命令记录清零（execute_command 会往里追加）
+        self._turn_actions = []
+
         result: Dict[str, Any] = {
             "turn": self.turn,
             "cities_updated": 0,
@@ -848,6 +876,9 @@ class GameEngine:
 
         # 2.5 收容"走投无路"的撤退军队（v4.0）
         self._sweep_stranded_armies()
+
+        # 2.6 人设代价：违背君主本性的抉择带来轻微、可逆的人心浮动（v4.0）
+        self._apply_nature_strain(result)
 
         # 3. 将领忠诚度衰减
         for general in self.generals.values():
@@ -947,7 +978,19 @@ class GameEngine:
                 city = self.cities[captured_city_id]
                 old_faction = city.faction
                 city.faction = ctx.attacker_faction
-                city.morale = max(20, city.morale - 20)  # 占领后民心下降
+                # 占领后民心下降
+                city.morale = max(20, city.morale - 20)
+
+                # v4.0：失城打击 —— 原主其余将领忠诚度下降。
+                # 这让忠诚度不再是一个恒等于初始值的静止数字：
+                # 局势恶化会真实动摇人心，低忠诚将领被俘后更容易投降，
+                # 从而把「失城 → 人心浮动 → 将领投降 → 敌方得将」串成闭环。
+                if old_faction != ctx.attacker_faction:
+                    for g in self.generals.values():
+                        if g.faction == old_faction and not g.is_captured:
+                            g.loyalty = max(
+                                0, g.loyalty - CITY_LOSS_LOYALTY_PENALTY
+                            )
 
                 # [领地 2026-10-01] "占城即夺地"：占领后全量重划领地。
                 # 该城已成为新势力的源点，重划后其周边地块自然归入新势力，边界自动更新。
@@ -1013,12 +1056,71 @@ class GameEngine:
             defender_city.besieging_armies = []
 
         # 清理俘虏的将领
+        # v4.0：这里才真正被执行（此前 captured_generals 恒为空，见 battle_resolver 注释）
+        captured_city_id = result.captured_city or ctx.defender_city
+        captured_city = self.cities.get(captured_city_id) if captured_city_id else None
         for gen_id in result.captured_generals:
-            if gen_id in self.generals:
-                gen = self.generals[gen_id]
-                self._general_system.process_capture(
-                    gen, captor_faction=ctx.attacker_faction, turn=self.turn,
-                )
+            if gen_id not in self.generals:
+                continue
+            gen = self.generals[gen_id]
+            capture_result = self._general_system.process_capture(
+                gen, captor_faction=ctx.attacker_faction, turn=self.turn,
+            )
+            if capture_result.surrendered:
+                # 归顺：改属攻方（process_capture 已改 faction）并留在这座城里
+                if captured_city is not None:
+                    gen.location = captured_city.id
+                    if gen_id not in captured_city.generals:
+                        captured_city.generals.append(gen_id)
+            else:
+                # 宁死不降：转入关押，不再担任该城守将
+                if captured_city is not None and gen_id in captured_city.generals:
+                    captured_city.generals.remove(gen_id)
+
+    def _apply_nature_strain(self, result: Dict[str, Any]) -> None:
+        """违背君主本性的抉择带来轻微、可逆的人心代价（v4.0）
+
+        ## 为什么这么设计（回应「人设是否限制 LLM 智能」）
+
+        人设在这里是**倾向**，不是枷锁。LLM 完全可以违背本性去下好棋——
+        世界只回馈一点点代价。这个代价刻意设计得很轻且完全可逆，
+        目的是让"像不像自己"成为一个**真实的决策维度**，而不是
+        强迫模型去演角色的紧箍咒：违背一次损失 1 点民心，
+        而 1 点民心远不足以让一步好棋变坏棋。
+
+        代价只落在「民心」上，**不动将领忠诚度** —— 因为忠诚度会直接
+        改变战斗力，那会变成"限制智能"；民心只影响产出，属于"呈现代价"。
+
+        当前只覆盖两条语义最清晰的规则：
+        - cautious（谨慎型君主）主动进攻 → 文官集团不满
+        - aggressive（激进型君主）整回合无任何军事行动 → 主战派躁动
+
+        Args:
+            result: 回合结果字典（会写入 nature_strain 统计）
+        """
+        actions_by_faction: Dict[str, set] = {}
+        for faction, cmd_type in self._turn_actions:
+            actions_by_faction.setdefault(faction, set()).add(cmd_type)
+
+        strained = 0
+        for faction, actions in actions_by_faction.items():
+            style = FACTION_PERSONALITY.get(faction, {}).get("style", "balanced")
+            violated = False
+
+            if style == "cautious" and "attack" in actions:
+                violated = True
+            elif style == "aggressive" and not (actions & {"attack", "recruit", "develop"}):
+                violated = True
+
+            if not violated:
+                continue
+
+            for city in self.cities.values():
+                if city.faction == faction:
+                    city.morale = max(0, city.morale - NATURE_STRAIN_MORALE_PENALTY)
+            strained += 1
+
+        result["nature_strain"] = strained
 
     def _redirect_army_home(self, army: Army) -> None:
         """让战败/撤退的军队掉头撤回出发城市（v4.0 新机制）

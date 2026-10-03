@@ -27,6 +27,8 @@ from game.constants import (
     GARRISON_FOOD_COST_PER_SOLDIER,
     SEASON_FOOD_BONUS,
     POLITICS_PRODUCTION_BONUS_RATE,
+    DEPUTY_POLITICS_WEIGHT,
+    POLITICS_BONUS_CAP,
 )
 from game.models import City, General
 from game.tile import Tile
@@ -50,8 +52,16 @@ class ResourceSystem:
     ) -> float:
         """计算政治属性对城市产出的加成倍率
 
-        公式：
-            politics_bonus = 1.0 + sum(g.politics) * POLITICS_PRODUCTION_BONUS_RATE
+        公式（v4.0 修正，主官全额 + 副手半额，并封顶）：
+            bonus_points = max_politics + DEPUTY_POLITICS_WEIGHT × (其余将领 politics 之和)
+            politics_bonus = min(1.0 + bonus_points × POLITICS_PRODUCTION_BONUS_RATE, POLITICS_BONUS_CAP)
+
+        🔴 原实现是 `1.0 + sum(所有驻城将领 politics) × 0.005`，**无上限、线性堆叠**：
+        把几名高政治将领堆进同一座城即可无限放大产出。design-strategist 实测
+        单城产出倍率 1.200（汉中刘焉）→ 2.925（邺城袁绍），差 2.44 倍，
+        已构成「主导策略」（只有一种最优解：堆政治将领）。
+        改为「主官全额 + 副手半额」后，堆人仍有效但收益递减，且总量封顶，
+        同时保留「能臣治理强」的直觉。
 
         Args:
             city: 城市对象
@@ -62,12 +72,22 @@ class ResourceSystem:
         """
         if not generals or not city.generals:
             return 1.0
-        total_politics = sum(
+
+        politics_values = [
             generals[g_id].politics
             for g_id in city.generals
             if g_id in generals
-        )
-        return 1.0 + total_politics * POLITICS_PRODUCTION_BONUS_RATE
+        ]
+        if not politics_values:
+            return 1.0
+
+        # 主官 = 政治最高者（并列时取值本身，不影响结果）
+        chief = max(politics_values)
+        deputies_total = sum(politics_values) - chief
+
+        bonus_points = chief + deputies_total * DEPUTY_POLITICS_WEIGHT
+        multiplier = 1.0 + bonus_points * POLITICS_PRODUCTION_BONUS_RATE
+        return min(multiplier, POLITICS_BONUS_CAP)
 
     def calculate_gold_production(
         self,

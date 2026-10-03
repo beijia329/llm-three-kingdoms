@@ -378,8 +378,13 @@ class TestPoliticsBonus:
         )
         assert ResourceSystem._get_politics_bonus(city, generals={"gen_orphan": general}) == 1.0
 
-    def test_multiple_generals_stacked(self):
-        """多个将领政治属性叠加正确"""
+    def test_multiple_generals_deputy_half_weight(self):
+        """多将领政治加成改为「主官全额 + 副手半额」【v4.0 语义变更】
+
+        原实现按城内所有将领 politics **求和**：80+60 → 1.7 倍，堆人收益线性、
+        无上限，构成"堆政治将领"唯一最优解（design-strategist 实测单城产出
+        倍率可差 2.44 倍）。新公式：主官 80 + 副手 60×0.5 = 110 → 1.55 倍。
+        """
         gen1 = General(
             id="gen_80", name="政治80", faction="caocao",
             command=50, politics=80, bravery=50, intelligence=50, location="test_city",
@@ -393,9 +398,32 @@ class TestPoliticsBonus:
         generals_dict = {"gen_80": gen1, "gen_60": gen2}
 
         bonus = ResourceSystem._get_politics_bonus(city, generals=generals_dict)
-        # 1.0 + (80+60)*0.005 = 1.7
-        assert bonus == pytest.approx(1.7)
+        # 1.0 + (80 + 60*0.5) * 0.005 = 1.55
+        assert bonus == pytest.approx(1.55)
 
         rs = ResourceSystem()
         gold = rs.calculate_gold_production(city, generals=generals_dict)
-        assert gold == pytest.approx(850, rel=0.01)  # 500 * 1.7
+        assert gold == pytest.approx(500 * 1.55, rel=0.01)
+
+    def test_politics_bonus_is_capped(self):
+        """堆满高政治将领也不会突破上限【v4.0 新增】
+
+        封顶的意义：防止"单城产出打平整个势力"的极端失衡。
+        这里塞 10 名政治 100 的将领，无封顶时应为 1 + 550*0.005 = 3.75，
+        实际必须被压到 POLITICS_BONUS_CAP (1.8)。
+        """
+        from game.constants import POLITICS_BONUS_CAP
+
+        city = _make_test_city(level=3, population=30000, morale=70)
+        generals_dict = {}
+        for i in range(10):
+            gid = f"gen_{i}"
+            generals_dict[gid] = General(
+                id=gid, name=f"能臣{i}", faction="caocao",
+                command=50, politics=100, bravery=50, intelligence=50, location="test_city",
+            )
+            city.generals.append(gid)
+
+        bonus = ResourceSystem._get_politics_bonus(city, generals=generals_dict)
+        assert bonus == pytest.approx(POLITICS_BONUS_CAP)
+        assert bonus < 1.0 + (100 + 9 * 100 * 0.5) * 0.005  # 明显低于无封顶值

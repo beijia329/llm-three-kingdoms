@@ -51,6 +51,7 @@ from game.constants import (
     MAX_BATTLE_ROUNDS,
     COMMAND_COMBAT_BONUS_RATE,
     BRAVERY_CRITICAL_CHANCE_RATE,
+    SIEGE_ENGINEER_INTELLIGENCE_RATE,
 )
 from game.models import (
     BattleContext,
@@ -153,9 +154,15 @@ class BattleResolver:
             context.wall_hp = self._wall_hp[context.battle_id]
 
         # 战后处理
+        # 🔴 v4.0：必须把守方将领传进去。
+        # 原实现只传 defender_city_owner=""，defender_generals 取默认 None → []，
+        # process_aftermath 里 `for gen_id in defender_generals` 永不执行
+        # → captured_generals 恒为空 → GameEngine 的 process_capture 永不被调用
+        # → 俘虏、投降、降将转投整条链在生产环境完全断裂。
         result = self.process_aftermath(
             context,
             defender_city_owner="",  # 由 GameEngine 填充
+            defender_generals=list(context.defender_general_ids),
         )
         result.battle_log = battle_log
 
@@ -283,10 +290,14 @@ class BattleResolver:
         """计算攻城战中对城墙的伤害
 
         公式：
-            base = WALL_DAMAGE_BASE (100)
-            force_multiplier = min(attack_soldiers / garrison, 3)
+            base = WALL_DAMAGE_BASE (400)
+            force_multiplier = min(attack_soldiers / garrison, 4)
             command_bonus = 1 + (command - 50) / 100
-            damage = base × force_multiplier × command_bonus
+            intelligence_bonus = 1 + (intelligence - 50) × SIEGE_ENGINEER_INTELLIGENCE_RATE
+            damage = base × force_multiplier × command_bonus × intelligence_bonus
+
+        v4.0 新增 intelligence_bonus：智力代表器械/工程能力（冲车、云梯、土山），
+        让「谋士」第一次在战场上有实际作用——此前 intelligence 对战斗零影响。
 
         Args:
             context: 战斗上下文
@@ -309,7 +320,14 @@ class BattleResolver:
         )
         command_bonus = max(0.5, command_bonus)  # 不低于50%
 
-        return int(base * force_mult * command_bonus)
+        # 智力加成（攻城器械效率）
+        intelligence_bonus = 1.0 + (
+            (context.attacker_avg_intelligence - 50.0)
+            * SIEGE_ENGINEER_INTELLIGENCE_RATE
+        )
+        intelligence_bonus = max(0.5, intelligence_bonus)
+
+        return int(base * force_mult * command_bonus * intelligence_bonus)
 
     def calculate_attacker_damage(self, context: BattleContext) -> int:
         """计算攻击方巷战伤害
@@ -320,6 +338,7 @@ class BattleResolver:
             morale_bonus = (avg_morale + morale_bonus) / 100
             terrain_bonus = 1.0 (攻方无地形加成)
             damage = base × command_bonus × morale_bonus × terrain_bonus
+                     × loyalty_factor × counter_bonus
 
         Args:
             context: 战斗上下文
@@ -333,6 +352,9 @@ class BattleResolver:
             avg_morale=context.attacker_avg_morale + context.attacker_morale_bonus,
             avg_bravery=context.attacker_avg_bravery,
             terrain_bonus=1.0,  # 攻方
+            # v4.0：将领忠诚度战力系数 + 五行相克系数
+            loyalty_factor=context.attacker_loyalty_factor,
+            counter_bonus=context.attacker_counter_bonus,
         )
 
     def calculate_defender_damage(self, context: BattleContext) -> int:
@@ -344,6 +366,7 @@ class BattleResolver:
             morale_bonus = (avg_morale + morale_bonus) / 100
             terrain_bonus = 1.1 (城墙完好) / 1.0 (城墙已破，巷战)
             damage = base × command_bonus × morale_bonus × terrain_bonus
+                     × loyalty_factor × counter_bonus
 
         🔴 城墙加成只在城墙仍完好时生效。原实现无条件给 1.1，等于"城墙已被
         打破、双方在街巷里肉搏"时守方还享受城墙保护，这在语义上矛盾，
@@ -375,6 +398,9 @@ class BattleResolver:
             avg_morale=context.defender_avg_morale + context.defender_morale_bonus,
             avg_bravery=context.defender_avg_bravery,
             terrain_bonus=terrain_bonus,
+            # v4.0：将领忠诚度战力系数 + 五行相克系数
+            loyalty_factor=context.defender_loyalty_factor,
+            counter_bonus=context.defender_counter_bonus,
         )
 
     def _calculate_damage(
@@ -384,12 +410,17 @@ class BattleResolver:
         avg_morale: float,
         avg_bravery: float,
         terrain_bonus: float,
+        loyalty_factor: float = 1.0,
+        counter_bonus: float = 1.0,
     ) -> int:
         """计算单方伤害（内部方法）
 
-        新增勇武暴击：
-            crit_chance = min(0.5, avg_bravery * BRAVERY_CRITICAL_CHANCE_RATE)
-            触发暴击时伤害 × 1.5
+        加成项：
+            统帅：每点 ±1%（commmand_bonus）
+            士气：每点 +1%
+            勇武暴击：crit_chance = min(0.5, avg_bravery × 0.005)，暴击 ×1.5
+            忠诚度：死忠 +10% / 哗变边缘 -20%（v4.0）
+            五行相克：克制 +15% / 被克 -15%（v4.0）
 
         Args:
             soldiers: 本方兵力
@@ -397,6 +428,8 @@ class BattleResolver:
             avg_morale: 本方平均士气
             avg_bravery: 本方平均勇武
             terrain_bonus: 地形加成
+            loyalty_factor: 将领忠诚度战力系数
+            counter_bonus: 五行相克系数
 
         Returns:
             对敌方造成的伤害
@@ -412,6 +445,7 @@ class BattleResolver:
         morale_bonus = max(0.1, morale_bonus)  # 最低10%
 
         damage = base * command_bonus * morale_bonus * terrain_bonus
+        damage *= loyalty_factor * counter_bonus
 
         # 勇武暴击
         crit_chance = min(0.5, avg_bravery * BRAVERY_CRITICAL_CHANCE_RATE)

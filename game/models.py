@@ -267,7 +267,15 @@ class General(BaseModel):
 
     # 忠诚度
     loyalty: int = Field(ge=0, le=100, default=70, description="忠诚度")
-    loyalty_decay_rate: float = Field(default=0.5, description="每回合忠诚衰减")
+    loyalty_decay_rate: float = Field(default=0.5, description="每回合忠诚衰减（v4.0 起仅作展示，实际由 loyalty_baseline 回归驱动）")
+    loyalty_baseline: Optional[int] = Field(
+        default=None, ge=0, le=100,
+        description=(
+            "忠诚度基准值：每回合忠诚度向此值回归（低于则回升、高于则回落）。"
+            "v4.0 新增。由 GameEngine.init_game 初始化为该将领的开局忠诚度，"
+            "代表其对本势力的『本性归属感』。None 表示尚未设置（按 70 处理）。"
+        ),
+    )
 
     # 状态
     location: str = Field(description="所在位置: 城市ID/军队ID")
@@ -463,11 +471,28 @@ class BattleContext(BaseModel):
     # 防守方
     defender_city: Optional[str] = Field(None, description="防守城市ID（攻城战）")
     defender_armies: List[str] = Field(default_factory=list, description="防守方军队ID")
+    defender_general_ids: List[str] = Field(
+        default_factory=list,
+        description=(
+            "防守方参战将领ID（v4.0 新增）。"
+            "原实现 BattleResolver.resolve_battle 调用 process_aftermath 时"
+            "不传 defender_generals → 循环体永不执行 → captured_generals 恒为空 "
+            "→ 俘虏与投降机制在生产环境完全断裂；单测全绿是因为测试直接给被调函数"
+            "传了 defender_generals，绕过了生产调用链。"
+        ),
+    )
     defender_total_soldiers: int = Field(default=0, description="防守方总兵力")
     defender_initial_soldiers: int = Field(default=0, description="防守方战斗前初始总兵力")
     defender_avg_morale: float = Field(default=0.0, description="防守方平均士气")
     defender_avg_command: float = Field(default=0.0, description="防守方平均统帅")
     defender_avg_bravery: float = Field(default=0.0, description="防守方平均勇武")
+    # v4.0：智力接入攻城（器械/工程）。默认 50 表示中性，不影响伤害公式。
+    attacker_avg_intelligence: float = Field(
+        default=50.0, description="攻击方平均智力（影响攻城器械效率）"
+    )
+    defender_avg_intelligence: float = Field(
+        default=50.0, description="防守方平均智力（影响守城工事效率）"
+    )
 
     # 城墙耐久（攻城战，由 GameEngine 从城市数据填充）
     wall_hp: int = Field(default=0, description="城墙当前耐久")
@@ -481,6 +506,24 @@ class BattleContext(BaseModel):
     # 建国/称帝加成
     attacker_morale_bonus: int = Field(default=0, description="攻击方建国士气加成")
     defender_morale_bonus: int = Field(default=0, description="防守方建国士气加成")
+
+    # 忠诚度战斗力系数（v4.0：让忠诚度真正影响战斗）
+    attacker_loyalty_factor: float = Field(
+        default=1.0, description="攻击方将领忠诚度战力系数（0.8~1.1）"
+    )
+    defender_loyalty_factor: float = Field(
+        default=1.0, description="防守方将领忠诚度战力系数（0.8~1.1）"
+    )
+
+    # 五行相克（v4.0）
+    attacker_element: str = Field(default="", description="攻击方主将五行")
+    defender_element: str = Field(default="", description="防守方主将五行")
+    attacker_counter_bonus: float = Field(
+        default=1.0, description="攻击方五行相克系数（>1 克制对手，<1 被对手克制）"
+    )
+    defender_counter_bonus: float = Field(
+        default=1.0, description="防守方五行相克系数"
+    )
 
     # 结果
     result: Optional[BattleResultType] = Field(None, description="战斗结果")

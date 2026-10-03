@@ -19,6 +19,7 @@ import logging
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
+from game.element import counter_factor, element_of
 from game.models import (
     Army,
     ArmyStatus,
@@ -29,6 +30,7 @@ from game.models import (
     General,
 )
 from game.random import GameRandom
+from game.systems.general_system import loyalty_combat_factor
 from game.systems.map_system import MapSystem
 
 logger = logging.getLogger(__name__)
@@ -232,6 +234,23 @@ class BattleScheduler:
         self._next_battle_id += 1
         battle_id = f"battle_{self._next_battle_id}_{attacker_faction}_vs_{defender_faction}"
 
+        # v4.0：把「忠诚度」与「五行相克」接入战斗
+        # 主将取统帅最高者（更能代表指挥者），并列时按 id 保证确定性
+        attacker_leads = [
+            all_generals[a.general_id]
+            for a in armies
+            if a.general_id in all_generals
+        ]
+        attacker_lead = self._pick_lead_general(attacker_leads)
+        defender_lead = self._pick_lead_general(stationed_generals)
+
+        attacker_element = element_of(attacker_lead) if attacker_lead else ""
+        defender_element = element_of(defender_lead) if defender_lead else ""
+
+        # v4.0：智力接入攻城——攻方平均智力决定攻城器械效率（谋士第一次有了战场作用）
+        attacker_avg_intelligence = self._avg_attribute(attacker_leads, "intelligence")
+        defender_avg_intelligence = self._avg_attribute(stationed_generals, "intelligence")
+
         return BattleContext(
             battle_id=battle_id,
             turn=0,  # 由 GameEngine 设置
@@ -242,15 +261,58 @@ class BattleScheduler:
             attacker_avg_morale=attacker_avg_morale,
             attacker_avg_command=attacker_avg_command,
             attacker_avg_bravery=attacker_avg_bravery,
+            attacker_avg_intelligence=attacker_avg_intelligence,
             defender_city=target_city.id,
             defender_armies=[a.id for a in defender_armies],
+            # v4.0：把守方将领传进战斗上下文。
+            # 不传的话 process_aftermath 的 defender_generals 恒为空列表，
+            # 俘虏/投降判定整条链在生产环境从不执行（历史缺陷）。
+            defender_general_ids=[g.id for g in stationed_generals],
             defender_total_soldiers=defender_total,
             defender_avg_morale=defender_avg_morale,
             defender_avg_command=defender_avg_command,
             defender_avg_bravery=defender_avg_bravery,
+            defender_avg_intelligence=defender_avg_intelligence,
             battle_type=BattleType.SIEGE,
             battle_phase=BattlePhase.SIEGE,
+            # 忠诚度：死忠部队 +10% 伤害，哗变边缘 -20%（原为从未被引用的死常量）
+            attacker_loyalty_factor=(
+                loyalty_combat_factor(attacker_lead.loyalty) if attacker_lead else 1.0
+            ),
+            defender_loyalty_factor=(
+                loyalty_combat_factor(defender_lead.loyalty) if defender_lead else 1.0
+            ),
+            # 五行相克：火→金→木→土→水→火，克制方 +15% / 被克方 -15%
+            attacker_element=attacker_element,
+            defender_element=defender_element,
+            attacker_counter_bonus=counter_factor(attacker_element, defender_element),
+            defender_counter_bonus=counter_factor(defender_element, attacker_element),
         )
+
+    @staticmethod
+    def _pick_lead_general(candidates: List[General]) -> Optional[General]:
+        """从候选将领中选出主将（统帅最高；并列时按 id 字典序，保证确定性）"""
+        if not candidates:
+            return None
+        return max(candidates, key=lambda g: (g.command, g.id))
+
+    @staticmethod
+    def _avg_attribute(candidates: List[General], attr: str) -> float:
+        """计算候选将领某项属性的平均值（无将领时返回中性值 50.0）
+
+        返回中性值而非 0，是为了让"没有将领参战"与"将领属性平庸"
+        在伤害公式里表现一致，避免无将部队被额外重罚。
+
+        Args:
+            candidates: 候选将领
+            attr: 属性名（command / bravery / intelligence / politics）
+
+        Returns:
+            平均值（无候选时为 50.0）
+        """
+        if not candidates:
+            return 50.0
+        return sum(getattr(g, attr) for g in candidates) / len(candidates)
 
     @staticmethod
     def _calculate_force_stats(
