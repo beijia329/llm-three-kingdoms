@@ -34,7 +34,7 @@
 | Python | 3.10+ | 主开发语言 |
 | Pygame | 2.5+ | 降级/调试 GUI 渲染 |
 | Pydantic | 2.0+ | 数据校验 |
-| pytest | 7.0+ | 测试框架（504 tests） |
+| pytest | 7.0+ | 测试框架（604 tests，系统 Python 3.12） |
 | json-repair | latest | JSON容错解析 |
 | Web 前端 | React 18 + PixiJS 8 + TS 5 + Vite 5 | 浏览器渲染通道（一等公民） |
 | Web 后端 | FastAPI + WebSocket | 桥接单局 GameManager |
@@ -68,10 +68,8 @@ llm-sanguo/
 │   ├── models.py                # 数据模型定义
 │   ├── constants.py             # 常量配置
 │   ├── random.py                # 确定性随机数生成器
-│   ├── state_manager.py         # 状态快照管理（时间旅行）
-│   ├── state_validator.py       # 状态合法性校验
-│   ├── game_logger.py           # 游戏日志与回放
 │   ├── event_bus.py             # 事件总线
+│   │                            # 注：状态校验/日志/回放未拆分为独立模块，均内联于 engine.py
 │   │
 │   ├── systems/                 # 子系统
 │   │   ├── __init__.py
@@ -83,16 +81,14 @@ llm-sanguo/
 │   │
 │   └── battle/                  # 战斗系统（独立模块）
 │       ├── __init__.py
-│       ├── battle_context.py    # 战斗上下文
-│       ├── battle_scheduler.py  # 战斗调度
+│       ├── battle_scheduler.py  # 战斗调度（BattleContext 定义在 models.py）
 │       ├── army_movement.py     # 行军系统
 │       └── battle_resolver.py   # 战斗结算
 │
 ├── players/                     # 玩家抽象层
 │   ├── __init__.py
 │   ├── base_player.py           # 玩家基类
-│   ├── cli_player.py            # CLI玩家
-│   ├── gui_player.py            # GUI玩家
+│   ├── cli_player.py            # CLI玩家（启发式 AI，也是无 LLM 的测试基线）
 │   └── llm/                     # LLM玩家
 │       ├── __init__.py
 │       ├── llm_player.py        # LLM玩家主类
@@ -126,9 +122,11 @@ llm-sanguo/
 │   └── specs/                   # 详细规格
 │
 ├── data/                        # 游戏数据
-│   ├── cities.json              # 城市初始数据
-│   ├── generals.json            # 将领数据
-│   └── map.json                 # 地图拓扑
+│   ├── cities.json              # 城市初始数据（31 城）
+│   ├── generals.json            # 将领数据（53 人）
+│   ├── hex_map.json             # 六角格地图参数 + 城市坐标
+│   ├── provinces.json           # 东汉十三州
+│   └── china_provinces.json     # 省界 GeoJSON 遮罩
 │
 └── main.py                      # 程序入口
 ```
@@ -339,8 +337,8 @@ class InvalidCommandError(GameError):
 
 
 ### 7.1 游戏规则
-- 12方势力（184年黄巾之乱），初始22城
-- 192回合制（每回合=1季度，184→232年），无限模式可选
+- 12方势力（184年黄巾之乱），初始31城
+- 192回合制（每回合=1季度，184→231年），无限模式可选（默认对外围观局建议 48 回合，见 README）
 - 六角格真实中国地图（120×90），省界矢量底图
 - 每回合每方可发1条外交消息
 - 控3城称王，5城称帝，历史国号+Buff/Debuff
@@ -370,7 +368,7 @@ class InvalidCommandError(GameError):
 - 游戏必须能运行到结束，任何组件失败都不能导致崩溃
 - LLM连续失败自动降级为随机AI
 - 异常隔离：一个玩家出错不影响其他玩家
-- 最大回合数保证：192回合强制结束（184→232年）
+- 最大回合数保证：192回合强制结束（184→231年）
 
 ### 7.7 日志与回放
 - 结构化游戏日志：所有命令和事件都要记录
@@ -405,14 +403,16 @@ class InvalidCommandError(GameError):
 |------|------|------|
 | 常见坑 | docs/pitfalls.md | 常见问题与避坑指南 |
 | 知识库 | docs/knowledge-base/ | 行业最佳实践参考资料 |
-| 施工指南 | 施工指南.md | 面向人的进度跟踪（给人看的） |
+| 文档与玩法审计 | docs/audit/2026-10-docs-and-gameplay-audit.md | 事实源裁定 + 矛盾清单 + 玩法缺口 |
+| （已归档）施工指南 | docs/archive/施工指南.md | 2026-06 的进度跟踪，历史存档 |
 
 ---
 
-> **最后更新**：2026-10-01
+> **最后更新**：2026-10-03
 > **维护者**：项目架构师
-> **版本**：v2.3
-> **v2.3更新**：API key 改名 `LLM_API_KEY`（兼容 `OPENROUTER_API_KEY`）、文档一致性（12方/192回合/22城/胜利条件）、renderer 字体缺陷修复（FONT_CJK_XS）、依赖补 numpy、技术栈补 Web 一等公民
+> **版本**：v2.4
+> **v2.4更新（文档对齐代码）**：城市数 22→31、将领数 47→53、年份上限 232→231、测试数 504→604、目录结构删除 5 个不存在的幽灵文件（state_manager/state_validator/game_logger/battle_context/gui_player）、施工指南移入 `docs/archive/`
+> **v2.3更新**：API key 改名 `LLM_API_KEY`（兼容 `OPENROUTER_API_KEY`）、文档一致性（12方/192回合/城数/胜利条件）、renderer 字体缺陷修复（FONT_CJK_XS）、依赖补 numpy、技术栈补 Web 一等公民
 > **v2.2更新**：马腾势力修复、势力城数平衡、GameState字段补齐、邻居双向连接、建国Buff接入、信息迷雾优化
 > **v2.1更新**：Web前端迁移（FastAPI+React+PixiJS）、玻璃拟态UI、DOM Overlay地图、Playwright测试
 > **v2.0更新**：六角格地图+12方势力+184年剧本+性格系统+建国机制+文明风格GUI

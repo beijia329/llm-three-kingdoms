@@ -2,7 +2,8 @@
 
 > 最后更新：2026-10-01
 > 面向后续开发者/维护者
-> v2.3更新：API key 改名 `LLM_API_KEY`（兼容 `OPENROUTER_API_KEY`）、文档一致性（12方/192回合/22城/胜利条件）、renderer 字体缺陷修复（FONT_CJK_XS）、依赖补 numpy
+> v2.4更新（文档对齐代码）：城市数 22→31、将领数 47→53、测试数 504→604、施工指南移入 `docs/archive/`
+> v2.3更新：API key 改名 `LLM_API_KEY`（兼容 `OPENROUTER_API_KEY`）、文档一致性（12方/192回合/城数/胜利条件）、renderer 字体缺陷修复（FONT_CJK_XS）、依赖补 numpy
 > v2.2更新：马腾+武威、袁术+合肥、GameState字段补齐、10处邻居双向修复、建国Buff接入、信息迷雾5层规则
 
 ---
@@ -14,7 +15,7 @@ pip install -r requirements.txt
 python3 main.py --mode gui --seed 42        # GUI六角格地图
 python3 main.py --mode ai-vs-ai --max-turns 30  # CLI对战
 python3 main.py --mode gui --llm            # 12方全LLM对战
-python3 -m pytest tests/ -q                 # 504 tests
+python3 -m pytest tests/ -q                 # 604 tests（系统 Python 3.12）
 ```
 
 ---
@@ -28,7 +29,7 @@ python3 -m pytest tests/ -q                 # 504 tests
 | **Hex Map** | 六角格坐标+地形 | `game/hex_grid.py`, `game/hex_map.py`, `game/tile.py` |
 | **Players** | AI决策 | `players/cli_player.py` (性格驱动), `players/llm/` (LLM) |
 | **Renderer** | Pygame GUI + Web(React+PixiJS) | `renderer/game_renderer.py` (主), `renderer/hex_map_renderer.py`, `web/` (前端) |
-| **Data** | JSON配置 | `data/cities.json` (22城), `data/generals.json` (47将), `data/hex_map.json` |
+| **Data** | JSON配置 | `data/cities.json` (31城), `data/generals.json` (53将), `data/hex_map.json` |
 
 ---
 
@@ -81,7 +82,7 @@ python3 -m pytest tests/ -q                 # 504 tests
 
 ## 测试规范
 
-- 504 tests in `tests/`
+- 604 tests in `tests/`（系统 Python 3.12；venv 口径因缺 fastapi 少收 23 项）
 - 新增功能必须先写测试（TDD）
 - `python3 -m pytest tests/ -q` 必须全部通过
 - 测试中避免使用过时的 faction key "wei"/"shu"/"wu"

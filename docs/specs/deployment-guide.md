@@ -66,7 +66,7 @@ pytest tests/unit/ -v
 ```yaml
 # 游戏配置
 game:
-  max_turns: 192             # 最大回合数（184→232年，每回合=1季）
+  max_turns: 192             # 最大回合数（184→231年，每回合=1季；对外围观局建议 48）
   seed: null                 # 随机种子（null=随机）
   factions: ["han", "zhangjiao", "dongzhuo", "yuanshao", "caocao", "liubei", "sunjian", "liubiao", "liuyan", "gongsunzan", "mateng", "yuanshu"]  # 12方真实 key
 
@@ -118,32 +118,33 @@ export LLM_API_KEY=your_api_key_here
 
 ## 四、运行游戏
 
-### 4.1 运行GUI版本
+### 4.1 运行 GUI 版本（Pygame）
 ```bash
-python main.py
+python main.py --mode gui --seed 42
 ```
 
-会打开Pygame窗口，可以人机对战或观看AI对战。
+会打开 Pygame 窗口（降级/调试通道；Web 围观台见 README）。
 
-### 4.2 运行CLI版本（纯AI对战）
+### 4.2 运行 CLI 纯 AI 对战（默认启发式 AI，零成本）
 ```bash
-python main.py --mode cli --players llm:wei,llm:shu,llm:wu
+python main.py --mode ai-vs-ai --max-turns 48
 ```
 
-参数说明：
-- `--mode cli`：命令行模式，不显示GUI
-- `--players`：指定每个势力的玩家类型
-  - `llm`：LLM玩家
-  - `cli`：命令行人类玩家
-  - `random`：随机AI（测试用）
+参数说明（`main.py --help` 为准）：
+- `--mode {ai-vs-ai, human-vs-ai, replay, gui, infinite}`：运行模式，默认 `ai-vs-ai`
+- `--llm`：改用 LLM 玩家（不加则为启发式 `players/cli_player.py`）
+- `--model`：指定 LLM 模型（默认 `deepseek-flash`）
+- `--faction`：`human-vs-ai` 模式下你要扮演的势力（真实 key，如 `caocao`）
 
-### 4.3 指定模型
+> 注：`main.py` **没有** `--mode cli` 与 `--players` 参数（旧文稿误写）。
+
+### 4.3 指定模型 / 多方 LLM 对战
 ```bash
-python main.py --mode cli \
-  --players llm:wei:claude-3-opus,llm:shu:gpt-4,llm:wu:gemini-pro
+python main.py --mode ai-vs-ai --llm --model deepseek-flash --max-turns 48
 ```
 
-每个势力可以指定不同的模型。
+逐势力分配不同模型：经 Web 围观台（参战模型选择）或 `api` 的 `GameConfig.faction_models` 配置；
+CLI 入口用统一 `--model`。
 
 ### 4.4 指定种子
 ```bash
@@ -215,7 +216,7 @@ python tools/benchmark/run_benchmark.py \
   --games 100
 ```
 
-同一个模型扮演三方，测试游戏平衡性。
+同一个模型扮演全部 12 方，测试游戏平衡性。
 
 ### 6.4 生成评测报告
 ```bash

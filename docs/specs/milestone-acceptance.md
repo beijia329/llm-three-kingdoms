@@ -270,7 +270,7 @@ engine.init_game()
 print(f"当前回合：{engine.turn}")
 
 from game.constants import FACTIONS
-print("各势力初始城池数（共 22 城，12 方各 1~2 城）：")
+print("各势力初始城池数（共 31 城，12 方各 1~2 城）：")
 for fid, fname in FACTIONS.items():
     n = len([c for c in engine.cities.values() if c.faction == fid])
     if n:
@@ -279,7 +279,7 @@ print(f"总城池：{len(engine.cities)}")
 ```
 **预期效果**：
 - 游戏正常初始化
-- 每方 1~2 座城市，共 22 城
+- 每方 1~2 座城市，共 31 城
 - 初始资源、将领都到位
 
 #### Demo 2：执行命令+处理回合
@@ -321,7 +321,7 @@ for city in obs.known_cities:
 python -m tests.integration.test_full_game
 ```
 **预期效果**：
-- 完整跑 192 回合（184→232 年）
+- 完整跑 192 回合（184→231 年）
 - 不会崩溃
 - 最后有胜利者
 - 状态全程合法
@@ -447,7 +447,7 @@ python main.py --mode gui
 ```
 **预期效果**：
 - 显示游戏地图
-- 22座城市按位置分布
+- 31座城市按位置分布
 - 不同势力用不同颜色
 - 城市大小反映等级
 
@@ -567,4 +567,4 @@ python -m tests.balance.run_simulation --games 100
 
 > **文档版本**：v2.3
 > **创建日期**：2026-06-23
-> **最后更新**：2026-10-01（v2.3：12 方势力 key、192 回合、22 城、胜利条件澄清；API key 改 LLM_API_KEY）
+> **最后更新**：2026-10-03（v2.4：城市数 22→31、年份上限 232→231；v2.3：12 方势力 key、192 回合、胜利条件澄清；API key 改 LLM_API_KEY）

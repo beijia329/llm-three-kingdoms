@@ -163,7 +163,7 @@ python run_web.py --seed 42 --max-turns 48    # 现在真的生效（v4.0 修复
 ## 🧪 测试与实验
 
 ```bash
-python -m pytest tests/ -q          # 572 tests
+python -m pytest tests/ -q          # 604 tests（系统 Python 3.12）
 ```
 
 **平衡实验**（`tests/balance/`，约 400 局 headless 对照模拟，全部可复现）：
@@ -204,7 +204,8 @@ docs/       设计文档 / ADR / QA 报告 / 审计报告
 - [更新日志](./CHANGELOG.md)
 - 设计文档：`docs/design/`
 - 架构决策记录：`docs/adr/`
-- 审计报告：`docs/design/v31-*.md`（回合/年份体系、武将数据、节奏平衡）
+- 文档与玩法审计：`docs/audit/2026-10-docs-and-gameplay-audit.md`
+- 历史审计报告（回合/年份、武将数据、节奏平衡）：`docs/archive/design/v31-*.md`
 - 已知陷阱：`docs/pitfalls.md`
 
 ---

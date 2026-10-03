@@ -332,7 +332,7 @@ class GameObservation(BaseModel):
 
 ```python
 # 游戏规则
-MAX_TURNS = 192       # 184→232年，每季度1回合
+MAX_TURNS = 192       # 184→231年，每季度1回合
 NUM_FACTIONS = 12     # 184年黄巾之乱12方诸侯
 STARTING_CITIES_PER_FACTION = 0  # 不固定，按实际历史分配（1~2城）
 
@@ -352,15 +352,23 @@ WALL_DAMAGE_PER_TURN = 100  # 每回合攻城对城墙伤害
 MORALE_LOSS_PER_CASUALTY = 0.01  # 每损失1%兵力士气下降
 MIN_MORALE_FOR_BATTLE = 20  # 低于此士气会溃散
 
-# 将领
-LOYALTY_DECAY_PER_TURN = 0.5  # 每回合忠诚衰减
-REWARD_LOYALTY_BONUS = 5  # 每100金加多少忠诚
-CAPTURE_SURRENDER_BASE = 30  # 投降基础概率(%)
+# 将领（v4.0/v4.1 现行）
+LOYALTY_REGRESSION_PER_TURN = 1        # 忠诚向基准回归的步长（取代旧单向衰减）
+REWARD_LOYALTY_BONUS_PER_100_GOLD = 5  # 每赏赐 100 金增加忠诚
+# 投降概率：五档常量驱动（取代旧公式 `0.30 - loyalty × 0.01`，后者在忠诚 65~100 区间恒为负→从未生效）
+SURRENDER_CHANCE_DEVOTED   = 0.00   # 忠诚 >= 90
+SURRENDER_CHANCE_LOYAL     = 0.05   # 忠诚 >= 70
+SURRENDER_CHANCE_NORMAL    = 0.25   # 忠诚 >= 50
+SURRENDER_CHANCE_UNSTABLE  = 0.50   # 忠诚 >= 30
+SURRENDER_CHANCE_DANGEROUS = 0.75   # 忠诚 < 30
+SURRENDER_INITIAL_LOYALTY  = 50     # 投降后初始忠诚
+SURRENDER_LOYALTY_BASELINE = 45     # 投降后忠诚基准
 ```
+> 注：旧常量 `CAPTURE_SURRENDER_BASE_CHANCE` / `CAPTURE_SURRENDER_LOYALTY_FACTOR` 已于 v4.1 连同 import 一并删除（`constants.py:375` 保留说明注释）。
 
 ---
 
 > **文档版本**：v2.2
 > **最后更新**：2026-06-24
 > **相关文档**：command-pattern.md, architecture.md
-> **v2.2更新**：势力枚举3方→12方，MAX_TURNS 24→192，城市数 15→22
+> **v2.2更新**：势力枚举3方→12方，MAX_TURNS 24→192，城市数 15→22（后经 v4 修正为 **31 城**）
