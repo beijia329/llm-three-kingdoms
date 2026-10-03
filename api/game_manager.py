@@ -19,17 +19,8 @@ from game.constants import FACTIONS
 from game.data_loader import load_game_data
 from game.engine import GameEngine
 from game.models import (
-    AttackCommand,
     Command,
-    DeclareWarCommand,
-    DevelopCommand,
-    ExploreCommand,
     GameObservation,
-    MessageCommand,
-    ProposeAllianceCommand,
-    RecruitCommand,
-    RewardCommand,
-    RumorCommand,
 )
 from game.random import GameRandom
 from players.base_player import BasePlayer
@@ -483,56 +474,31 @@ class GameManager:
         turn = cmd_dict.get("turn", 1)
         params = cmd_dict.get("params", {})
 
-        if cmd_type == "develop":
-            return DevelopCommand(
-                faction=faction, turn=turn,
-                city=params["city"], develop_type=params["develop_type"],
-            )
-        elif cmd_type == "recruit":
-            return RecruitCommand(
-                faction=faction, turn=turn,
-                city=params["city"], troops=params["troops"],
-            )
-        elif cmd_type == "attack":
-            return AttackCommand(
-                faction=faction, turn=turn,
-                from_city=params["from_city"], to_city=params["to_city"],
-                troops=params["troops"], general=params["general"],
-            )
-        elif cmd_type == "reward":
-            return RewardCommand(
-                faction=faction, turn=turn,
-                general=params["general"], gold=params["gold"],
-            )
-        elif cmd_type == "explore":
-            return ExploreCommand(
-                faction=faction, turn=turn,
-                city=params["city"], general=params.get("general"),
-            )
-        elif cmd_type == "message":
-            return MessageCommand(
-                faction=faction, turn=turn,
-                to=params["to"], content=params["content"],
-            )
-        elif cmd_type == "rumor":
-            return RumorCommand(
-                faction=faction, turn=turn,
-                city=params["city"],
-                target_general=params.get("target_general"),
-                spy_general=params.get("spy_general"),
-            )
-        elif cmd_type == "propose_alliance":
-            return ProposeAllianceCommand(
-                faction=faction, turn=turn,
-                to=params["to"],
-            )
-        elif cmd_type == "declare_war":
-            return DeclareWarCommand(
-                faction=faction, turn=turn,
-                to=params["to"], reason=params.get("reason", ""),
-            )
-        else:
+        # 命令反序列化走注册表（game/command_registry.py）——单一扩展点。
+        # 原实现是 9 分支 if/elif，加一条命令必须来这儿同步一次，
+        # 漏改的后果是「引擎认这条命令、但前端发来的它反序列化不出正确参数」。
+        #
+        # 现按 Command 类的 **model_fields** 从 params 里取同名键构造。
+        # 之所以可以这样通用化：所有内置命令的 params 键名都与模型字段名一致，
+        # 且这条前提由 `tests/unit/test_command_surface_consistency.py` 断言守住
+        # （逐条断言「每个已注册命令都能被本方法正确反序列化」）。
+        from game.command_registry import get_handler
+
+        entry = get_handler(cmd_type)
+        if entry is None:
+            # 未注册类型：保持原语义，返回基类 Command（由引擎判定为未知命令）
             return Command(type=cmd_type, faction=faction, turn=turn, params=params)
+
+        cmd_cls, _handler = entry
+        kwargs: Dict[str, Any] = {"faction": faction, "turn": turn}
+        for field_name in cmd_cls.model_fields:
+            if field_name in ("type", "faction", "turn", "params"):
+                continue
+            if field_name in params:
+                kwargs[field_name] = params[field_name]
+        # 必填字段若缺失，由 Pydantic 抛 ValidationError，与原先 params["x"]
+        # 抛 KeyError 一样会被调用方的 try/except 兜住并返回错误信息。
+        return cmd_cls(**kwargs)
 
     # ============================================================
     # 回合推进

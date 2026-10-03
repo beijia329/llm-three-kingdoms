@@ -212,10 +212,15 @@ PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp13_parallel_determinism.py -
 PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp14_general_system_audit.py --games 3 --turns 48
 PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp17_siege_flag_leak.py --games 5 --turns 48
 PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp18_siege_morale_reachability.py --games 5 --turns 48
+PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp19_diplomacy_reachability.py --games 5 --turns 48
 ```
 
 实验遵循三条纪律：**一变量一改**、**每次至少 5 局**、**必须设对照组**。
 `PYTHONHASHSEED=0` 是必须的——引擎内部有依赖集合迭代顺序的逻辑。
+
+零观测（"某机制从未发生"）的结论**必须先跑阳性对照**再下，否则无法区分
+"真的没发生"与"探针没跑起来"。`exp18`/`exp19` 都内置了阳性对照与探针有效性判定。
+历史教训见 `docs/pitfalls.md`。
 
 ---
 

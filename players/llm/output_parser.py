@@ -330,11 +330,21 @@ class OutputParser:
     # 命令校验
     # ============================================================
 
-    VALID_COMMAND_TYPES: List[str] = [
-        "develop", "recruit", "attack", "reward",
-        "explore", "message", "rumor",
-        "propose_alliance", "declare_war",
-    ]
+    @classmethod
+    def valid_command_types(cls) -> List[str]:
+        """LLM 输出允许的命令类型（**由命令注册表派生**）。
+
+        原实现是一份手写的平行清单，加一条命令必须来这儿同步一次，
+        漏改的后果是「引擎认、但 LLM 的输出被解析器判为非法」。
+        现直接读 `game.command_registry`，新增命令（含 mod 注册的命令）
+        自动进入白名单。
+
+        🔴 必须**惰性读取**：注册发生在 `game/engine.py` 模块底部，
+        若在 import 期就取快照，会遇到「引擎尚未 import → 注册表为空」。
+        """
+        from game.command_registry import registered_command_types
+
+        return registered_command_types()
 
     @staticmethod
     def validate_command(
@@ -350,7 +360,7 @@ class OutputParser:
         """
         # 检查类型
         cmd_type = cmd.get("type", "")
-        if cmd_type not in OutputParser.VALID_COMMAND_TYPES:
+        if cmd_type not in OutputParser.valid_command_types():
             return False, f"无效命令类型: {cmd_type}"
 
         # 检查参数

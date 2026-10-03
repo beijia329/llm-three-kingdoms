@@ -21,6 +21,8 @@
 
 from __future__ import annotations
 
+import importlib
+import sys
 from typing import Callable, Dict, List, Optional, Tuple, Type
 
 from game.models import Command
@@ -31,6 +33,32 @@ CommandHandler = Callable[[object, Command], object]
 
 # 有序注册表：command.type -> (期望的命令类, 处理器)
 _ENTRIES: Dict[str, Tuple[Type[Command], CommandHandler]] = {}
+
+# 内置命令的注册发生在 game/engine.py 模块底部。若调用方只 import 了
+# command_registry（没 import 引擎），注册表会是空的 —— 此时
+# `registered_command_types()` 返回 `[]`，而**空集合与空集合比较会假绿**
+# （2026-10-03 实测：一个「白名单 == 注册表」的断言在两侧都为空时通过）。
+# 故这里做惰性加载，让注册表**自给自足**，不再依赖调用方的 import 顺序。
+_BUILTIN_REGISTRATION_MODULE = "game.engine"
+_builtins_loaded = False
+
+
+def _ensure_builtins_loaded() -> None:
+    """确保内置命令已注册（幂等）。
+
+    若引擎已被导入（无论是完整导入还是**正在**导入），都直接返回：
+    - 完整导入 → 模块底部的 `register_command(...)` 已执行完毕；
+    - 正在导入 → 调用方位于 engine 的 import 过程中，此时强取会拿到
+      半成品注册表，不如让它看到当下真实的内容。
+    """
+    global _builtins_loaded
+    if _builtins_loaded:
+        return
+    if _BUILTIN_REGISTRATION_MODULE in sys.modules:
+        _builtins_loaded = True
+        return
+    importlib.import_module(_BUILTIN_REGISTRATION_MODULE)
+    _builtins_loaded = True
 
 
 def register_command(
@@ -63,14 +91,17 @@ def get_handler(
     command_type: str,
 ) -> Optional[Tuple[Type[Command], CommandHandler]]:
     """取某命令类型的 (期望类, 处理器)；未注册返回 None。"""
+    _ensure_builtins_loaded()
     return _ENTRIES.get(command_type)
 
 
 def registered_command_types() -> List[str]:
     """返回全部已注册命令类型（**注册顺序**，确定）。"""
+    _ensure_builtins_loaded()
     return list(_ENTRIES.keys())
 
 
 def is_registered(command_type: str) -> bool:
     """该命令类型是否已注册。"""
+    _ensure_builtins_loaded()
     return command_type in _ENTRIES

@@ -20,16 +20,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from game.models import (
     Command,
-    AttackCommand,
-    DeclareWarCommand,
     DevelopCommand,
-    ExploreCommand,
     GameObservation,
-    MessageCommand,
-    ProposeAllianceCommand,
     RecruitCommand,
-    RewardCommand,
-    RumorCommand,
 )
 from game.random import GameRandom
 from players.base_player import BasePlayer
@@ -40,18 +33,22 @@ from players.llm.prompt_builder import PromptBuilder
 
 logger = logging.getLogger(__name__)
 
-# 命令类型到Command类的映射
-COMMAND_CLASSES = {
-    "develop": DevelopCommand,
-    "recruit": RecruitCommand,
-    "attack": AttackCommand,
-    "reward": RewardCommand,
-    "explore": ExploreCommand,
-    "message": MessageCommand,
-    "rumor": RumorCommand,
-    "propose_alliance": ProposeAllianceCommand,
-    "declare_war": DeclareWarCommand,
-}
+
+def command_class_for(cmd_type: str) -> Optional[type]:
+    """命令类型 → Command 类（**由命令注册表派生**）。
+
+    原实现是一份手写的 `COMMAND_CLASSES` 平行清单，加一条命令必须来这儿同步，
+    漏改的后果是「引擎认这条命令、但 LLM 输出的它被静默丢弃」。
+
+    现直接查 `game.command_registry`，新增命令（含 mod 注册的）自动可用。
+
+    🔴 惰性读取的原因：注册发生在 `game/engine.py` 模块底部，import 期取快照会
+    遇到「引擎尚未 import → 注册表为空」。
+    """
+    from game.command_registry import get_handler
+
+    entry = get_handler(cmd_type)
+    return entry[0] if entry is not None else None
 
 # 单次生成的最大 token 预算。
 # 注意：DeepSeek 的 deepseek-flash / deepseek-v4-pro 都是「推理模型」，其隐藏思维链
@@ -69,7 +66,18 @@ COMMAND_CLASSES = {
 #     多模型对战时请把这点算进去（并发采集下，回合耗时 ≈ 最慢的一方）。
 LLM_MAX_TOKENS: int = 12288
 
-# 命令参数映射（LLM输出字段 -> Command类字段）
+# 命令参数映射（**LLM 输出字段** -> **Command 类字段**）
+#
+# ⚠️ 这不是「多余的平行清单」，而是有真实信息量的一层翻译：
+#    LLM 面向的键名与模型字段名**故意不同**，`develop` 用 `type`、
+#    `attack` 用 `from`/`to`（提示词按这套键名要求模型输出）。
+#    所以**无法**从 Command 类机械推导出来。
+#
+# 🔴 但它的「完整性」是可强制的：
+#    `tests/unit/test_command_surface_consistency.py` 会断言
+#    ① 每个已注册命令都有映射条目；② 条目里没有未注册的命令；
+#    ③ 每个映射目标都是该 Command 类的真实字段。
+#    任一条不满足即失败 —— 加命令时漏改这里会被 CI 挡住，而不是静默丢命令。
 PARAM_MAPPING = {
     "develop": {"city": "city", "type": "develop_type"},
     "recruit": {"city": "city", "troops": "troops"},
@@ -293,7 +301,7 @@ class LLMPlayer(BasePlayer):
             cmd_type = raw.get("type", "")
             params = raw.get("params", {})
 
-            cmd_class = COMMAND_CLASSES.get(cmd_type)
+            cmd_class = command_class_for(cmd_type)
             if cmd_class is None:
                 continue
 
