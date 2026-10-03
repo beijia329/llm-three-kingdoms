@@ -891,14 +891,8 @@ class GameEngine:
                 self._city_system.update_city(city, generals=self.generals)
             result["cities_updated"] += 1
 
-        # 相位钩子：资源产出之后（例：影响力扩散）
+        # 相位钩子：资源产出之后（影响力扩散已迁移为此相位的钩子，见文件底部注册）
         self._run_phase_hooks(TurnPhase.AFTER_PRODUCTION, result)
-
-        # 影响力扩散
-        if self._influence_system is not None and self.hex_map is not None:
-            self._influence_system.spread_influence(
-                list(self.cities.values()), self.hex_map
-            )
 
         # 2. 行军推进（所有非驻守军队）
         season = getattr(self, 'season', 'spring')
@@ -1642,3 +1636,27 @@ register_command(
     "propose_alliance", ProposeAllianceCommand, GameEngine._execute_propose_alliance
 )
 register_command("declare_war", DeclareWarCommand, GameEngine._execute_declare_war)
+
+
+# ============================================================
+# 内置回合相位钩子注册
+# ============================================================
+# 顺序即 (priority, 注册序)，确定。新增「每回合结算」机制在此注册即可，
+# process_turn 本体无需改动（见 game/turn_phase.py、ADR-0006）。
+
+
+def _hook_spread_influence(engine: "GameEngine", result: Dict[str, Any]) -> None:
+    """相位钩子（after_production）：扩散影响力。
+
+    自 process_turn 内联逻辑迁移而来，位置与语义不变（资源产出之后、行军之前）。
+    """
+    if engine._influence_system is not None and engine.hex_map is not None:
+        engine._influence_system.spread_influence(
+            list(engine.cities.values()), engine.hex_map
+        )
+
+
+register_phase_hook(
+    TurnPhase.AFTER_PRODUCTION, _hook_spread_influence,
+    priority=100, name="influence_spread",
+)
