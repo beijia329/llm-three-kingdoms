@@ -116,3 +116,43 @@
 2. 面板单字徽标要不要现在就做（0.5 天，收益立竿见影）？
 3. 旗号（B）是否确认排在阶段 C3？
 4. 「张角」vs「黄巾」的内容口径找文策渊确认。
+
+---
+
+## 9. 实施记录（2026-10-03）
+
+### 已落地：方案 A（单字简称）——面板徽标
+
+- **`web/src/theme/index.ts`** 新增 `FACTION_GLYPH`（势力→单字）+ `contrastText()`（按底色亮度自动选深/浅字色）。
+- **`web/src/components/FactionBadge.tsx`**：势力色底 + 对比色单字的小方徽标。
+- **`Panel.tsx`**：势力面板（`FactionList`）与武将面板（`GeneralList`）里原来的**纯色小旗图标**已替换为单字徽标。
+
+### 单字映射（最终版，team-lead 拍板）
+
+`汉 张 董 曹 孙 马 公 备 表 焉 绍 术`
+
+- **`张角` 用「张」不用「黄」**——team-lead 决策：界面显示的是「张角」，标「张」与显示名一致；
+  「黄」是教门/军队符号不是势力名，且将来若加「黄祖」会撞字。
+- 同姓冲突组改用名首字：`{刘备,刘表,刘焉}`→备/表/焉、`{袁绍,袁术}`→绍/术。
+
+### 🔴 互斥断言（编译期，已实测验证）
+
+不依赖测试框架，用 **tsc 类型系统**做两道守卫：
+
+1. **单字唯一**：`GLYPH_TO_FACTION` **以「字」为键**——两方撞字 = 对象字面量重复键 → tsc 直接失败。
+   实测：把 `术` 改成 `备` → `error TS1117: An object literal cannot have multiple properties with the same name.`
+2. **覆盖完整**：类型级 `Exclude<FactionId, 单字覆盖集>`，漏配时断言类型塌成 `never` → tsc 失败。
+   实测：删掉 `术: 'yuanshu'` → `error TS2322: Type 'true' is not assignable to type 'never'.`
+3. 另有 `_GLYPH_VALUE_TYPES` 保证单字的值是合法势力 id（写错 id 会失败）。
+
+因为构建是 `tsc && vite build`，**撞字/漏配会让 `npm run build` 直接挂**，不会悄悄上线两个「刘」。
+（未改 `web/package.json` 加 npm script——该文件当前由 design-strategist 的 D-2 占用；如需 CI 门禁，
+请在有权限时把上述 `tsc` 检查纳入即可，无需额外脚本。）
+
+### 尚未做
+
+- **地图城池标记挂单字**（方案 A 的地图半边）——等 C2/地图改造一起做。
+- **旗号/纹章（方案 B）**——排阶段 C3。
+- **领地斜纹（方案 C）**——进 C 清单，排 C2 之后。
+- 面板「外交关系矩阵」仍为纯色块（关系状态已有文字「中/战/盟/和」，暂达标）。
+

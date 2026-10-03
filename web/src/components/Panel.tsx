@@ -3,6 +3,8 @@ import type { GameEvent, GameState, General, ReasoningEntry } from '../types'
 import { FACTION_COLORS, FACTIONS, STAT_COLORS } from '../theme'
 // [阶段B] 决策正文用霞鹜文楷（局部按需，见 utils/wenKai.ts）
 import { useWenKai, WENKAI_STACK } from '../utils/wenKai'
+// [阶段B] 势力单字徽标——色盲/灰度下的非颜色线索
+import { FactionBadge } from './FactionBadge'
 import { commandIcon, commandLabel } from '../constants/commands'
 import { DiplomacyPanel } from './DiplomacyPanel'
 
@@ -102,7 +104,7 @@ function FactionList({
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isSelected ? '#e8e0d0' : '#b8b3aa', fontWeight: 600, fontSize: '14px' }}>
-                <i className="fa-solid fa-flag" style={{ color, fontSize: '12px' }}></i>
+                <FactionBadge faction={row.fid} size={18} />
                 {row.name}
                 {/* v4.0.1：标出这一方由哪个大模型指挥 —— 多模型对战的关键信息，
                     让观众一眼看出"曹操是 v4-pro 在打，孙坚是 flash 在打"。 */}
@@ -312,7 +314,7 @@ function GeneralList({ state }: { state: GameState }) {
         return (
           <div key={fid} style={{ ...styles.card, borderLeft: `3px solid ${color}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontWeight: 600, fontSize: '13px', color }}>
-              <i className="fa-solid fa-flag" style={{ fontSize: '11px' }}></i>
+              <FactionBadge faction={fid} size={16} />
               {FACTIONS[fid] || fid}
               <span style={{ color: '#96918a', fontWeight: 400, fontSize: '11px' }}>({gens.length}人)</span>
             </div>

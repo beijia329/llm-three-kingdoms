@@ -54,6 +54,67 @@ export const FACTION_GLOW: Record<string, string> = Object.fromEntries(
   Object.entries(FACTION_COLORS).map(([k, v]) => [k, hexToRgba(v, 0.5)]),
 )
 
+// === 势力「单字简称」（可访问性：色盲/灰度/小屏下的非颜色线索）===
+//
+// 为什么需要：红绿色盲模拟下势力色最小 ΔE 仅 6.8（可靠区分需 >10）——
+// **颜色本身承载不了 12 个势力的区分**，必须再加一层与颜色无关的线索。
+// 详见 docs/art/2026-10-colorblind-non-color-cues.md。
+//
+// 取字规则：**优先取姓氏首字；同姓冲突的那一组，整组改用「名」首字**。
+//   · {刘备, 刘表, 刘焉} 同姓「刘」→ 备 / 表 / 焉
+//   · {袁绍, 袁术}      同姓「袁」→ 绍 / 术
+//   （将来加新势力时按同一规则判断：先看姓氏，撞了再退到名。）
+//
+// 🔴 守卫一：下面这个对象**以「字」为键**。若两个势力取到同一个字，
+//    就是「对象字面量重复键」，tsc 会直接编译失败（strict 下报 TS1117）。
+//    这是刻意的——本项目的构建是 `tsc && vite build`，撞字会让构建挂掉，
+//    不会出现「悄悄上线两个『刘』」。
+const GLYPH_TO_FACTION = {
+  汉: 'han',        // 汉室（阵营名，唯一用阵营字的势力）
+  张: 'zhangjiao',  // 张角（黄巾军领袖；沿用势力显示名「张角」的姓氏首字）
+  董: 'dongzhuo',   // 董卓
+  曹: 'caocao',     // 曹操
+  孙: 'sunjian',    // 孙坚
+  马: 'mateng',     // 马腾
+  公: 'gongsunzan', // 公孙瓒（复姓取首字）
+  备: 'liubei',     // 刘备 ← 同姓「刘」组，用名首字
+  表: 'liubiao',    // 刘表 ← 同姓「刘」组
+  焉: 'liuyan',     // 刘焉 ← 同姓「刘」组
+  绍: 'yuanshao',   // 袁绍 ← 同姓「袁」组
+  术: 'yuanshu',    // 袁术 ← 同姓「袁」组
+} as const
+
+/** 会上图的势力 id（不含 neutral）。新增势力时这里也要加，否则下面的覆盖断言编译失败。 */
+export const FACTION_IDS = [
+  'han', 'zhangjiao', 'dongzhuo', 'caocao', 'liubei', 'sunjian',
+  'yuanshao', 'gongsunzan', 'mateng', 'liubiao', 'liuyan', 'yuanshu',
+] as const
+type FactionId = (typeof FACTION_IDS)[number]
+
+// 守卫二：单字的取值必须是合法势力 id（把 id 写错会在此编译失败）
+export const _GLYPH_VALUE_TYPES: Record<string, FactionId> = GLYPH_TO_FACTION
+
+// 守卫三：覆盖性——每个势力都必须有单字。
+// 漏配时 _MissingGlyph 不为 never，断言类型塌成 never，`= true` 即编译失败。
+type _MissingGlyph = Exclude<FactionId, (typeof GLYPH_TO_FACTION)[keyof typeof GLYPH_TO_FACTION]>
+export const _GLYPH_COVERAGE: _MissingGlyph extends never ? true : never = true
+
+/** 势力 → 单字（由 GLYPH_TO_FACTION 反转，保证与上面同一事实源） */
+export const FACTION_GLYPH: Record<string, string> = Object.fromEntries(
+  Object.entries(GLYPH_TO_FACTION).map(([glyph, fid]) => [fid, glyph]),
+)
+
+/** 依背景亮度选前景色——保证单字在任意势力色（含亮黄/浅紫）上都读得出来 */
+export function contrastText(hex: string): string {
+  const n = parseInt(hex.replace('#', ''), 16)
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
+  const r = lin(((n >> 16) & 0xff) / 255)
+  const g = lin(((n >> 8) & 0xff) / 255)
+  const b = lin((n & 0xff) / 255)
+  const L = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  return L > 0.45 ? '#1a1a2e' : '#ffffff'
+}
+
 // === 地形色板（陆=大地色系，海=亮蓝，雾=深灰） ===
 export const TERRAIN_COLORS: Record<string, { fill: number; border: number }> = {
   grass:        { fill: 0x8db85a, border: 0x7aa34e },
