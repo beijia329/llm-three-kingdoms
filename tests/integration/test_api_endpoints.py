@@ -89,6 +89,26 @@ def _live_manager():
     return _server._manager
 
 
+@pytest.fixture()
+def records_tmp_dir():
+    """临时目录，专供战绩落盘测试使用。
+
+    不用 pytest 内置 ``tmp_path``：本机 WorkBuddy 沙箱 shim 会拦截
+    ``pytest-of-<user>`` 基目录的创建，并在该目录已存在时抛
+    ``PermissionError: EEXIST`` → tmp_path 相关测试在**本地报错**（CI 不受影响）。
+    改用原生 ``tempfile.mkdtemp()`` 建唯一目录，本地与 CI 均可跑通。
+    """
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    d = Path(tempfile.mkdtemp(prefix="sanguo-records-"))
+    try:
+        yield d
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 # ============================================================
 # GET /api/state
 # ============================================================
@@ -180,17 +200,23 @@ class TestReset:
         # 只给 caocao 建玩家
         assert state["llm_factions"] == ["caocao"]
 
-    def test_reset_with_unknown_field_is_not_gracefully_rejected(self):
-        """🔴 已知缺陷（2026-10-03 实测，待修复）。
+    def test_reset_with_unknown_field_returns_422(self):
+        """🔴 已修复（v4.0.1）：未知字段返回 422 并列出可用字段。
 
-        `POST /api/reset` 把请求体直接 `GameConfig(**config)`，传入未知字段会抛
-        `TypeError` → **HTTP 500**。期望行为：应返回 4xx（如 422）并指出非法字段，
-        而不是 500（前端拿到 500 无法区分"是参数错"还是"服务崩了"）。
-        本测试固化现状；修复后可改为断言 422。
+        原始缺陷（2026-10-03 engineering-lead 写端点测试时实测发现）：
+        `POST /api/reset` 把请求体直接 `GameConfig(**config)`，传未知字段抛
+        `TypeError` → **HTTP 500**。前端拿到 500 无法区分"参数写错"与"服务崩了"。
+
+        修复：`api/server.py` 捕获 TypeError → 422，并在 detail 里回出
+        **全部可用字段名**，调用方可以直接照着改。
+        本测试由"固化现状（断言 500）"改为"锁定修复后行为（断言 422）"。
         """
         with TestClient(app, raise_server_exceptions=False) as c:
             r = c.post("/api/reset", json={"bogus_param": 1})
-        assert r.status_code == 500
+        assert r.status_code == 422
+        detail = r.json().get("detail", "")
+        assert "bogus_param" in detail          # 指出非法字段
+        assert "faction_models" in detail       # 并列出可用字段，便于调用方自查
 
 
 # ============================================================
@@ -382,27 +408,27 @@ class TestModelRecordsEndpoint:
         assert resp.status_code == 200
         return resp.json()
 
-    def test_records_empty_when_file_missing(self, client, monkeypatch, tmp_path):
+    def test_records_empty_when_file_missing(self, client, monkeypatch, records_tmp_dir):
         import api.game_manager as gm_mod
-        monkeypatch.setattr(gm_mod, "MODEL_RECORDS_PATH", tmp_path / "absent.json")
+        monkeypatch.setattr(gm_mod, "MODEL_RECORDS_PATH", records_tmp_dir / "absent.json")
         body = self._body_or_skip(client.get("/api/model_records"))
         assert body["total_matches"] == 0
         assert body["leaderboard"] == []
         assert body["recent"] == []
 
-    def test_records_empty_when_file_corrupted(self, client, monkeypatch, tmp_path):
+    def test_records_empty_when_file_corrupted(self, client, monkeypatch, records_tmp_dir):
         import api.game_manager as gm_mod
-        bad = tmp_path / "corrupt.json"
+        bad = records_tmp_dir / "corrupt.json"
         bad.write_text("{ this is not json", encoding="utf-8")
         monkeypatch.setattr(gm_mod, "MODEL_RECORDS_PATH", bad)
         body = self._body_or_skip(client.get("/api/model_records"))
         assert body["total_matches"] == 0
         assert body["leaderboard"] == []
 
-    def test_records_aggregate_from_file(self, client, monkeypatch, tmp_path):
+    def test_records_aggregate_from_file(self, client, monkeypatch, records_tmp_dir):
         import json as _json
         import api.game_manager as gm_mod
-        p = tmp_path / "records.json"
+        p = records_tmp_dir / "records.json"
         p.write_text(_json.dumps({"matches": [
             {"results": [
                 {"model": "deepseek-flash", "rank": 1, "cities": 5, "winner": True},

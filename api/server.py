@@ -15,7 +15,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -159,9 +159,28 @@ async def next_turn() -> Dict[str, Any]:
 
 @app.post("/api/reset")
 async def reset_game(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """重置游戏"""
+    """重置游戏
+
+    v4.0.1：非法配置字段返回 **422** 而不是 500。
+
+    🔴 原实现直接 `GameConfig(**(config or {}))`，任一未知字段都会抛 TypeError，
+    被 FastAPI 兜成 HTTP 500 —— 前端无法区分「参数写错了」与「服务端崩了」，
+    排查成本很高（engineering-lead 写端点测试时实测发现，
+    并固化为 test_reset_with_unknown_field_is_not_gracefully_rejected）。
+    现在把错误类型与**全部可用字段名**一起回给调用方。
+    """
     global _manager
-    cfg = GameConfig(**(config or {}))
+    try:
+        cfg = GameConfig(**(config or {}))
+    except TypeError as exc:
+        valid_fields = sorted(GameConfig.__dataclass_fields__.keys())
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"非法对局配置：{exc}。"
+                f"可用字段：{', '.join(valid_fields)}"
+            ),
+        ) from exc
     _manager = GameManager(config=cfg)
     return _manager.get_state()
 
