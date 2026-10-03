@@ -35,6 +35,51 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 # 对已运行的进程无效，因此每个实验脚本都在 `if __name__ == "__main__"` 之前调用。
 REPRODUCIBLE = True
 
+# ============================================================
+# 🔴 外交消息投递开关（2026-10-03 新增，默认 True）
+# ============================================================
+# 此前本库**不投递** `receive_message`，而 `CLIPlayer` 只能靠该回调得知
+# 「有人提议结盟」（`players/cli_player.py:71-77` 在里面设 `_pending_alliance`）。
+# 后果：本库驱动的**全部平衡实验**都在一个「启发式玩家不可能结盟」的世界里运行
+# ——外交消息照发（实测 560 条/5 局），但结盟提议 0 次、同盟 0 对、停战 0 对。
+#
+# 而产品路径是投递的：`main.py:134-136`。三条路径对比：
+#     main.py CLI ai-vs-ai        ✅ 投递
+#     api/game_manager.py（Web）   ❌ 不投递
+#     tests/balance/pacing_lib.py ❌ 不投递（本开关改动前）
+#
+# 两变体实测（`tests/balance/exp19_diplomacy_reachability.py`，5 局 × 48 回合）：
+#     不投递：外交消息 560｜结盟提议 0 次｜同盟 0 对
+#     投递：  外交消息 521｜结盟提议 92 次｜同盟 47 对
+# 阳性对照双变体均命中（战争对 175/175）。
+#
+# 故默认改为 **True**，使实验台与产品路径一致。
+# ⚠️ 这会改变此前所有平衡实验的数字口径（战斗场次 / 存活势力 / 集中度等），
+#    凡涉及外交的旧结论需按新口径重测，不要与新数字混用。
+#    需要复现旧口径做对照时，显式传 `deliver_messages=False`。
+DELIVER_MESSAGES = True
+
+
+def _deliver_message(
+    players: Dict[str, Any],
+    sender: str,
+    cmd: Any,
+    result: Any,
+) -> None:
+    """按 `main.py:134-136` 的做法把外交消息投递给目标玩家对象。
+
+    只处理 `message` 命令且执行成功的情况，与产品路径等价。
+    """
+    if not DELIVER_MESSAGES:
+        return
+    if getattr(cmd, "type", None) != "message":
+        return
+    if not getattr(result, "success", False):
+        return
+    target = players.get(getattr(cmd, "to", None))
+    if target is not None:
+        target.receive_message(sender, str(getattr(cmd, "content", "")))
+
 
 def ensure_reproducible() -> None:
     """若尚未固定 PYTHONHASHSEED 则强制重啟（子进程场景由父进程 env 传入）。"""
@@ -211,7 +256,8 @@ def run_one_game(game_seed: int, max_turns: int) -> Dict[str, Any]:
                 obs = engine.get_observation(f)
                 for cmd in players[f].get_commands(obs):
                     armies_launched += 1
-                    engine.execute_command(cmd)
+                    result = engine.execute_command(cmd)
+                    _deliver_message(players, f, cmd, result)
             res = engine.process_turn()
             n = int(res.get("battles_fought", 0) or 0)
             if n > 0:
