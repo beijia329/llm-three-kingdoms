@@ -67,7 +67,7 @@
 | 1 | **补「决策」tab**（含 prompt 改造），让 LLM 思考可见 | ✅ **已做** | `Panel` 的「决策」tab（`tab='reasoning'`）+ 后端 `state.reasoning` |
 | 2a | 用 Kenney 地块替换 hex 纯色填充 | ❌ **不接入（退役）** | 见 §7；素材保留但标注未接入 |
 | 2b | 用 game-icons 替换 FontAwesome 的城池/军队图标 | ✅ **已做** | `web/src/components/map/CityMarker.tsx` 用 6 个 game-icons 剪影；FontAwesome 仅余 UI 图标 |
-| 3 | 做外交关系图 + 背盟高亮 | ⚠️ **部分** | `DiplomacyPanel`「关系」tab 是**列表式**状态标签（战/中/盟/和 四色）；**无关系图（无箭头/连线）、无背盟高亮**——全仓搜 `背盟/betray` 只有文档与 README，无前端实现 |
+| 3 | 做外交关系图 + 背盟高亮 | ⚠️ **关系图 ✅ 已做（2026-10-03）/ 背盟高亮 ❌ 未做** | **关系图**：`web/src/components/DiplomacyGraph.tsx`（环形关系图 + 12×12 完整矩阵 + 点选聚焦），截图 `docs/art/screenshots/phase-d-diplomacy/`，详见 `docs/art/2026-10-diplomacy-visualization.md`。**背盟高亮未做**：后端**无背盟信号**（`game/` 里的"违背"均指违背君主本性的人设代价，与外交无关），需先加 `EventBus` 事件。🔴 另发现：CLI 模式下**同盟/停战实际永不发生**（41 局约 1968 回合实测为零），见该文档 §4 |
 | 4 | 战术识别 + 名场面回放 | ⚠️ **部分** | **战术识别（坚壁清野/围魏救赵等）未做**（全仓无实现）；**名场面回放 = 部分**：C2 战斗回放已覆盖「战斗/城池易主」瞬间（地图箭头 + 结果环 + 回放标签，1.5s/场，见 `docs/art/2026-10-c2-battle-visualization.md`），但**无慢放、无独立时间轴控件** |
 
 ---

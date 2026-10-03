@@ -1,6 +1,13 @@
 import type { GameState, DiplomacyMessage } from '../types'
 import { FACTIONS, FACTION_COLORS } from '../theme'
 import { useState } from 'react'
+import {
+  RelationGraph,
+  RelationMatrix,
+  REL_STATUS_COLOR as statusColor,
+  REL_STATUS_LABEL as statusLabel,
+  topRelations,
+} from './DiplomacyGraph'
 
 interface DiplomacyPanelProps {
   state: GameState
@@ -38,21 +45,9 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
   // 关系矩阵：只显示当前势力与其他势力的关系
   const myRelations = humanFaction
     ? relations.filter(r => r.faction_a === humanFaction || r.faction_b === humanFaction)
-    : relations.slice(0, 12)
-
-  const statusColor: Record<string, string> = {
-    war: '#c85046',
-    neutral: '#96918a',
-    alliance: '#5ab464',
-    truce: '#d4a84b',
-  }
-
-  const statusLabel: Record<string, string> = {
-    war: '战',
-    neutral: '中',
-    alliance: '盟',
-    truce: '和',
-  }
+    // [阶段D] 观战模式（无人类势力）下原来取 relations.slice(0,12) —— 那是**前 12 条**，
+    // 实际全是「汉室↔X」，看不出战局。改成按关系强度排序的真实战况摘要。
+    : topRelations(state, 8)
 
   return (
     <div style={{ padding: '12px', overflowY: 'auto', height: '100%' }}>
@@ -83,6 +78,16 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
           <div style={{ fontSize: '13px', color: '#d4a84b', marginBottom: '10px' }}>
             势力外交关系
           </div>
+          {/* [阶段D 2026-10-03] 关系图：README 把「外交博弈」列为头部特性，但原界面只有列表
+              和一个**无行列标**的 24 格色块 → 卖点在界面上看不见。这里补环形关系图。 */}
+          <RelationGraph state={state} />
+
+          <div style={{ marginTop: 16, fontSize: '13px', color: '#d4a84b', marginBottom: '6px' }}>
+            当前战况摘要
+          </div>
+          {myRelations.length === 0 && (
+            <div style={{ fontSize: 12, color: '#8a86a0', padding: '6px 0' }}>暂无交战的势力对</div>
+          )}
           {myRelations.map((rel, i) => {
             const other = rel.faction_a === humanFaction ? rel.faction_b : rel.faction_a
             // [修复 2026-10-01] 观战模式（无人类势力）下原代码只渲染 faction_a，
@@ -137,37 +142,15 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
             )
           })}
 
-          {/* 全矩阵（紧凑模式） */}
+          {/* 全矩阵：[阶段D 2026-10-03] 换成带**行列势力标**的 12×12 完整矩阵。
+              原实现是 `relations.slice(0,24)` 的 6 列色块，**没有任何行/列标题** ——
+              看到"战"字也不知道是哪一对，等于不可读；而且只覆盖 66 对里的前 24 对。 */}
           <div style={{ marginTop: '16px', fontSize: '13px', color: '#d4a84b', marginBottom: '6px' }}>
-            关系矩阵
+            关系矩阵（全 12 方 · 含中立）
           </div>
-          {/* [修复 2026-10-01] 加图例：原来满屏"中"无任何说明，完全看不懂 */}
-          <div style={{ display: 'flex', gap: '10px', fontSize: '11px', color: '#96918a', marginBottom: '8px' }}>
-            <span><span style={{ color: statusColor.neutral }}>中</span>中立</span>
-            <span><span style={{ color: statusColor.war }}>战</span>敌对</span>
-            <span><span style={{ color: statusColor.alliance }}>盟</span>同盟</span>
-            <span><span style={{ color: statusColor.truce }}>和</span>停战</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '3px' }}>
-            {relations.slice(0, 24).map((rel, i) => (
-              <div
-                key={i}
-                title={`${FACTIONS[rel.faction_a] || rel.faction_a} ↔ ${FACTIONS[rel.faction_b] || rel.faction_b}: ${rel.status} (${rel.trust})`}
-                style={{
-                  aspectRatio: '1',
-                  borderRadius: '4px',
-                  background: statusColor[rel.status] + '33',
-                  border: `1px solid ${statusColor[rel.status]}55`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '9px',
-                  color: statusColor[rel.status],
-                }}
-              >
-                {statusLabel[rel.status]}
-              </div>
-            ))}
+          <RelationMatrix state={state} />
+          <div style={{ marginTop: 6, fontSize: 10, color: '#6f6b80' }}>
+            行/列均为势力单字徽标；格内 = 该对关系，浅色空格 = 中立。悬停可看双方名与信任度。
           </div>
         </div>
       )}

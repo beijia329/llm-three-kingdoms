@@ -36,12 +36,13 @@ const CREDITS: Credit[] = [
     license: 'SIL OFL 1.1',
     url: 'https://fonts.google.com/noto',
   },
-  {
-    name: 'Kenney',
-    detail: '六角地块素材库（当前未发布，保留备用）',
-    license: 'CC0 1.0',
-    url: 'https://kenney.nl',
-  },
+  // ⚠️ 这里**只列真正在产物里被使用的素材**——本组件是对外的**许可声明**面。
+  //    Kenney 六角地块（CC0）已于 2026-10-03 评估后决定不接入（见
+  //    docs/design/art-asset-plan.md §7），素材仅作素材库保留、且 CC0 不要求署名，
+  //    故**刻意不列**：在"声明谁被使用了"的地方写一个未使用的素材，等于一句不实陈述，
+  //    还会让读者分不清哪些署名是真有义务的。
+  //    台账（含未接入素材）见 assets/art/ATTRIBUTION.md。
+  //    将来若真的接入地块，再往上面加回一条。
 ]
 
 export function AttributionBar() {
@@ -68,7 +69,7 @@ export function AttributionBar() {
       <div style={styles.bar}>
         <i className="fa-solid fa-scroll" style={{ color: '#8a86a0', fontSize: '9px', marginRight: '6px' }}></i>
         <span style={styles.summary}>
-          素材署名：game-icons.net（CC BY 3.0）· Font Awesome（CC BY 4.0）· Noto Sans SC（OFL）· Kenney（CC0）
+          素材署名：game-icons.net（CC BY 3.0）· Font Awesome（CC BY 4.0）· Noto Sans SC（OFL）
         </span>
         <button
           type="button"
