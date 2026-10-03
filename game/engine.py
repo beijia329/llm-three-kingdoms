@@ -42,6 +42,7 @@ from game.event_bus import (
     TurnEndedEvent,
     TurnStartedEvent,
 )
+from game.turn_phase import TurnPhase, register_phase_hook, run_phase_hooks
 from game.command_registry import get_handler, register_command
 from game.models import (
     Army,
@@ -802,6 +803,14 @@ class GameEngine:
     # 回合处理
     # ============================================================
 
+    def _run_phase_hooks(self, phase: TurnPhase, result: Dict[str, Any]) -> None:
+        """执行指定相位的注册钩子（回合相位扩展点，见 game/turn_phase.py）。
+
+        新机制只需 `register_phase_hook(...)`，无需改动 process_turn 本体。
+        钩子抛异常按「记录 + 继续」处理（见 turn_phase 模块 docstring）。
+        """
+        run_phase_hooks(self, phase, result)
+
     def process_turn(self) -> Dict[str, Any]:
         """处理一个完整的游戏回合
 
@@ -837,6 +846,9 @@ class GameEngine:
         from game.season import Season
         self.season = Season.from_turn(self.turn)
         self.year = self.start_year + (self.turn - 1) // 4
+
+        # 相位钩子：回合开始
+        self._run_phase_hooks(TurnPhase.TURN_START, result)
 
         # 0. 外交关系到期检查
         if self._diplomacy_relation_system is not None:
@@ -879,6 +891,9 @@ class GameEngine:
                 self._city_system.update_city(city, generals=self.generals)
             result["cities_updated"] += 1
 
+        # 相位钩子：资源产出之后（例：影响力扩散）
+        self._run_phase_hooks(TurnPhase.AFTER_PRODUCTION, result)
+
         # 影响力扩散
         if self._influence_system is not None and self.hex_map is not None:
             self._influence_system.spread_influence(
@@ -913,6 +928,9 @@ class GameEngine:
 
         # 2.5 收容"走投无路"的撤退军队（v4.0）
         self._sweep_stranded_armies()
+
+        # 相位钩子：行军之后（例：人设代价）
+        self._run_phase_hooks(TurnPhase.AFTER_MOVEMENT, result)
 
         # 2.6 人设代价：违背君主本性的抉择带来轻微、可逆的人心浮动（v4.0）
         self._apply_nature_strain(result)
@@ -977,6 +995,9 @@ class GameEngine:
         # 5. 清理已消灭的军队
         self._cleanup_dead_armies()
 
+        # 相位钩子：战斗结算之后
+        self._run_phase_hooks(TurnPhase.AFTER_RESOLUTION, result)
+
         # 6. 胜利判定
         self._check_victory()
         result["game_over"] = self.game_over
@@ -996,6 +1017,9 @@ class GameEngine:
         # 8. 回合递增
         if not self.game_over:
             self.turn += 1
+
+        # 相位钩子：回合结束（写日志/广播回合结束之前）
+        self._run_phase_hooks(TurnPhase.TURN_END, result)
 
         # 记录日志
         self.turn_logs.append(TurnLog(
