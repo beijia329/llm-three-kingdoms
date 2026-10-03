@@ -16,7 +16,7 @@ from enum import Enum
 class Faction(str, Enum):
     """势力枚举（184年剧本，12方诸侯）"""
     HAN = "han"              # 汉室
-    ZHANGJIAO = "zhangjiao"  # 张角（黄巾）
+    ZHANGJIAO = "zhangjiao"  # 黄巾（领袖张角）
     DONGZHUO = "dongzhuo"    # 董卓
     YUANSHAO = "yuanshao"    # 袁绍
     CAOCAO = "caocao"        # 曹操
