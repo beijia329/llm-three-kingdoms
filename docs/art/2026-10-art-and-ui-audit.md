@@ -391,3 +391,44 @@
 > 🔴 待 team-lead 拍板：方案 (a) 全局霞鹜文楷（净 +71K，Fast3G FCP +360ms）；
 > (b) 仅标题换 Noto Serif SC（近零成本）；(c) 先 (b) 再局部 (a)。我建议 (c)。
 
+---
+
+## 附四：阶段 B — 霞鹜文楷「局部按需」引入 + FCP 复测（2026-10-03）
+
+### team-lead 决策
+- **不做全局字体替换**：全局保持系统衬线栈（`"Songti SC","STSong",serif`）——零请求/零延迟/零体积，且目标场景是本机/局域网围观。
+- (b) 不采纳（等将来公网分发再评估）。
+- **霞鹜文楷仅用于「事件流」+「决策正文」**，按需加载，且**必须复测 FCP 回报数字**。
+- 另一理由：霞鹜文楷**无 Bold**，标题需真粗体，合成粗体会糊 → 标题继续用系统衬线栈。
+
+### 实现
+- 新增 `web/src/utils/wenKai.ts`：`useWenKai(enabled)` + `ensureWenKai()`，**幂等**注入
+  `jsdelivr` 上 cn-font-split 的分包 CSS（按 unicode-range 分片，浏览器只取用到字的分片）；
+  只有目标组件**真的有内容**（`events.length>0` / `reasoning.length>0`）时才注入。
+- `EventTicker`（事件流）与 `ReasoningPanel`（决策正文）应用 `WENKAI_STACK`。
+- ⚠️ 依赖公网 CDN；离线/内网会**静默回退**系统字体，不影响功能。生产分发应改为自托管分片。
+
+### FCP 复测（5 次取中位 + 1 次预热丢弃，Chrome 1600×900，禁用缓存，CDP 真实传输）
+
+| 网络 | 版本 | 首屏 FCP 中位 | 首屏请求 | 首屏传输 | 回合后霞鹜 |
+|---|---|---|---|---|---|
+| LAN | 无字体路径（阻断 CDN） | **508ms** | 36 | 2220K | 0 |
+| LAN | 有字体路径 | **496ms** | 52 | 2764K | **16 个 / 544K** |
+| Fast 3G | 无字体路径 | **3348ms** | 22 | 1427K | 0 |
+| Fast 3G | 有字体路径 | **3332ms** | 22 | 1428K | 0（窗口内未完成） |
+
+**结论：首屏 FCP 无退化**（LAN 508→496ms、Fast3G 3348→3332ms，差异在噪声内）。
+原因：字体 CSS 由 JS 在 React 挂载**之后**注入，不进入首屏关键路径；字体实际在**首屏之后**才下载。
+LAN 下 16 个文件 / 544K，发生在首屏之后，不拖慢 FCP。
+
+> 备注：因为开局就有一条「游戏开始」事件，`events.length>0` 在挂载时即为真，
+> 所以字体是「首屏后立刻」加载，而非「第一回合后」。若要求更严格的延后，可改判 `turn>1`，
+> 但当前已满足「不拖慢首屏」的要求。
+>
+> 验收截图：`docs/art/screenshots/phase-b-font/01-ticker-wenkai.png`
+> （实测事件流血 computed font-family = `"LXGW WenKai", "Noto Sans SC", "Songti SC", serif`）。
+
+### 残留风险
+- **Fast 3G 下字体到得晚**：会出现「先系统字体、后楷体」的字形切换（cn-fontsource 用 `font-display: swap`，不会白屏，但会有一次视觉跳变）。局域网无此问题。
+- 无 Bold 字重 → 事件流/决策正文里若有 `font-weight:700` 会走合成粗体，需接受或改用 Medium。
+

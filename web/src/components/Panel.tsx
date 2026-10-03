@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { GameEvent, GameState, General, ReasoningEntry } from '../types'
 import { FACTION_COLORS, FACTIONS, STAT_COLORS } from '../theme'
+// [阶段B] 决策正文用霞鹜文楷（局部按需，见 utils/wenKai.ts）
+import { useWenKai, WENKAI_STACK } from '../utils/wenKai'
 import { commandIcon, commandLabel } from '../constants/commands'
 import { DiplomacyPanel } from './DiplomacyPanel'
 
@@ -520,6 +522,8 @@ function ReasoningPanel({ state }: { state: GameState }) {
   const entries = state.reasoning || []
   const llmActive = state.llm_active === true
   const llmRequested = state.llm_requested === true
+  // 只在真的有决策理由要显示时才拉霞鹜文楷
+  useWenKai(entries.length > 0)
 
   if (entries.length === 0) {
     return (
@@ -588,7 +592,7 @@ function ReasoningPanel({ state }: { state: GameState }) {
                     {FACTIONS[e.faction] || e.faction}
                   </span>
                 </div>
-                <div style={{ color: '#b8b3aa', fontSize: '12px', lineHeight: '1.6', marginBottom: e.commands && e.commands.length > 0 ? '8px' : 0 }}>
+                <div style={{ color: '#b8b3aa', fontSize: '12px', lineHeight: '1.6', marginBottom: e.commands && e.commands.length > 0 ? '8px' : 0, fontFamily: WENKAI_STACK }}>
                   {e.reasoning}
                 </div>
                 {e.commands && e.commands.length > 0 && (

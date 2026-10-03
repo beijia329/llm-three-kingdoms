@@ -2,6 +2,8 @@ import type { GameEvent } from '../types'
 // [阶段A] 接入已下载的 game-icons 素材（scroll-quill，CC BY 3.0）。
 // 用 CSS mask 着色，保留矢量 + 随字色变色。
 import scrollQuill from '../assets/icons/scroll-quill.svg'
+// [阶段B] 事件流用霞鹜文楷（局部按需，见 utils/wenKai.ts）
+import { useWenKai, WENKAI_STACK } from '../utils/wenKai'
 
 interface EventTickerProps {
   events: GameEvent[]
@@ -9,6 +11,8 @@ interface EventTickerProps {
 
 export function EventTicker({ events }: EventTickerProps) {
   const recent = events.slice(-4)
+  // 只有真的有事件要显示时才拉字体（空态不拉）
+  useWenKai(events.length > 0)
 
   return (
     <div style={styles.container}>
@@ -83,5 +87,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     whiteSpace: 'nowrap',
     flexShrink: 0,
+    fontFamily: WENKAI_STACK,
   },
 }
