@@ -572,3 +572,146 @@ class TestMapGeneratorIntegration:
             )
         ]
         assert t1 != t2, "Different seeds should produce different hex maps"
+
+
+# ============================================================
+# G「解将荒」——跨城调将（2026-10-0X v4.0）
+# ============================================================
+
+def _make_two_city_data(
+    general_caocao_location: str,
+    city_caocao_1_generals: list,
+    city_caocao_2_generals: list,
+    city_liubei_1_generals: list,
+) -> dict:
+    """曹方占两城（一城有将、一城无将），用于跨城调将测试。
+
+    city_caocao_1 与 city_liubei_1 相邻（可发起进攻）；
+    city_caocao_2 与 city_caocao_1 相邻（仅用于安放待调度的将领）。
+    """
+    return {
+        "cities": [
+            {
+                "id": "city_caocao_1", "name": "曹城1", "faction": "caocao", "level": 3,
+                "wall_hp": 2000, "wall_max_hp": 2000,
+                "gold": 1000, "food": 1000, "population": 30000,
+                "morale": 70, "garrison": 2000,
+                "position": {"q": 83, "r": 63},
+                "neighbors": ["city_caocao_2", "city_liubei_1"],
+                "generals": city_caocao_1_generals,
+            },
+            {
+                "id": "city_caocao_2", "name": "曹城2", "faction": "caocao", "level": 2,
+                "wall_hp": 1000, "wall_max_hp": 1000,
+                "gold": 800, "food": 800, "population": 20000,
+                "morale": 70, "garrison": 1000,
+                "position": {"q": 83, "r": 58},
+                "neighbors": ["city_caocao_1"],
+                "generals": city_caocao_2_generals,
+            },
+            {
+                "id": "city_liubei_1", "name": "刘城1", "faction": "liubei", "level": 3,
+                "wall_hp": 2000, "wall_max_hp": 2000,
+                "gold": 1000, "food": 1000, "population": 30000,
+                "morale": 70, "garrison": 2000,
+                "position": {"q": 88, "r": 63},
+                "neighbors": ["city_caocao_1"],
+                "generals": city_liubei_1_generals,
+            },
+        ],
+        "generals": [
+            {
+                "id": "general_caocao_1", "name": "曹将", "faction": "caocao",
+                "command": 85, "politics": 70, "bravery": 80, "intelligence": 75,
+                "loyalty": 80, "location": general_caocao_location,
+            },
+            {
+                "id": "general_liubei_1", "name": "刘将", "faction": "liubei",
+                "command": 85, "politics": 70, "bravery": 80, "intelligence": 75,
+                "loyalty": 80, "location": "city_liubei_1",
+            },
+        ],
+        "map_topology": {
+            "city_caocao_1": ["city_caocao_2", "city_liubei_1"],
+            "city_caocao_2": ["city_caocao_1"],
+            "city_liubei_1": ["city_caocao_1"],
+        },
+    }
+
+
+def _make_two_city_engine(
+    general_caocao_location: str,
+    city_caocao_1_generals: list,
+    city_caocao_2_generals: list,
+    city_liubei_1_generals: list,
+) -> GameEngine:
+    engine = GameEngine(seed=42)
+    engine.init_game(_make_two_city_data(
+        general_caocao_location,
+        city_caocao_1_generals,
+        city_caocao_2_generals,
+        city_liubei_1_generals,
+    ))
+    return engine
+
+
+class TestGeneralDispatch:
+    """G「解将荒」——允许调度位于己方城池中的空闲将领随军出征。"""
+
+    def test_dispatch_from_own_city_and_maintains_city_generals(self):
+        """① 跨城可调：出发城无本地驻将，从己方另一城调将；city.generals 正确维护。"""
+        engine = _make_two_city_engine(
+            general_caocao_location="city_caocao_2",
+            city_caocao_1_generals=[],
+            city_caocao_2_generals=["general_caocao_1"],
+            city_liubei_1_generals=["general_liubei_1"],
+        )
+        general = engine.generals["general_caocao_1"]
+        assert general.location == "city_caocao_2"
+
+        cmd = AttackCommand(
+            faction="caocao", turn=1,
+            from_city="city_caocao_1", to_city="city_liubei_1",
+            troops=500, general="general_caocao_1",
+        )
+        result = engine.execute_command(cmd)
+
+        # 改前该命令必被拒（general.location != from_city.id）；G 放开后应成功
+        assert result.success is True, result.description
+        assert "调将" in result.description
+        assert len(engine.armies) == 1
+        army = next(iter(engine.armies.values()))
+        assert army.general_id == "general_caocao_1"
+        assert army.from_city == "city_caocao_1"
+
+        # 🔴 city.generals 维护：旧城移除、出发城加入
+        # （battle_scheduler.stationed_generals 直接读 city.generals，不维护会错乱）
+        assert "general_caocao_1" not in engine.cities["city_caocao_2"].generals
+        assert "general_caocao_1" in engine.cities["city_caocao_1"].generals
+
+    def test_reject_dispatch_when_general_in_enemy_city(self):
+        """② 敌城将不调：将位于敌方城池时拒绝出征，且不动 city.generals。"""
+        engine = _make_two_city_engine(
+            general_caocao_location="city_liubei_1",         # 曹将此刻在敌城
+            city_caocao_1_generals=[],
+            city_caocao_2_generals=[],
+            city_liubei_1_generals=["general_liubei_1", "general_caocao_1"],
+        )
+        before_caocao1 = list(engine.cities["city_caocao_1"].generals)
+        before_caocao2 = list(engine.cities["city_caocao_2"].generals)
+        before_liubei = list(engine.cities["city_liubei_1"].generals)
+
+        cmd = AttackCommand(
+            faction="caocao", turn=1,
+            from_city="city_caocao_1", to_city="city_liubei_1",
+            troops=500, general="general_caocao_1",
+        )
+        result = engine.execute_command(cmd)
+
+        assert result.success is False
+        assert "不在" in result.description
+        assert not engine.armies
+        # city.generals 未被误改
+        assert engine.cities["city_caocao_1"].generals == before_caocao1
+        assert engine.cities["city_caocao_2"].generals == before_caocao2
+        assert engine.cities["city_liubei_1"].generals == before_liubei
