@@ -16,7 +16,7 @@
 
 2. **最该修、最容易修、收益最大的一处：`EventBus` 是死的。** 定义了 11 个事件类、约 370 行基础设施，全仓**只有 1 处 `publish`**（`game/engine.py:707`），**0 处 `subscribe`**。`ADR-0001` 把「事件驱动、UI 订阅事件」写成 Accepted，实际上前端/API 都在**轮询** `get_state()`。这是原本应该充当「插件钩子」的那条缝——它存在，但没接线。
 
-3. **一条命令类型要改 8 个文件**：`models.py` / `engine.py`（2 处）/ `llm_player.py`（2 张表）/ `output_parser.py`（2 张表）/ `prompt_builder.py` / `game_manager.py` / `web/src/constants/commands.ts`（4 张表）。**加了命令不改引擎是不可能的**——`execute_command` 是 9 分支的硬 `if/elif`。
+3. **一条命令类型要改 8 个文件**：`models.py` / `engine.py`（2 处）/ `llm_player.py`（2 张表）/ `output_parser.py`（2 张表）/ `prompt_builder.py` / `game_manager.py` / `web/src/constants/commands.ts`（4 张表）。**加了命令不改引擎是不可能的**——`execute_command` 是 9 分支的硬 `if/elif`。（🔴 批 2 已改（`166acf6`）：`execute_command` 现走注册表，**引擎分发不必再改**；但端到端加一条**可用**命令仍需约 4 处——准确口径见 §2.4bis。）
 
 4. **玩法机制 0% 数据驱动**。`data/*.json` 只放静态内容（城市/将领/州/地形坐标），**所有机制数值在 `constants.py`、所有机制逻辑在 Python**。想「用 JSON 定义一个每回合结算的新机制」，当前**做不到**。
 
@@ -266,12 +266,12 @@
    HANDLERS: dict[str, Callable[[GameEngine, Command], CommandResult]] = {}
    def register(cmd_type: str): ...        # 装饰器注册
    ```
-   各 `_execute_*` 改为 `@register("develop")` 等注册；`execute_command` 变成 `HANDLERS[command.type](self, command)`。→ 加命令只改「新增文件 + 1 行 import」。**顺带把 4 张平行表改为从注册表派生**（`COMMAND_CLASSES`/`VALID_COMMAND_TYPES`/`required_params`/`_deserialize_command` 由「命令元数据」单点生成），前端 `commands.ts` 通过 `/api/commands` 端点拉取，消灭另 4 处硬表。
+   各 `_execute_*` 改为 `@register("develop")` 等注册；`execute_command` 变成 `HANDLERS[command.type](self, command)`。→ **引擎分发代码不再需要枚举命令类型**（这是原先最大的一处耦合）。⚠️ 但这**不等于**"只改 1 个文件"——准确口径见 §2.4bis。**顺带把 4 张平行表改为从注册表派生**（`COMMAND_CLASSES`/`VALID_COMMAND_TYPES`/`required_params`/`_deserialize_command` 由「命令元数据」单点生成），前端 `commands.ts` 通过 `/api/commands` 端点拉取，消灭另 4 处硬表。
 2. **真正接线 `EventBus`**：在 `process_turn` 的关键点 `publish`（`TurnStartedEvent`/`TurnEndedEvent`/`CityCapturedEvent`/`BattleEndedEvent`）；让 `GameManager` 的 `_events` 与日志改为**订阅**事件；pygame/Web 的展示也走订阅。→ 这是给未来 mod 的**第一根钩子**。
 3. **引入 `System` 协议 + `SystemRegistry`**：定义 `class System(Protocol): def on_turn_start(ctx): ...; def on_turn_end(ctx): ...; def on_event(evt): ...`，`process_turn` 改成「遍历注册过的系统按声明顺序调钩子」。先把 `influence_system`、`kingdom_system`、`nature_strain` 从引擎里搬进系统，验证这条缝能用。
 4. **落 ADR**：`ADR-0006-command-handler-registry`、`ADR-0007-system-lifecycle`、`ADR-0008-eventbus-wired`。
 
-代价/风险：改动核心循环，**必须保持确定性顺序**（系统注册顺序要固定且可序列化）；`event_bus` 接错会改变现有轮询语义 → 需回归 `tests/integration` + 一局确定性对照（同 seed 逐位一致）。收益：一次性把「加系统」的边际成本从「8 文件」降到「1 文件」。
+代价/风险：改动核心循环，**必须保持确定性顺序**（系统注册顺序要固定且可序列化）；`event_bus` 接错会改变现有轮询语义 → 需回归 `tests/integration` + 一局确定性对照（同 seed 逐位一致）。收益：把「加命令」的**引擎侧**耦合从「必改」降为「不必改」；但端到端仍约 4 处，**不是**「降到 1 个文件」（准确口径见 §2.4bis）。
 
 #### 档 B：理想架构（**1–2 周**，高风险）
 
@@ -284,6 +284,33 @@
 5. **存档兼容**：`GameState` 加 `plugins`/`core_version`，插件卸载后旧存档可降级加载。
 
 代价/风险：**最高风险在确定性与存档兼容**——本项目对「同 seed 逐位一致」有硬要求（`tests/balance/pacing_lib`）；插件任意插入随机调用会破坏它。且需要一个稳定的「核心数据契约」，现在还没有。**不建议现在做。**
+
+### 2.4bis 更新：批 2 已实施（2026-10）——「加命令」的准确成本口径
+
+档 A 第 1 条（命令处理器注册表）**已落地**（commit `166acf6`）：`execute_command`
+去掉 9 分支 `if/elif`，改为查 `game/command_registry.py` 的注册表分发；替换前后
+48 回合逐回合指纹、`exp13` 终局指纹均一致。
+
+**但"加命令从 8 文件降到 1 文件"这个说法是错的（本报告前文已据此更正）。** 准确口径：
+
+| 环节 | 注册表落地后是否仍要改 |
+|---|---|
+| `game/engine.py`（**分发代码**） | ❌ **不必改**（这是本次最大收益） |
+| `game/models.py` 定义命令类 | ✅ 必改（数据模型，无法回避） |
+| `game/command_registry.py` 注册一行 | ✅ 1 处 |
+| 玩家侧（`cli_player` / `llm/output_parser` / `prompt_builder`） | ✅ 若要让 AI 会发这条命令 |
+| 前端 `web/src/constants/commands.ts` | ✅ 若要让前端显示这条命令 |
+
+**准确说法**：「引擎**分发代码**不再需要枚举命令类型（原先 9 分支 if/elif，
+是最大的一处耦合），但新增一条**可用**命令仍需同步约 **4 处** —— 收益是
+『**核心不用改**』，不是『只改 1 个文件』。」
+
+之所以特别写清：本项目反复栽在「表述比事实乐观」上。若后人照着「只改 1 文件」
+去做，会发现还要动 4 处，然后开始不信任这份报告——**报告的准确性比好看重要**。
+
+> **未来路径（属档 B，本轮不做）**：若要让前端也「不改代码」，需让 `/api/commands`
+> 返回命令元数据、前端按元数据渲染驱动；同时玩家侧的 3 处清单也需从注册表派生。
+> 这属于档 B（插件包/DLC 格式）范围，已定为本轮不做。
 
 ### 2.5 现在改 vs 等更多系统写完再改？
 
