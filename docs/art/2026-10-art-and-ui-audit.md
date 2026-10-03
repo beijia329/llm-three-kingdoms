@@ -307,3 +307,40 @@
 - 地图第一屏仍是「色块为主」；地形已可区分，但「更有古地图味」的纸纹/山形线描属阶段 C1。
 - 战斗可视化（进攻箭头/交战双方）属阶段 C2，本轮未做——「看不懂战况」的根因仍在。
 
+---
+
+## 附二：阶段 A 追加（署名 + 势力配色微调，2026-10-03）
+
+> team-lead 二次决策后追加。截图见 `docs/art/screenshots/phase-a-final/`。
+
+### 1. 可见素材署名（CC BY 法律义务）
+
+新增 `web/src/components/AttributionBar.tsx`，并在 `App.tsx` 把布局改为 `列[ 行[地图, 面板], 署名条 ]`：
+
+- **始终可见**的一行页脚（22px）：`素材署名：game-icons.net（CC BY 3.0）· Font Awesome（CC BY 4.0）· Noto Sans SC（OFL）· Kenney（CC0）` + 「详情」按钮。
+- 点「详情」展开完整署名：作者名 + 许可 + 官方链接 + 指向 `assets/art/ATTRIBUTION.md`。
+- 组件内是 `CREDITS[]` 数组，**新增素材必须同步加一条**（避免变成「写了没接线」的假署名）。
+
+覆盖到的实际素材：game-icons.net（10 个图标，CC BY 3.0 **必须署名**）、Font Awesome Free 6.5.1（UI 图标，CC BY 4.0 **必须署名**）、Noto Sans SC（OFL 1.1）、Kenney（CC0，当前未发布，列出备查）。
+
+### 2. 势力配色「最小区分度」微调
+
+只修**过近色对**，不做考据重制（team-lead 限定范围）。用 CIELAB ΔE 量化：
+
+| 指标 | 现状 | 调整后 |
+|---|---|---|
+| 最小两两 ΔE | **17.2**（dongzhuo×liuyan） | **28.4** |
+| 对羊皮纸底最小 ΔE | **9.2**（gongsunzan 几乎隐形） | **35** |
+| 红绿色盲模拟最小 ΔE | **1.0**（caocao×sunjian 完全同色） | **6.8** |
+
+改动（保留原主题意象，只拉开明度/色相）：
+- `han #DAA520`（深金，与黄巾撞）→ `#CE2A18` 朱红（汉·火德尚赤）
+- `gongsunzan #c4b090`（米褐，ΔE 9.2 隐形于底）→ `#6E8073` 北疆灰绿
+- `caocao #6b3020` / `sunjian #8B2020` / `liubiao #7a6040` 三个深暖互相糊 → `#5E3828` / `#8A1A2B` / `#9C7A34`
+- `mateng #5a3070` / `liuyan #5a5070` / `dongzhuo #3a3040` 三个深紫近黑 → `#6B3FA0` / `#A99BC4`（提亮）/ `#1D1B24`（压更黑）
+- `zhangjiao #FFD700` → `#EFC200`、`yuanshao #CC7733` → `#DB861D`、`yuanshu #b04060` → `#C81E63`（微调）
+
+**顺带修一处「两个事实源」隐患**：`FACTION_GLOW` 原本是手写的、与 `FACTION_COLORS` 脱节的 rgba 副本（改色时必漏改），现改为**从 `FACTION_COLORS` 派生**。
+
+⚠️ 诚实说明：12 方**仅靠颜色无法对色盲完全友好**（模拟下最小 ΔE 仅 6.8）。需要**非颜色线索**（势力旗号/图案/文字标签）才能真正达标——这属阶段 B/C，已在 §6 可访问性分级里列为 Standard 级要求。
+

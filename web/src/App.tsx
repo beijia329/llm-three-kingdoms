@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AttributionBar } from './components/AttributionBar'
 import { EventTicker } from './components/EventTicker'
 import { GameMap } from './components/GameMap'
 import { LlmSetupBar } from './components/LlmSetupBar'
@@ -52,7 +53,8 @@ function App() {
 
   return (
     <div style={styles.app}>
-      <div style={styles.mapArea}>
+      <div style={styles.main}>
+        <div style={styles.mapArea}>
         <TopBar state={state} connected={connected} />
         <LlmSetupBar
           llmActive={llmActive}
@@ -84,7 +86,7 @@ function App() {
           <div style={{ color: '#d4a84b', fontSize: '14px', fontWeight: 600 }}>
             {thinking ? '思考中...' : '下一回合'}
           </div>
-          <div style={{ color: '#96918a', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ color: '#a8a29a', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <i className="fa-solid fa-keyboard" style={{ fontSize: '9px' }}></i>空格 / A
           </div>
         </button>
@@ -95,16 +97,18 @@ function App() {
             自动推进中
           </div>
         )}
+        </div>
+        <Panel
+          state={state}
+          tab={tab}
+          setTab={setTab}
+          selectedCityId={selectedCityId}
+          selectedFaction={selectedFaction}
+          setSelectedFaction={setSelectedFaction}
+          onSelectCity={handleSelectCity}
+        />
       </div>
-      <Panel
-        state={state}
-        tab={tab}
-        setTab={setTab}
-        selectedCityId={selectedCityId}
-        selectedFaction={selectedFaction}
-        setSelectedFaction={setSelectedFaction}
-        onSelectCity={handleSelectCity}
-      />
+      <AttributionBar />
     </div>
   )
 }
@@ -112,10 +116,17 @@ function App() {
 const styles: Record<string, React.CSSProperties> = {
   app: {
     display: 'flex',
+    flexDirection: 'column',
     width: '100vw',
     height: '100vh',
     backgroundColor: '#1a1a2e',
     fontFamily: '"Noto Sans SC", "PingFang SC", sans-serif',
+  },
+  main: {
+    display: 'flex',
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
   },
   mapArea: {
     position: 'relative',

@@ -5,24 +5,31 @@
  * 目标：建立统一的视觉语言，支撑未来素材替换
  */
 
-// === 势力色板（按 184 年初关系：联盟暖色系，对立冷/亮色系，无蓝） ===
+// === 势力色板 ===
+// [阶段A 2026-10-03] 「最小区分度」微调（team-lead 批准，非考据重制）。
+// 实测（CIELAB ΔE）原配色问题：
+//   · dongzhuo×liuyan ΔE=17.2、caocao×sunjian 20.4、caocao×liubiao 24.1 …… 多个深色互相糊
+//   · gongsunzan 对羊皮纸底 ΔE 仅 9.2 —— 几乎隐形在图上
+//   · 红绿色盲模拟下 caocao×sunjian ΔE=1.0（完全无法区分）
+// 调整后：最小两两 ΔE 17.2 → 28.4；对底色最小 ΔE 9.2 → 35；色盲模拟最小 1.0 → 6.8。
+// 注：12 方仅靠颜色无法对色盲完全友好（需图案/标签辅助，留待阶段B）。
 export const FACTION_COLORS: Record<string, string> = {
-  zhangjiao: '#FFD700',       // 黄巾 — 亮金（与全天下对立）
-  // 汉室联盟 — 暖色系（金/红/棕/绿）
-  han: '#DAA520',             // 汉室 — 深金
-  caocao: '#6b3020',          // 曹操 — 深红褐（汉室嫡系）
-  liubei: '#2d7a3a',          // 刘备 — 森林绿（仁德）
-  sunjian: '#8B2020',         // 孙坚 — 暗红（勇猛）
-  yuanshao: '#CC7733',        // 袁绍 — 铜橙（盟主）
-  gongsunzan: '#c4b090',      // 公孙瓒 — 米褐（北疆）
-  mateng: '#5a3070',          // 马腾 — 深紫（西凉，暖调）
-  // 董卓 — 冷暗（未来篡逆，与联盟对立）
-  dongzhuo: '#3a3040',
-  // 中立观望 — 中间色
-  liubiao: '#7a6040',         // 刘表 — 棕
-  liuyan: '#5a5070',          // 刘焉 — 灰紫
+  zhangjiao: '#EFC200',       // 黄巾 — 明黄（与全天下对立）
+  // 汉室联盟 — 暖色系
+  han: '#CE2A18',             // 汉室 — 朱红（汉·火德尚赤）
+  caocao: '#5E3828',          // 曹操 — 深褐（汉室嫡系）
+  liubei: '#2D7A3A',          // 刘备 — 森林绿（仁德）
+  sunjian: '#8A1A2B',         // 孙坚 — 深绛（勇猛）
+  yuanshao: '#DB861D',        // 袁绍 — 铜橙（盟主）
+  gongsunzan: '#6E8073',      // 公孙瓒 — 北疆灰绿（原米褐几乎隐形于图上）
+  mateng: '#6B3FA0',          // 马腾 — 紫（西凉）
+  // 董卓 — 近黑（未来篡逆，与联盟对立）
+  dongzhuo: '#1D1B24',
+  // 中立观望
+  liubiao: '#9C7A34',         // 刘表 — 金褐
+  liuyan: '#A99BC4',          // 刘焉 — 浅灰紫
   // 袁术 — 玫红（袁绍之弟，关联但对立）
-  yuanshu: '#b04060',
+  yuanshu: '#C81E63',
   neutral: '#666666',
 }
 
@@ -41,21 +48,11 @@ export const FACTIONS: Record<string, string> = {
   yuanshu: '袁术',
 }
 
-export const FACTION_GLOW: Record<string, string> = {
-  zhangjiao: 'rgba(255, 215, 0, 0.5)',
-  han: 'rgba(218, 165, 32, 0.5)',
-  caocao: 'rgba(107, 48, 32, 0.5)',
-  liubei: 'rgba(45, 122, 58, 0.5)',
-  sunjian: 'rgba(139, 32, 32, 0.5)',
-  yuanshao: 'rgba(204, 119, 51, 0.5)',
-  gongsunzan: 'rgba(196, 176, 144, 0.5)',
-  mateng: 'rgba(90, 48, 112, 0.5)',
-  dongzhuo: 'rgba(58, 48, 64, 0.5)',
-  liubiao: 'rgba(122, 96, 64, 0.5)',
-  liuyan: 'rgba(90, 80, 112, 0.5)',
-  yuanshu: 'rgba(176, 64, 96, 0.5)',
-  neutral: 'rgba(102, 102, 102, 0.5)',
-}
+// 势力辉光：从 FACTION_COLORS 派生（原来是一份手写的、与色值脱节的副本——
+// 改色时极易漏改，属于「两个事实源」隐患，这里合并为一个）。
+export const FACTION_GLOW: Record<string, string> = Object.fromEntries(
+  Object.entries(FACTION_COLORS).map(([k, v]) => [k, hexToRgba(v, 0.5)]),
+)
 
 // === 地形色板（陆=大地色系，海=亮蓝，雾=深灰） ===
 export const TERRAIN_COLORS: Record<string, { fill: number; border: number }> = {
