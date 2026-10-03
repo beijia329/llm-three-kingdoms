@@ -9,13 +9,20 @@ interface ArmyMarkerProps {
   army: {
     id: string
     faction: string
+    general_id?: string
     soldiers: number
     morale: number
     status: string
+    from_city?: string
+    to_city?: string
   }
   x: number
   y: number
   zoom: number
+  /** 是否被选中（高亮描边） */
+  selected?: boolean
+  /** 点击选中军队（此前 pointerEvents:none，整支军队点不了） */
+  onClick?: () => void
 }
 
 function maskStyle(url: string, color: string, size: number) {
@@ -35,7 +42,7 @@ function maskStyle(url: string, color: string, size: number) {
   }
 }
 
-export function ArmyMarker({ army, x, y, zoom }: ArmyMarkerProps) {
+export function ArmyMarker({ army, x, y, zoom, selected, onClick }: ArmyMarkerProps) {
   if (army.soldiers <= 0) return null
 
   const color = FACTION_COLORS[army.faction] || '#888'
@@ -52,17 +59,23 @@ export function ArmyMarker({ army, x, y, zoom }: ArmyMarkerProps) {
 
   return (
     <div
+      onClick={onClick ? (e) => { e.stopPropagation(); onClick() } : undefined}
+      title={`军队 · ${army.soldiers} 兵 · 士气 ${army.morale}`}
       style={{
         position: 'absolute',
         left: x,
         top: y,
         transform: `translate(-50%, -50%) scale(${scale})`,
         transformOrigin: 'center center',
-        pointerEvents: 'none',
-        zIndex: 15,
+        pointerEvents: onClick ? 'auto' : 'none',
+        cursor: onClick ? 'pointer' : 'default',
+        zIndex: selected ? 25 : 15,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        outline: selected ? '2px solid rgba(212,168,75,0.95)' : 'none',
+        outlineOffset: '3px',
+        borderRadius: '6px',
       }}
     >
       {/* 军队图标：状态决定剪影，势力色着色 */}

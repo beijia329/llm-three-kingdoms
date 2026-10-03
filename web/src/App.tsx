@@ -2,12 +2,24 @@ import { useEffect, useState } from 'react'
 import { AttributionBar } from './components/AttributionBar'
 import { EventTicker } from './components/EventTicker'
 import { GameMap } from './components/GameMap'
+import { GameOverOverlay } from './components/GameOverOverlay'
 import { LlmSetupBar } from './components/LlmSetupBar'
 import { Panel } from './components/Panel'
 import { TopBar } from './components/TopBar'
+import { FACTION_COLORS, FACTIONS } from './theme'
 import { useGame } from './hooks/useGame'
 
 type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning'
+
+/** 判断事件目标是否是可输入控件 —— 快捷键必须让位给输入框 */
+function isEditableTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  if (!el || !el.tagName) return false
+  const tag = el.tagName.toLowerCase()
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true
+  if (el.isContentEditable) return true
+  return false
+}
 
 function App() {
   const {
@@ -17,9 +29,19 @@ function App() {
   const [tab, setTab] = useState<TabKey>('factions')
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null)
   const [selectedFaction, setSelectedFaction] = useState<string | null>(null)
+  const [selectedArmyId, setSelectedArmyId] = useState<string | null>(null)
+  const [gameOverDismissed, setGameOverDismissed] = useState(false)
+
+  // 新一局开始时复位结算层的关闭状态
+  useEffect(() => {
+    if (!state?.game_over) setGameOverDismissed(false)
+  }, [state?.game_over])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      // [交互修复 2026-10-03] 输入框/下拉聚焦时不再吞键：此前在 <select> 里
+      // 按空格/字母/数字会推进回合、切自动、切 tab，完全无法正常输入。
+      if (isEditableTarget(e.target)) return
       if (e.code === 'Space') {
         e.preventDefault()
         if (!auto) nextTurn()
@@ -67,7 +89,12 @@ function App() {
           thinkingSeconds={thinkingSeconds}
           onRestart={restart}
         />
-        <GameMap state={state} onSelectCity={handleSelectCity} />
+        <GameMap
+          state={state}
+          onSelectCity={handleSelectCity}
+          onSelectArmy={(id) => setSelectedArmyId((cur) => (cur === id ? null : id))}
+          selectedArmyId={selectedArmyId}
+        />
         <EventTicker events={state?.events || []} />
 
         <button
@@ -95,7 +122,50 @@ function App() {
           <div style={styles.autoIndicator}>
             <i className="fa-solid fa-play" style={{ marginRight: '6px' }}></i>
             自动推进中
+            <button
+              style={styles.stopBtn}
+              onClick={() => toggleAuto()}
+              title="停止自动推进（快捷键 A）"
+            >
+              <i className="fa-solid fa-stop" style={{ marginRight: '4px' }}></i>
+              停止
+            </button>
           </div>
+        )}
+
+        {/* 军队详情卡：点地图上的军队后浮现（此前军队完全点不了） */}
+        {selectedArmyId && state?.armies[selectedArmyId] && (() => {
+          const a = state.armies[selectedArmyId]
+          const gen = state.generals[a.general_id]
+          const color = FACTION_COLORS[a.faction] || '#888'
+          return (
+            <div style={{ ...styles.armyCard, borderLeft: `3px solid ${color}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ color: '#e8e0d0', fontWeight: 600, fontSize: '13px' }}>
+                  <i className="fa-solid fa-person-military-rifle" style={{ marginRight: '5px', color }}></i>
+                  {gen?.name || '未知将领'} 的部队
+                </span>
+                <button style={styles.armyClose} onClick={() => setSelectedArmyId(null)} aria-label="关闭">
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <div style={{ fontSize: '12px', color: '#a8a29a', lineHeight: 1.7 }}>
+                <div>势力：{FACTIONS[a.faction] || a.faction}</div>
+                <div>兵力：{a.soldiers} · 士气：{a.morale}</div>
+                <div>状态：{a.status || '—'}</div>
+                {(a.from_city || a.to_city) && (
+                  <div>
+                    {a.from_city ? `自 ${state.cities[a.from_city]?.name || a.from_city}` : ''}
+                    {a.to_city ? ` → ${state.cities[a.to_city]?.name || a.to_city}` : ''}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
+        {state?.game_over && !gameOverDismissed && (
+          <GameOverOverlay state={state} onDismiss={() => setGameOverDismissed(true)} />
         )}
         </div>
         <Panel
@@ -167,6 +237,43 @@ const styles: Record<string, React.CSSProperties> = {
     backdropFilter: 'blur(12px)',
     display: 'flex',
     alignItems: 'center',
+  },
+  /** 自动推进的「停止」按钮（此前只能按 A 键，界面无入口） */
+  stopBtn: {
+    marginLeft: '10px',
+    padding: '4px 10px',
+    borderRadius: '6px',
+    border: '1px solid rgba(200, 80, 70, 0.55)',
+    background: 'rgba(200, 80, 70, 0.16)',
+    color: '#e0776d',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    display: 'inline-flex',
+    alignItems: 'center',
+  },
+  /** 军队详情卡（点地图军队后浮现） */
+  armyCard: {
+    position: 'absolute',
+    top: '74px',
+    left: '12px',
+    width: '240px',
+    padding: '12px',
+    background: 'rgba(18, 18, 34, 0.92)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '10px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+    backdropFilter: 'blur(12px)',
+    zIndex: 30,
+  },
+  armyClose: {
+    background: 'transparent',
+    border: 'none',
+    color: '#a8a29a',
+    cursor: 'pointer',
+    fontSize: '13px',
+    padding: '2px 4px',
   },
 }
 

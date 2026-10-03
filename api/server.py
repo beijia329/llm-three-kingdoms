@@ -100,16 +100,36 @@ app.add_middleware(
 # ============================================================
 
 @app.get("/api/state")
-async def get_state(reasoning_limit: Optional[int] = None) -> Dict[str, Any]:
+async def get_state(
+    reasoning_limit: Optional[int] = None,
+    hex_map_version: Optional[str] = None,
+) -> Dict[str, Any]:
     """获取当前游戏完整状态
 
     reasoning_limit（可选）：只返回最近 N 条决策理由；省略则返回全部
     （条数上限由 GameManager.MAX_REASONING_HISTORY 控制）。供前端「决策」面板
     按需拉取，长局下避免一次传回全部历史。
+
+    hex_map_version（可选）：客户端已知的 hex_map 版本。与当前版本一致时
+    **不再回传** hex_map（响应从 ~2.34 MB 降到 ~30 KB）；不一致则回传完整地图。
     """
     if _manager is None:
         return {"error": "游戏管理器未初始化"}
-    return _manager.get_state(reasoning_limit=reasoning_limit)
+    return _manager.get_state(
+        reasoning_limit=reasoning_limit,
+        known_hex_map_version=hex_map_version,
+    )
+
+
+@app.get("/api/hex_map")
+async def get_hex_map() -> Dict[str, Any]:
+    """独立获取完整六角格地图（版本 + 24000 格）
+
+    前端在「版本已变但 WS/state 未携带地图」时回退调用本端点补齐缓存。
+    """
+    if _manager is None:
+        return {"error": "游戏管理器未初始化"}
+    return _manager.get_hex_map()
 
 
 @app.get("/api/models")
@@ -212,9 +232,15 @@ async def game_websocket(websocket: WebSocket) -> None:
         return
 
     auto_task: Optional[asyncio.Task] = None
+    # 连接级 hex_map 版本：首次必发完整地图，之后只在版本变化（占领变城）时再发。
+    # 这样自动推进 800ms/回合也只推 ~30 KB 的状态增量，而不是每回合 2.58 MB。
+    sent_hex_version: Optional[str] = None
 
     async def send_state() -> None:
-        await websocket.send_json({"type": "state", "data": _manager.get_state()})
+        nonlocal sent_hex_version
+        data = _manager.get_state(known_hex_map_version=sent_hex_version)
+        sent_hex_version = data.get("hex_map_version")
+        await websocket.send_json({"type": "state", "data": data})
 
     async def auto_loop(interval_ms: int) -> None:
         while True:
@@ -255,6 +281,8 @@ async def game_websocket(websocket: WebSocket) -> None:
                     factions=msg.get("factions") or None,
                 )
                 _manager = GameManager(config=cfg)
+                # 新开一局 = 全新地图，必须重置连接级版本，强制重发完整地图
+                sent_hex_version = None
                 await send_state()
 
             elif msg_type == "command":

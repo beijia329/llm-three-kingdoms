@@ -91,6 +91,7 @@ function FactionList({
       {rows.map((row) => {
         const color = FACTION_COLORS[row.fid] || '#888888'
         const isSelected = selectedFaction === row.fid
+        const dead = row.is_alive === false
         return (
           <div
             key={row.fid}
@@ -99,6 +100,7 @@ function FactionList({
               borderLeft: `3px solid ${color}`,
               backgroundColor: isSelected ? 'rgba(212, 168, 75, 0.1)' : 'rgba(255, 255, 255, 0.03)',
               cursor: 'pointer',
+              opacity: dead ? 0.55 : 1,
             }}
             onClick={() => setSelectedFaction(row.fid)}
           >
@@ -106,6 +108,11 @@ function FactionList({
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isSelected ? '#e8e0d0' : '#b8b3aa', fontWeight: 600, fontSize: '14px' }}>
                 <FactionBadge faction={row.fid} size={18} />
                 {row.name}
+                {/* 「已出局」标识：后端一直返回 is_alive，此前前端零处引用 → 灭亡势力
+                    仍按普通卡片列。现明确标红，观众一眼看出谁已经退出争夺。 */}
+                {dead && (
+                  <span style={styles.deadTag} title="城池尽失，已退出争夺">已出局</span>
+                )}
                 {/* v4.0.1：标出这一方由哪个大模型指挥 —— 多模型对战的关键信息，
                     让观众一眼看出"曹操是 v4-pro 在打，孙坚是 flash 在打"。 */}
                 {row.model && (
@@ -294,6 +301,18 @@ function ElementBadge({ general }: { general: General }) {
 }
 
 function GeneralList({ state }: { state: GameState }) {
+  // 展开显示全部的势力集合（此前硬编码 slice(0,5)，「还有 N 人」还是不可点的纯文字
+  // → 第 6 名之后的武将永远看不到）
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggle = (fid: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(fid)) next.delete(fid)
+      else next.add(fid)
+      return next
+    })
+  }
+
   const byFaction: Record<string, typeof state.generals[string][]> = {}
   Object.values(state.generals).forEach((g) => {
     if (g.is_captured) return
@@ -311,6 +330,8 @@ function GeneralList({ state }: { state: GameState }) {
         const gens = byFaction[fid]
         if (!gens || gens.length === 0) return null
         const color = FACTION_COLORS[fid] || '#888888'
+        const isOpen = expanded.has(fid)
+        const shown = isOpen ? gens : gens.slice(0, 5)
         return (
           <div key={fid} style={{ ...styles.card, borderLeft: `3px solid ${color}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontWeight: 600, fontSize: '13px', color }}>
@@ -318,7 +339,7 @@ function GeneralList({ state }: { state: GameState }) {
               {FACTIONS[fid] || fid}
               <span style={{ color: '#96918a', fontWeight: 400, fontSize: '11px' }}>({gens.length}人)</span>
             </div>
-            {gens.slice(0, 5).map((g) => (
+            {shown.map((g) => (
               <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '12px' }}>
                 <i className="fa-solid fa-user" style={{ color: '#96918a', fontSize: '9px' }}></i>
                 <span style={{ color: '#e8e0d0', minWidth: '50px' }}>{g.name}</span>
@@ -331,9 +352,14 @@ function GeneralList({ state }: { state: GameState }) {
               </div>
             ))}
             {gens.length > 5 && (
-              <div style={{ color: '#5a5a72', fontSize: '11px', marginTop: '4px', textAlign: 'center' }}>
-                <i className="fa-solid fa-ellipsis" style={{ marginRight: '4px' }}></i>还有 {gens.length - 5} 人
-              </div>
+              <button
+                style={styles.expandToggle}
+                onClick={() => toggle(fid)}
+                title={isOpen ? '收起' : '查看全部武将'}
+              >
+                <i className={`fa-solid fa-chevron-${isOpen ? 'up' : 'down'}`} style={{ marginRight: '5px' }}></i>
+                {isOpen ? '收起' : `还有 ${gens.length - 5} 人（点击展开）`}
+              </button>
             )}
           </div>
         )
@@ -724,6 +750,29 @@ function EventsPanel({ state }: { state: GameState }) {
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  /** 势力卡上的「已出局」标识（is_alive=false） */
+  deadTag: {
+    fontSize: '10px',
+    fontWeight: 400,
+    color: '#e0776d',
+    border: '1px solid rgba(200, 80, 70, 0.55)',
+    borderRadius: '4px',
+    padding: '0 4px',
+    whiteSpace: 'nowrap',
+  },
+  /** 武将列表「展开全部」按钮（替代不可点的纯文字提示） */
+  expandToggle: {
+    marginTop: '6px',
+    width: '100%',
+    padding: '5px 8px',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '6px',
+    color: '#8a86a0',
+    fontSize: '11px',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+  },
   /** 势力卡上的「指挥模型」小标签（v4.0.1 多模型对战） */
   modelTag: {
     display: 'inline-flex',

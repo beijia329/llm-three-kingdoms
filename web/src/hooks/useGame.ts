@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { GameState, WebSocketMessage } from '../types'
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
+import type { GameState, HexTile, WebSocketMessage } from '../types'
 
 /**
  * WebSocket 地址：默认**同源**。
@@ -59,6 +60,77 @@ export interface UseGameReturn {
   llmError: string
 }
 
+/**
+ * hex_map 缓存结构。
+ *
+ * 后端不再每次回传整图：版本未变则不入包，占领回合只回传**增量**。
+ * 前端必须持有完整 tiles 与「q,r → 下标」索引，才能在增量到来时打补丁。
+ */
+interface HexCache {
+  version?: string
+  width?: number
+  height?: number
+  tiles?: HexTile[]
+  index?: Map<string, number>
+}
+
+function cacheFullHex(version: string | undefined, map: GameState['hex_map']): HexCache {
+  if (!map) return {}
+  const index = new Map<string, number>()
+  map.tiles.forEach((t, i) => index.set(`${t.q},${t.r}`, i))
+  return { version, width: map.width, height: map.height, tiles: map.tiles, index }
+}
+
+/** 把增量补丁应用到 tiles（生成新数组，保证 React 能看到引用变化） */
+function applyDeltaToCache(cache: HexCache, delta: NonNullable<GameState['hex_map_delta']>): boolean {
+  if (!cache.tiles || !cache.index) return false
+  // 基线不匹配（缓存不是 delta 期望的版本）→ 无法安全打补丁
+  if (cache.version !== delta.base_version) return false
+  const nextTiles = cache.tiles.slice()
+  for (const t of delta.tiles) {
+    const i = cache.index.get(`${t.q},${t.r}`)
+    if (i === undefined) continue
+    nextTiles[i] = { ...nextTiles[i], faction: t.faction, owner_city_id: t.owner_city_id }
+  }
+  cache.tiles = nextTiles
+  cache.version = delta.version
+  return true
+}
+
+function mapFromCache(cache: HexCache): GameState['hex_map'] {
+  if (!cache.tiles) return undefined
+  return { width: cache.width ?? 0, height: cache.height ?? 0, tiles: cache.tiles }
+}
+
+/**
+ * 兜底拉取完整 hex_map（后端 `/api/hex_map`）。
+ *
+ * 正常路径下 WS 会携带整图或增量；本函数只在「缓存缺失」或「增量基线不匹配」
+ * 时兜底，保证长时间观战/重连后地图不会停留在过期状态。
+ */
+async function fetchHexMap(
+  setState: Dispatch<SetStateAction<GameState | null>>,
+  cacheRef: MutableRefObject<HexCache>,
+): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE}/api/hex_map`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = (await res.json()) as {
+      version?: string
+      width: number
+      height: number
+      tiles: HexTile[]
+    }
+    cacheRef.current = cacheFullHex(data.version, {
+      width: data.width, height: data.height, tiles: data.tiles,
+    })
+    const map = mapFromCache(cacheRef.current)
+    setState((prev) => (prev ? { ...prev, hex_map: map, hex_map_version: data.version } : prev))
+  } catch (e) {
+    console.error('拉取 hex_map 失败（地图将保持上一版本）:', e)
+  }
+}
+
 export function useGame(): UseGameReturn {
   const wsRef = useRef<WebSocket | null>(null)
   const [state, setState] = useState<GameState | null>(null)
@@ -70,46 +142,95 @@ export function useGame(): UseGameReturn {
   const [pendingTurn, setPendingTurn] = useState<number | null>(null)
   const [thinkingSeconds, setThinkingSeconds] = useState(0)
 
+  // hex_map 缓存（性能核心，2026-10-03）：后端整图/增量/空三态，前端据此维护缓存。
+  const hexCacheRef = useRef<HexCache>({})
+
+  const applyIncoming = useCallback((next: GameState) => {
+    // 1. 整图（首帧 / 重连 / 跨多版）
+    if (next.hex_map) {
+      hexCacheRef.current = cacheFullHex(next.hex_map_version, next.hex_map)
+      setState(next)
+      return
+    }
+    // 2. 增量（占领回合：只带变化格子）
+    if (next.hex_map_delta) {
+      const delta = next.hex_map_delta
+      if (applyDeltaToCache(hexCacheRef.current, delta)) {
+        setState({ ...next, hex_map: mapFromCache(hexCacheRef.current), hex_map_version: delta.version })
+        return
+      }
+      // 基线不匹配 → 落状态并拉整图兜底
+      setState(next)
+      void fetchHexMap(setState, hexCacheRef)
+      return
+    }
+    // 3. 空：版本未变，复用缓存
+    const cached = mapFromCache(hexCacheRef.current)
+    if (cached) {
+      setState({ ...next, hex_map: cached })
+    } else {
+      setState(next)
+      void fetchHexMap(setState, hexCacheRef)
+    }
+  }, [])
+
   useEffect(() => {
-    const ws = new WebSocket(WS_URL)
-    wsRef.current = ws
+    let disposed = false
+    let reconnectDelay = 1000
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined
 
-    ws.onopen = () => {
-      setConnected(true)
-      ;(window as any).__gameWS = ws
-    }
-    ws.onclose = () => {
-      setConnected(false)
-      ;(window as any).__gameWS = null
-    }
-    ws.onerror = (err) => console.error('WebSocket error:', err)
+    const connect = () => {
+      if (disposed) return
+      const ws = new WebSocket(WS_URL)
+      wsRef.current = ws
 
-    ws.onmessage = (event) => {
-      try {
-        const msg: WebSocketMessage = JSON.parse(event.data)
-        if (msg.type === 'state' && msg.data) {
-          const next = msg.data as GameState
-          setState(next)
-          // 回合号推进到/超过我们等待的那一回合 → 本回合算完了，解除按钮禁用
-          setPendingTurn((pending) =>
-            pending !== null && next.turn >= pending ? null : pending,
-          )
-        } else if (msg.type === 'event') {
-          console.log('[GAME]', msg.text)
-        } else if (msg.type === 'error') {
-          console.error('[GAME ERROR]', msg.message)
-          // 出错也要解锁，否则用户会被永久禁用在"思考中"
-          setPendingTurn(null)
+      ws.onopen = () => {
+        reconnectDelay = 1000
+        setConnected(true)
+        ;(window as any).__gameWS = ws
+      }
+      // 断线自动重连（指数退避，上限 10s）。此前只置 connected=false，
+      // 用户必须手动刷新页面 —— 对「长时间观战」场景等于白屏。
+      ws.onclose = () => {
+        setConnected(false)
+        ;(window as any).__gameWS = null
+        if (disposed) return
+        reconnectTimer = setTimeout(connect, reconnectDelay)
+        reconnectDelay = Math.min(reconnectDelay * 2, 10000)
+      }
+      ws.onerror = (err) => console.error('WebSocket error:', err)
+
+      ws.onmessage = (event) => {
+        try {
+          const msg: WebSocketMessage = JSON.parse(event.data)
+          if (msg.type === 'state' && msg.data) {
+            const next = msg.data as GameState
+            applyIncoming(next)
+            // 回合号推进到/超过我们等待的那一回合 → 本回合算完了，解除按钮禁用
+            setPendingTurn((pending) =>
+              pending !== null && next.turn >= pending ? null : pending,
+            )
+          } else if (msg.type === 'event') {
+            console.log('[GAME]', msg.text)
+          } else if (msg.type === 'error') {
+            console.error('[GAME ERROR]', msg.message)
+            // 出错也要解锁，否则用户会被永久禁用在"思考中"
+            setPendingTurn(null)
+          }
+        } catch (e) {
+          console.error('Failed to parse message:', e)
         }
-      } catch (e) {
-        console.error('Failed to parse message:', e)
       }
     }
 
+    connect()
+
     return () => {
-      ws.close()
+      disposed = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      wsRef.current?.close()
     }
-  }, [])
+  }, [applyIncoming])
 
   // 等待计时：每秒 +1，供「AI 正在思考中（约 N 秒）」显示
   useEffect(() => {
@@ -198,6 +319,10 @@ export function useGame(): UseGameReturn {
       }
       const data = (await res.json()) as GameState
       // REST 已返回完整状态，直接落地；WS 后续推送会覆盖为更新后的状态
+      // 新一局地图全变 → 重置缓存，避免沿用作废的旧地图
+      if (data.hex_map) {
+        hexCacheRef.current = cacheFullHex(data.hex_map_version, data.hex_map)
+      }
       setState(data)
       if (data.turn) stateTurnRef.current = data.turn
       return data

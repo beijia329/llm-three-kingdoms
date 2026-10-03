@@ -10,6 +10,9 @@ import { BattleOverlay } from './map/BattleOverlay'
 interface GameMapProps {
   state: GameState | null
   onSelectCity: (cityId: string) => void
+  /** 选中地图上的军队（补上「军队完全点不了」的缺口） */
+  onSelectArmy?: (armyId: string) => void
+  selectedArmyId?: string | null
 }
 
 interface Camera {
@@ -18,7 +21,7 @@ interface Camera {
   zoom: number
 }
 
-export function GameMap({ state, onSelectCity }: GameMapProps) {
+export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId }: GameMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<Application | null>(null)
   const pixiCameraRef = useRef<Container | null>(null)
@@ -34,6 +37,9 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   // [修复 2026-10-01] Pixi 初始化是异步的；用 ready 门控渲染，避免首个 state
   // 在 Pixi 就绪前到达导致地图空白且不再重绘。
   const [pixiReady, setPixiReady] = useState(false)
+  // [性能 2026-10-03] 记录已渲染的 hex_map 版本。后端只在「占领变城」时改版本，
+  // 版本未变则复用整层 Pixi 图形 —— 不再每 0.8s 重画 24000 格（卡顿根因）。
+  const renderedHexVersionRef = useRef<string | null>(null)
 
   // [美术 2026-10-01] 改为"古地图"风格：不再散布贴图装饰（读起来像噪点），
   // 地形改用线描山脉表现（见渲染层）。
@@ -94,6 +100,14 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
   // 渲染 PixiJS 层（地形 + 边界 + 瓦片底图）
   useEffect(() => {
     if (!state || !pixiReady || !pixiCameraRef.current) return
+
+    // [性能 2026-10-03] 版本门控：hex_map 只在占领变城时变，未变则**不重建**
+    // 整层 Pixi 图形（24000 格 + 边界 + 州名）。普通 state（军队移动/资源变化）
+    // 只走 DOM 标记层更新，这是「缩放平移不跟手」的直接修复。
+    // 无地图数据（缓存缺失的异常态）时不动，避免把已有画布清空。
+    if (!state.hex_map) return
+    const hexVersion = state.hex_map_version ?? 'legacy'
+    if (hexVersion === renderedHexVersionRef.current) return
 
     const camera = pixiCameraRef.current
     camera.removeChildren()
@@ -309,6 +323,9 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       camera.addChild(label)
     })
 
+    // 记录本次已渲染版本，供后续 state 快照跳过重建
+    renderedHexVersionRef.current = hexVersion
+
   }, [state, pixiReady])
 
   // 地图像素边界（世界坐标）— 动态从 hex_map 读取
@@ -412,6 +429,25 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
       window.removeEventListener('mouseup', handleMouseUp)
     }
   }, [])  // 只绑定一次，不依赖 isDragging
+
+  // [交互 2026-10-03] 窗口 resize：此前画布只在挂载时量一次尺寸，
+  // 改窗口后 canvas 尺寸不变 → 地图错位/留白。用 ResizeObserver 跟随容器。
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || !pixiReady) return
+    const ro = new ResizeObserver(() => {
+      const app = appRef.current
+      const w = container.clientWidth
+      const h = container.clientHeight
+      if (!app || w <= 0 || h <= 0) return
+      app.renderer.resize(w, h)
+      // 视口变化后重新约束相机，避免地图被拖出可视范围
+      syncCamera(cameraRef.current)
+    })
+    ro.observe(container)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pixiReady])
 
   // 计算城市/军队的世界像素坐标
   const cityMarkers = state
@@ -520,7 +556,15 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
           />
         ))}
         {armyMarkers.map(({ army, pos }) => (
-          <ArmyMarker key={army.id} army={army} x={pos.x} y={pos.y} zoom={cam.zoom} />
+          <ArmyMarker
+            key={army.id}
+            army={army}
+            x={pos.x}
+            y={pos.y}
+            zoom={cam.zoom}
+            selected={selectedArmyId === army.id}
+            onClick={onSelectArmy ? () => onSelectArmy(army.id) : undefined}
+          />
         ))}
         {/* 战斗回放层（箭头 + 回放标签），与城市/军队同一世界坐标 transform */}
         {battles.length > 0 && (

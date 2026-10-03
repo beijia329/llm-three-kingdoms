@@ -177,6 +177,30 @@ export interface GameState {
     height: number
     tiles: HexTile[]
   }
+  /**
+   * hex_map 版本指纹（后端 `_hex_map_version()` 计算）。
+   *
+   * 🔴 性能契约（2026-10-03）：后端只在「占领变城」时改变该版本，且当客户端
+   * 上报的已知版本与当前一致时，**不再回传** hex_map（响应从 ~2.34 MB → ~30 KB）。
+   * 前端据此判断是否重建 Pixi 底图：版本未变则只更新标记层，不重画 24000 格。
+   */
+  hex_map_version?: string
+  /**
+   * hex_map 增量（占领回合只回传变化的格子）。
+   *
+   * 🔴 `tiles` 只含 `q/r/faction/owner_city_id`（可变字段），`terrain/province_id`
+   * 建图后不变，前端在缓存上打补丁即可。`base_version` = 前端应持有的缓存版本。
+   */
+  hex_map_delta?: {
+    version: string
+    base_version: string
+    tiles: Array<{
+      q: number
+      r: number
+      faction: string | null
+      owner_city_id: string | null
+    }>
+  }
   faction_relations?: FactionRelation[]
   messages?: DiplomacyMessage[]
   turn_logs?: TurnLog[]

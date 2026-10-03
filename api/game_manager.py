@@ -173,6 +173,20 @@ class GameManager:
         self._reasoning: List[Dict[str, Any]] = []
         # 本局是否已计入模型战绩（幂等标记：process_turn 每回合都会看到 game_over）
         self._match_recorded: bool = False
+        # ---- hex_map 缓存（前端性能优化，2026-10-03）----
+        # hex_map 有 24000 格、序列化后约 2.58 MB，占 /api/state 体积近 100%；
+        # 而它的「地形/州郡/坐标」建图后**恒定不变**，只有势力占领（faction）
+        # 与归属城（owner_city_id）会随回合变化（实测：仅城市易手时变，
+        # 影响力扩散不写 faction，见 game/influence_system.py 模块说明）。故：
+        #   - _hex_cache_version：只对会变的字段算指纹，未变则不入包；
+        #   - _hex_cache_payload：指纹未变时复用已建好的 tiles，省掉重建 24000 dict；
+        #   - _hex_prev_state/version：保留上一版格子状态，供**增量下发**——
+        #     占领回合只回传「变化的格子」（实测 1~144 格），而不是整图 2.29 MB。
+        self._hex_cache_version: str = ""
+        self._hex_cache_payload: Optional[Dict[str, Any]] = None
+        self._hex_tile_state: Dict[Any, Any] = {}
+        self._hex_prev_version: str = ""
+        self._hex_prev_state: Optional[Dict[Any, Any]] = None
         self._init_engine()
 
     def _init_engine(self) -> None:
@@ -292,13 +306,121 @@ class GameManager:
     # 状态序列化
     # ============================================================
 
-    def get_state(self, reasoning_limit: Optional[int] = None) -> Dict[str, Any]:
+    def _hex_map_version(self) -> str:
+        """计算 hex_map 的版本指纹。
+
+        🔴 为什么不是「每次回传 2.58 MB」：`hex_map` 有 24000 格，序列化后
+        占 `/api/state` 体积近 100%（实测 2,582,900 / 2,339,624 字节，2026-10-03）。
+        但它的「地形」「州郡」「坐标」建图后恒定，只有**势力占领**与
+        **归属城**随回合变化。所以只对 `faction` / `owner_city_id` 做指纹，
+        未变即视为「地图没变」，前端可复用缓存、不重传、不重画。
+
+        指纹用 FNV-1a 混合 CRC32（跨进程稳定，与 `_stable_hash` 同思路），
+        遍历 24000 格成本约几毫秒，远低于重新构造并序列化 24000 个 dict。
+
+        Returns:
+            8 位十六进制版本串；无地图时为 ``"empty"``
+        """
+        if self.engine is None or self.engine.hex_map is None:
+            return "empty"
+        fp = 0x811C9DC5
+        for tile in self.engine.hex_map.iter_tiles():
+            raw = f"{tile.coord.q},{tile.coord.r},{tile.faction or ''},{tile.owner_city_id or ''}"
+            fp ^= zlib.crc32(raw.encode("utf-8"))
+            fp = (fp * 0x01000193) & 0xFFFFFFFF
+        return f"{fp:08x}"
+
+    def _hex_map_payload(self) -> tuple[str, Dict[str, Any]]:
+        """返回 (版本, hex_map 负载)；版本未变时复用缓存，不重建 24000 个 dict。
+
+        版本变化时：把旧版本状态存进 `_hex_prev_*`，供增量下发比对。
+        """
+        version = self._hex_map_version()
+        if self._hex_cache_payload is None or self._hex_cache_version != version:
+            hex_tiles: List[Dict[str, Any]] = []
+            state: Dict[Any, Any] = {}
+            if self.engine is not None and self.engine.hex_map is not None:
+                for tile in self.engine.hex_map.iter_tiles():
+                    key = (tile.coord.q, tile.coord.r)
+                    state[key] = (tile.faction, tile.owner_city_id)
+                    hex_tiles.append({
+                        "q": tile.coord.q,
+                        "r": tile.coord.r,
+                        "terrain": tile.terrain.value if hasattr(tile.terrain, 'value') else str(tile.terrain),
+                        "faction": tile.faction,
+                        "owner_city_id": tile.owner_city_id,
+                        "province_id": tile.province_id,
+                    })
+            hm = self.engine.hex_map if self.engine is not None else None
+            # 旧版本状态 → prev（供下一版做增量基线）
+            self._hex_prev_version = self._hex_cache_version if self._hex_tile_state else ""
+            self._hex_prev_state = dict(self._hex_tile_state) if self._hex_tile_state else None
+            self._hex_cache_payload = {
+                "width": hm.width if hm else 0,
+                "height": hm.height if hm else 0,
+                "tiles": hex_tiles,
+            }
+            self._hex_cache_version = version
+            self._hex_tile_state = state
+        return self._hex_cache_version, self._hex_cache_payload
+
+    def _hex_map_transition(
+        self, known_version: Optional[str], current_version: str, payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """构造下发地图所需的字段：整图 / 增量 / 空。
+
+        - known == current → {}（前端复用缓存，不入包）
+        - known == 上一版  → {"hex_map_delta": {version, base_version, tiles}}
+        - 其他（未知/跨多版）→ {"hex_map": 完整负载}
+        """
+        if known_version == current_version:
+            return {}
+        if (
+            known_version
+            and known_version == self._hex_prev_version
+            and self._hex_prev_state is not None
+        ):
+            changed = []
+            for (q, r), val in self._hex_tile_state.items():
+                if self._hex_prev_state.get((q, r)) != val:
+                    changed.append({
+                        "q": q,
+                        "r": r,
+                        "faction": val[0],
+                        "owner_city_id": val[1],
+                    })
+            return {
+                "hex_map_delta": {
+                    "version": current_version,
+                    "base_version": known_version,
+                    "tiles": changed,
+                }
+            }
+        return {"hex_map": payload}
+
+    def get_hex_map(self) -> Dict[str, Any]:
+        """独立端点 ``/api/hex_map`` 的返回值：版本 + 完整地图。
+
+        前端在「版本变了但 WS 未携带 hex_map」时回退调用本方法补齐。
+        """
+        version, payload = self._hex_map_payload()
+        return {"version": version, **payload}
+
+    def get_state(
+        self,
+        reasoning_limit: Optional[int] = None,
+        known_hex_map_version: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """获取当前游戏状态（JSON 可序列化）
 
         Args:
             reasoning_limit: 只返回最近 N 条决策理由；None = 返回全部
                 （上限由 MAX_REASONING_HISTORY 控制）。前端「决策」面板
                 可按需限制传输量；不传时行为与旧版一致（返回全部）。
+            known_hex_map_version: 客户端**已知**的 hex_map 版本。若与当前版本
+                一致，则**不再回传** hex_map（响应从 2.34 MB 降到约 30 KB）；
+                不一致（或未传）时回传完整地图。默认 None = 回传（行为与旧版
+                兼容，`/api/reset` 等一次性调用无需改）。
 
         Returns:
             包含 cities、armies、generals、turn、game_over 等字段的字典
@@ -326,20 +448,23 @@ class GameManager:
             }
 
         # 补充六角格地图（用于前端地形渲染）
-        hex_tiles = []
-        if self.engine.hex_map is not None:
-            for tile in self.engine.hex_map.iter_tiles():
-                hex_tiles.append({
-                    "q": tile.coord.q,
-                    "r": tile.coord.r,
-                    "terrain": tile.terrain.value if hasattr(tile.terrain, 'value') else str(tile.terrain),
-                    "faction": tile.faction,
-                    "owner_city_id": tile.owner_city_id,
-                    "province_id": tile.province_id,
-                })
+        #
+        # 🔴 性能（2026-10-03）：hex_map 只在「占领变城」时变，但此前每次
+        # state 都全量回传 2.58 MB。现改为带版本指纹，客户端已知同版本时省略，
+        # 响应体积从 2.34 MB 降到约 30 KB。版本始终下发（前端据此判断是否重画）。
+        hex_version, hex_payload = self._hex_map_payload()
 
         # max_turns / year 现在由 GameState 模型自动序列化（B-03 修复后）
         data["faction_stats"] = faction_stats
+        # 季节：引擎里一直有 `engine.season`（Season 枚举），但此前从未进 API，
+        # 导致前端顶部「Y年 季」的「季」永久空白。转成前端认的小写字符串键。
+        if self.engine is not None:
+            _season = getattr(self.engine, "season", None)
+            data["season"] = (
+                _season.value if hasattr(_season, "value") else str(_season or "")
+            )
+        else:
+            data["season"] = ""
         data["events"] = list(self._events[-20:])
         # 最近战斗报告（近 MAX_RECENT_BATTLES 场；前端 BattleOverlay 据此画进攻箭头）
         data["recent_battles"] = list(self._recent_battles)
@@ -377,11 +502,10 @@ class GameManager:
         # 多模型对战时各方模型不同，单靠 llm_model 一个字段表达不了。
         data["llm_model_by_faction"] = dict(self.llm_model_by_faction)
         data["llm_factions"] = list(self._players.keys())
-        data["hex_map"] = {
-            "width": self.engine.hex_map.width if self.engine.hex_map else 0,
-            "height": self.engine.hex_map.height if self.engine.hex_map else 0,
-            "tiles": hex_tiles,
-        }
+        data["hex_map_version"] = hex_version
+        # 客户端已知同版本 → 不入包；已知上一版 → 只回传变化格子（增量）；
+        # 否则回传完整地图。占领回合从 2.29 MB 降到几 KB。
+        data.update(self._hex_map_transition(known_hex_map_version, hex_version, hex_payload))
 
         # 州郡元数据（名称、首府）
         provinces_data: Dict[str, Dict[str, Any]] = {}
