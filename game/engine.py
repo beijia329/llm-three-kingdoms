@@ -1621,10 +1621,79 @@ class GameEngine:
         )
 
     def load_state_snapshot(self, state: GameState) -> None:
-        """从快照恢复游戏状态
+        """从快照恢复游戏状态 —— 🔴 **本方法当前不可用，调用即抛 `NotImplementedError`**。
+
+        为什么不让它"尽力而为"
+        ----------------------
+        原实现只重建了 `self.rng` 与 `self.map`，**未恢复**：
+
+        | 缺失项 | 后果 |
+        |---|---|
+        | `hex_map` | 恢复后为 `None` —— 领地/地块产出、影响力扩散全部失效 |
+        | `season` | 恢复为 `SPRING`（季节影响产出） |
+        | `_diplomacy_relation_system` | 恢复后为 `None` —— 外交操作在 `None` 上报错 |
+        | `_kingdom_system` | 未重建 —— 建国/称帝加成失效 |
+        | 各子系统缓存、`loyalty_baseline` | 未重建 |
+
+        🔴 **最危险的是它不报错**：2026-10-03 实测（`tests/balance/exp20_snapshot_restore.py`）：
+
+            原引擎：turn=13  hex_map=已建  season=WINTER  外交关系=69 条
+            恢复后：turn=13  hex_map=None  season=SPRING  外交关系=None
+            继续推进 12 回合 → "成功"，turn=25
+            但后台抛 AttributeError: 'NoneType' object has no attribute 'set_status'
+            （被引擎的命令级 try/except 吞掉，表面看一切正常）
+
+        即：它会造出一个**看起来还行、实际静默降级**的引擎。按本项目
+        「拒绝静默兜底」的原则，宁可显式不可用，也不留这个陷阱。
+
+        为什么不能"补齐"
+        ----------------
+        **`GameState` 快照格式缺字段**（2026-10-03 实读 + 实跑）。快照只有 11 个字段：
+
+            turn / max_turns / year / seed / game_over / winner /
+            cities / armies / generals / messages / turn_logs
+
+        两样关键东西**都不在**：
+
+        1. **没有任何 hex 地块/领地字段**。而 `hex_map` 由 `init_game(data)`
+           依赖**原始地图数据**构建 —— 光凭一份 `GameState` 造不出来。
+        2. **没有外交关系字段**，恢复后外交全丢。
+           ⚠️ 易混点：`faction_relations` 属于 **`GameObservation`**（喂给 AI 的
+           观察），**不是** `GameState`（存档快照）。我第一版判断就把它当成
+           快照字段、写成"字段存在但生产端没填"，被实跑纠正 ——
+           两者务必分清。
+
+        所以这不是「接线漏了」，而是**存档格式不完整**：要做存档/读档，
+        必须先扩 `GameState`，属功能开发，不是修 bug。
+
+        要做的话，建议路径（避免再做半个）
+        ----------------------------------
+        1. 扩快照格式：加外交关系、加地图/领地（或改存 `seed + data 摘要`
+           以便重建 `hex_map`）；
+        2. `load_state_snapshot(state, data)` 先走 `init_game(data)` 把地图与
+           全部子系统按同一路径建好，再覆盖被存档的实体；
+        3. 补一个**等价性验收**：『恢复后继续跑 N 回合』 必须与
+           『不中断跑 N 回合』逐回合指纹一致 —— 否则读档会改变对局结果。
 
         Args:
-            state: 之前保存的游戏状态
+            state: 之前保存的游戏状态（当前实现不接受）
+
+        Raises:
+            NotImplementedError: 总是抛出。原因见上。
+        """
+        raise NotImplementedError(
+            "load_state_snapshot 当前不可用："
+            "GameState 快照格式缺两类关键字段（无地图/领地、无外交关系），"
+            "且原实现未恢复 hex_map / season / 外交系统，会静默产生降级引擎。"
+            "详见本方法 docstring 与 tests/balance/exp20_snapshot_restore.py。"
+            "要做存档/读档请先扩 GameState 格式（属功能开发，不是修 bug）。"
+        )
+
+    def _load_state_snapshot_legacy(self, state: GameState) -> None:  # pragma: no cover
+        """【已停用】原实现留档，供将来做存档功能时参考起点。
+
+        🔴 不要直接调用 —— 它只恢复部分状态，会产出静默降级的引擎
+        （见 `load_state_snapshot` 的 docstring）。
         """
         self.turn = state.turn
         self.max_turns = state.max_turns
@@ -1638,7 +1707,7 @@ class GameEngine:
         self._messages = state.messages
         self.turn_logs = state.turn_logs
 
-        # 重建子系统
+        # 重建子系统（⚠️ 不全 —— 缺 hex_map / season / 外交 / 建国 / 各子系统）
         self.rng = GameRandom(self.seed)
         self.map = MapSystem()
         for city in self.cities.values():

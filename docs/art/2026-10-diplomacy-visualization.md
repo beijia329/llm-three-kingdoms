@@ -145,12 +145,34 @@ README 把「外交博弈：信使系统、正式盟约、流言策反、背盟�
   surviving 均值 9.20→9.60、hhi 0.1748→0.1673、top_share 0.3099→0.2910。
   即：同盟成立后会**稍微削弱领先者**，但量级温和，不是颠覆性差异。
   确定性未受影响（同 seed 两次指纹一致；`test_cross_process_determinism.py` 4 passed）。
-- 🔴 **Web 的规则-AI 回退模式同样无法结盟**（`api/game_manager.py` 不投递）。
-  Web 的 **LLM 模式不受影响**——`LLMPlayer` 走 `observation.received_messages`
-  （`prompt_builder.py:304`），不依赖该回调。
-  ⚠️ 这条**未修**：给 Web 补投递要动 `api/game_manager.py`，属产品侧改动，待排期。
-- 🔴 **停战（truce）是真瓶颈**：两变体下均为 **0 对**，即使真实 CLI 路径也从未发生。
-  这是独立遗留项，与本节口径问题无关，值得单独追。
+- ✅ **Web 的规则-AI 回退模式也已修**（2026-10-03）：`api/game_manager.py` 新增
+  `_deliver_message()`，在两处命令执行点（手动命令 `execute_command`、
+  回合推进中的决策执行）投递外交消息，与 CLI 路径口径一致。
+  守卫测试 `tests/integration/test_web_message_delivery.py`（5 例），
+  并做**改坏验证**：把投递调用注释掉 → 同盟断言**变红**（"跑满 48 回合没出现任何同盟"），
+  还原 → 5 passed。
+  Web 的 **LLM 模式一直不受影响**——`LLMPlayer` 走
+  `observation.received_messages`（`prompt_builder.py:304`），不依赖该回调。
+- 🔴 **停战（truce）是真瓶颈 —— 根因已定位：没有任何代码能创建它**
+  （2026-10-03 静态核查）。生产环境设置外交状态的地方只有 3 处：
+
+  | 位置 | 设成什么 |
+  |---|---|
+  | `engine.py:767` `_execute_propose_alliance` | `ALLIANCE` |
+  | `engine.py:792` `_execute_declare_war` | `WAR` |
+  | `engine.py:1116` 占城时 | `WAR` |
+
+  命令类只有 9 种（develop / recruit / attack / reward / explore / message /
+  rumor / propose_alliance / declare_war），**没有"停战/求和"这一类**。
+  而 TRUCE 的整套配套设施却是齐的：`DiplomaticStatus.TRUCE` 枚举、
+  `DIPLOMACY_TRUCE_DURATION = 6`、`set_status` 里的 `truce_end_turn` 维护、
+  `update_turn` 的到期清理、`is_truce()` 辅助函数、提示词里的「和」标签、
+  关系图的渲染、**以及 `engine.py:567` 「不能攻击同盟或停战中的势力」的攻防规则**。
+
+  → 又是一例「基础设施齐全、但没有任何东西能触发它」。
+  连带后果：`engine.py:567` 那条保护规则也从未生效过。
+  这是**缺一个触发入口**（要么加停战命令、要么删掉这套设施），不是数值问题。
+  决策留给项目负责人，本文只记录事实。
 - 待办：`cli_player.py:93` 的严格 `>` 是否放宽到 `>=`，属**数值调优**范畴，
   与本节的「口径不等价」是两件事，不要混为一谈。
 

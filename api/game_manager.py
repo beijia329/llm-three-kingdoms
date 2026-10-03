@@ -456,6 +456,7 @@ class GameManager:
         try:
             command = self._deserialize_command(cmd_dict)
             result = self.engine.execute_command(command)
+            self._deliver_message(command.faction, command, result)
             return {
                 "success": result.success,
                 "type": result.command_type,
@@ -465,6 +466,30 @@ class GameManager:
         except Exception as e:
             logger.exception("命令执行失败: %s", cmd_dict)
             return {"success": False, "error": str(e)}
+
+    def _deliver_message(self, sender: str, cmd: Command, result: Any) -> None:
+        """把外交消息投递给**目标玩家对象**（与 `main.py:134-136` 的 CLI 路径等价）。
+
+        🔴 为什么必须有这一步：`CLIPlayer` 只能靠 `receive_message` 回调得知
+        「有人提议结盟」——它在 `players/cli_player.py:71-77` 里做关键字匹配并设
+        `_pending_alliance`，下一回合据此回发 `ProposeAllianceCommand`。
+        回调不投递 → `_pending_alliance` 恒为 `None` → 该回调永不触发
+        → **规则-AI 模式下同盟在结构上不可能发生**。
+
+        实测（2026-10-03）：同一条对局路径，不投递时同盟 0 对、结盟提议 0 次；
+        投递时同盟 47 对、提议 92 次（`tests/balance/exp19_diplomacy_reachability.py`）。
+
+        ⚠️ LLM 模式（`LLMPlayer`）**不依赖**本回调——它读
+        `observation.received_messages`（`prompt_builder.py:304`）。
+        所以这是「规则-AI 降级路径」与 CLI 路径的一致性修复。
+        """
+        if getattr(cmd, "type", None) != "message":
+            return
+        if not getattr(result, "success", False):
+            return
+        target = self._players.get(getattr(cmd, "to", None))
+        if target is not None:
+            target.receive_message(sender, str(getattr(cmd, "content", "")))
 
     @staticmethod
     def _deserialize_command(cmd_dict: Dict[str, Any]) -> Command:
@@ -593,6 +618,8 @@ class GameManager:
 
             for cmd in commands:
                 result = self.engine.execute_command(cmd)
+                # 外交消息投递给目标玩家（CLI 路径同此；见 _deliver_message 说明）
+                self._deliver_message(faction, cmd, result)
                 if result.success:
                     ai_events.append({
                         "faction": faction,
