@@ -372,11 +372,13 @@ REWARD_LOYALTY_BONUS_PER_100_GOLD: int = 5
 MAX_LOYALTY_FROM_REWARD: int = 100
 """赏赐最大忠诚度上限"""
 
-CAPTURE_SURRENDER_BASE_CHANCE: float = 0.30
-"""被俘后投降基础概率30%"""
-
-CAPTURE_SURRENDER_LOYALTY_FACTOR: float = 0.01
-"""每点忠诚度降低1%投降概率"""
+# 【已删除 · v4.1】CAPTURE_SURRENDER_BASE_CHANCE / CAPTURE_SURRENDER_LOYALTY_FACTOR
+#
+# 旧投降公式 `0.30 - loyalty × 0.01` 在数据实际忠诚区间（65~100）内恒为负值，
+# 被 max(0.0, ...) 截断为 0 —— 投降机制从未生效过（v4.0 实测发现）。
+# 现由 SURRENDER_CHANCE_DEVOTED/LOYAL/NORMAL/UNSTABLE/DANGEROUS 五档常量驱动，
+# 见下方相邻定义。这两个常量连同其 import 均已无任何引用，删除以免与现行机制混淆。
+# 历史记录：docs/pitfalls.md「未接入的常量」节。
 
 EXPLORE_BASE_CHANCE: float = 0.20
 """探索发现新将领基础概率20%"""
