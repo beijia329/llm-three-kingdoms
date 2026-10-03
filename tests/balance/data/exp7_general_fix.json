@@ -1,0 +1,193 @@
+{
+  "config": {
+    "speed": 4,
+    "turns": 48,
+    "games": 4,
+    "seed_base": 96001,
+    "variant": "base",
+    "workers": 4,
+    "out": "tests/balance/data/exp7_general_fix.json"
+  },
+  "rows": [
+    {
+      "seed": 96001,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "base",
+      "fix": false,
+      "end_turn": 48,
+      "winner": "yuanshu",
+      "attack_total": 327,
+      "attack_ok": 45,
+      "attack_ok_rate": 0.138,
+      "battles": 32,
+      "battles_per_turn": 0.667,
+      "neutral_left": 0,
+      "surviving_factions": 12,
+      "top_share": 0.194,
+      "hhi": 0.1113,
+      "reasons": {
+        "SUCCESS": 45,
+        "general_not_in_city": 273,
+        "no_hex_path": 9
+      }
+    },
+    {
+      "seed": 96002,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "base",
+      "fix": false,
+      "end_turn": 48,
+      "winner": "gongsunzan",
+      "attack_total": 359,
+      "attack_ok": 42,
+      "attack_ok_rate": 0.117,
+      "battles": 29,
+      "battles_per_turn": 0.604,
+      "neutral_left": 1,
+      "surviving_factions": 12,
+      "top_share": 0.167,
+      "hhi": 0.1067,
+      "reasons": {
+        "SUCCESS": 42,
+        "general_not_in_city": 266,
+        "no_hex_path": 51
+      }
+    },
+    {
+      "seed": 96003,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "base",
+      "fix": false,
+      "end_turn": 48,
+      "winner": "caocao",
+      "attack_total": 335,
+      "attack_ok": 40,
+      "attack_ok_rate": 0.119,
+      "battles": 30,
+      "battles_per_turn": 0.625,
+      "neutral_left": 3,
+      "surviving_factions": 12,
+      "top_share": 0.143,
+      "hhi": 0.0944,
+      "reasons": {
+        "SUCCESS": 40,
+        "general_not_in_city": 218,
+        "no_hex_path": 77
+      }
+    },
+    {
+      "seed": 96004,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "base",
+      "fix": false,
+      "end_turn": 48,
+      "winner": "yuanshu",
+      "attack_total": 258,
+      "attack_ok": 47,
+      "attack_ok_rate": 0.182,
+      "battles": 36,
+      "battles_per_turn": 0.75,
+      "neutral_left": 2,
+      "surviving_factions": 12,
+      "top_share": 0.241,
+      "hhi": 0.1177,
+      "reasons": {
+        "SUCCESS": 47,
+        "general_not_in_city": 202,
+        "no_hex_path": 9
+      }
+    },
+    {
+      "seed": 96001,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "base",
+      "fix": true,
+      "end_turn": 48,
+      "winner": "yuanshu",
+      "attack_total": 57,
+      "attack_ok": 48,
+      "attack_ok_rate": 0.842,
+      "battles": 34,
+      "battles_per_turn": 0.708,
+      "neutral_left": 0,
+      "surviving_factions": 12,
+      "top_share": 0.258,
+      "hhi": 0.128,
+      "reasons": {
+        "SUCCESS": 48,
+        "no_hex_path": 9
+      }
+    },
+    {
+      "seed": 96002,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "base",
+      "fix": true,
+      "end_turn": 48,
+      "winner": "gongsunzan",
+      "attack_total": 93,
+      "attack_ok": 42,
+      "attack_ok_rate": 0.452,
+      "battles": 29,
+      "battles_per_turn": 0.604,
+      "neutral_left": 1,
+      "surviving_factions": 12,
+      "top_share": 0.167,
+      "hhi": 0.1067,
+      "reasons": {
+        "SUCCESS": 42,
+        "no_hex_path": 51
+      }
+    },
+    {
+      "seed": 96003,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "base",
+      "fix": true,
+      "end_turn": 48,
+      "winner": "caocao",
+      "attack_total": 117,
+      "attack_ok": 40,
+      "attack_ok_rate": 0.342,
+      "battles": 30,
+      "battles_per_turn": 0.625,
+      "neutral_left": 3,
+      "surviving_factions": 12,
+      "top_share": 0.143,
+      "hhi": 0.0944,
+      "reasons": {
+        "SUCCESS": 40,
+        "no_hex_path": 77
+      }
+    },
+    {
+      "seed": 96004,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "base",
+      "fix": true,
+      "end_turn": 48,
+      "winner": "yuanshu",
+      "attack_total": 56,
+      "attack_ok": 47,
+      "attack_ok_rate": 0.839,
+      "battles": 36,
+      "battles_per_turn": 0.75,
+      "neutral_left": 2,
+      "surviving_factions": 12,
+      "top_share": 0.241,
+      "hhi": 0.1177,
+      "reasons": {
+        "SUCCESS": 47,
+        "no_hex_path": 9
+      }
+    }
+  ]
+}

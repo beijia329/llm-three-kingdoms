@@ -1,0 +1,187 @@
+{
+  "config": {
+    "speed": 4,
+    "turns": 48,
+    "games": 4,
+    "seed_base": 96001,
+    "variant": "nopeak",
+    "workers": 4,
+    "out": "tests/balance/data/exp7_general_fix_nopeak.json"
+  },
+  "rows": [
+    {
+      "seed": 96001,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "nopeak",
+      "fix": false,
+      "end_turn": 48,
+      "winner": "yuanshu",
+      "attack_total": 481,
+      "attack_ok": 56,
+      "attack_ok_rate": 0.116,
+      "battles": 19,
+      "battles_per_turn": 0.396,
+      "neutral_left": 4,
+      "surviving_factions": 12,
+      "top_share": 0.148,
+      "hhi": 0.1029,
+      "reasons": {
+        "SUCCESS": 56,
+        "general_not_in_city": 415,
+        "no_hex_path": 10
+      }
+    },
+    {
+      "seed": 96002,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "nopeak",
+      "fix": false,
+      "end_turn": 48,
+      "winner": "gongsunzan",
+      "attack_total": 361,
+      "attack_ok": 50,
+      "attack_ok_rate": 0.139,
+      "battles": 30,
+      "battles_per_turn": 0.625,
+      "neutral_left": 1,
+      "surviving_factions": 12,
+      "top_share": 0.167,
+      "hhi": 0.1067,
+      "reasons": {
+        "SUCCESS": 50,
+        "general_not_in_city": 311
+      }
+    },
+    {
+      "seed": 96003,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "nopeak",
+      "fix": false,
+      "end_turn": 48,
+      "winner": "sunjian",
+      "attack_total": 521,
+      "attack_ok": 53,
+      "attack_ok_rate": 0.102,
+      "battles": 24,
+      "battles_per_turn": 0.5,
+      "neutral_left": 4,
+      "surviving_factions": 12,
+      "top_share": 0.148,
+      "hhi": 0.0919,
+      "reasons": {
+        "SUCCESS": 53,
+        "general_not_in_city": 468
+      }
+    },
+    {
+      "seed": 96004,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "nopeak",
+      "fix": false,
+      "end_turn": 48,
+      "winner": "yuanshu",
+      "attack_total": 256,
+      "attack_ok": 49,
+      "attack_ok_rate": 0.191,
+      "battles": 36,
+      "battles_per_turn": 0.75,
+      "neutral_left": 2,
+      "surviving_factions": 12,
+      "top_share": 0.241,
+      "hhi": 0.1177,
+      "reasons": {
+        "SUCCESS": 49,
+        "general_not_in_city": 207
+      }
+    },
+    {
+      "seed": 96001,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "nopeak",
+      "fix": true,
+      "end_turn": 48,
+      "winner": "yuanshu",
+      "attack_total": 66,
+      "attack_ok": 56,
+      "attack_ok_rate": 0.848,
+      "battles": 19,
+      "battles_per_turn": 0.396,
+      "neutral_left": 4,
+      "surviving_factions": 12,
+      "top_share": 0.148,
+      "hhi": 0.1029,
+      "reasons": {
+        "SUCCESS": 56,
+        "no_hex_path": 10
+      }
+    },
+    {
+      "seed": 96002,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "nopeak",
+      "fix": true,
+      "end_turn": 48,
+      "winner": "gongsunzan",
+      "attack_total": 50,
+      "attack_ok": 50,
+      "attack_ok_rate": 1.0,
+      "battles": 30,
+      "battles_per_turn": 0.625,
+      "neutral_left": 1,
+      "surviving_factions": 12,
+      "top_share": 0.167,
+      "hhi": 0.1067,
+      "reasons": {
+        "SUCCESS": 50
+      }
+    },
+    {
+      "seed": 96003,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "nopeak",
+      "fix": true,
+      "end_turn": 48,
+      "winner": "sunjian",
+      "attack_total": 53,
+      "attack_ok": 53,
+      "attack_ok_rate": 1.0,
+      "battles": 24,
+      "battles_per_turn": 0.5,
+      "neutral_left": 4,
+      "surviving_factions": 12,
+      "top_share": 0.148,
+      "hhi": 0.0919,
+      "reasons": {
+        "SUCCESS": 53
+      }
+    },
+    {
+      "seed": 96004,
+      "speed": 4,
+      "max_turns": 48,
+      "variant": "nopeak",
+      "fix": true,
+      "end_turn": 48,
+      "winner": "yuanshu",
+      "attack_total": 49,
+      "attack_ok": 49,
+      "attack_ok_rate": 1.0,
+      "battles": 36,
+      "battles_per_turn": 0.75,
+      "neutral_left": 2,
+      "surviving_factions": 12,
+      "top_share": 0.241,
+      "hhi": 0.1177,
+      "reasons": {
+        "SUCCESS": 49
+      }
+    }
+  ]
+}

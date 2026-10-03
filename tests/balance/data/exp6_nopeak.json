@@ -1,0 +1,146 @@
+{
+  "config": {
+    "speed": 4,
+    "games": 3,
+    "turns": 40,
+    "seed_base": 95001,
+    "variant": "nopeak",
+    "workers": 3,
+    "out": "tests/balance/data/exp6_nopeak.json"
+  },
+  "rows": [
+    {
+      "seed": 95001,
+      "speed": 4,
+      "max_turns": 40,
+      "variant": "nopeak",
+      "end_turn": 40,
+      "attack_total": 302,
+      "attack_ok": 42,
+      "reasons": {
+        "SUCCESS": 42,
+        "general_not_in_city": 210,
+        "no_hex_path": 50
+      },
+      "by_faction": {
+        "han": {
+          "general_not_in_city": 21
+        },
+        "zhangjiao": {
+          "general_not_in_city": 37
+        },
+        "yuanshao": {
+          "general_not_in_city": 14
+        },
+        "caocao": {
+          "general_not_in_city": 27
+        },
+        "sunjian": {
+          "general_not_in_city": 35,
+          "no_hex_path": 40
+        },
+        "liuyan": {
+          "general_not_in_city": 4
+        },
+        "gongsunzan": {
+          "general_not_in_city": 33
+        },
+        "mateng": {
+          "general_not_in_city": 28
+        },
+        "yuanshu": {
+          "no_hex_path": 10,
+          "general_not_in_city": 11
+        }
+      }
+    },
+    {
+      "seed": 95002,
+      "speed": 4,
+      "max_turns": 40,
+      "variant": "nopeak",
+      "end_turn": 40,
+      "attack_total": 258,
+      "attack_ok": 47,
+      "reasons": {
+        "SUCCESS": 47,
+        "general_not_in_city": 211
+      },
+      "by_faction": {
+        "han": {
+          "general_not_in_city": 13
+        },
+        "zhangjiao": {
+          "general_not_in_city": 64
+        },
+        "yuanshao": {
+          "general_not_in_city": 14
+        },
+        "sunjian": {
+          "general_not_in_city": 46
+        },
+        "liuyan": {
+          "general_not_in_city": 4
+        },
+        "gongsunzan": {
+          "general_not_in_city": 36
+        },
+        "mateng": {
+          "general_not_in_city": 9
+        },
+        "yuanshu": {
+          "general_not_in_city": 25
+        }
+      }
+    },
+    {
+      "seed": 95003,
+      "speed": 4,
+      "max_turns": 40,
+      "variant": "nopeak",
+      "end_turn": 40,
+      "attack_total": 267,
+      "attack_ok": 49,
+      "reasons": {
+        "SUCCESS": 49,
+        "general_not_in_city": 218
+      },
+      "by_faction": {
+        "han": {
+          "general_not_in_city": 10
+        },
+        "zhangjiao": {
+          "general_not_in_city": 61
+        },
+        "yuanshao": {
+          "general_not_in_city": 15
+        },
+        "caocao": {
+          "general_not_in_city": 6
+        },
+        "sunjian": {
+          "general_not_in_city": 31
+        },
+        "liuyan": {
+          "general_not_in_city": 7
+        },
+        "gongsunzan": {
+          "general_not_in_city": 37
+        },
+        "mateng": {
+          "general_not_in_city": 10
+        },
+        "yuanshu": {
+          "general_not_in_city": 41
+        }
+      }
+    }
+  ],
+  "agg": {
+    "SUCCESS": 138,
+    "general_not_in_city": 639,
+    "no_hex_path": 50
+  },
+  "total": 827,
+  "ok": 138
+}

@@ -1,0 +1,328 @@
+{
+  "config": {
+    "speed": 4,
+    "turns": 96,
+    "games": 5,
+    "seed_base": 99001,
+    "groups": [
+      "before",
+      "after",
+      "after_full"
+    ],
+    "workers": 5,
+    "out": "tests/balance/data/exp10_p0.json"
+  },
+  "rows": [
+    {
+      "seed": 99001,
+      "group": "before",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "caocao",
+      "attacks": 703,
+      "attacks_ok": 37,
+      "ok_rate": 0.053,
+      "battles": 24,
+      "battles_per_turn": 0.25,
+      "surviving": 12,
+      "top_share": 0.2,
+      "hhi": 0.1089,
+      "neutral_left": 1,
+      "reasons": {
+        "SUCCESS": 37,
+        "no_hex_path": 161,
+        "general_not_in_city": 505
+      }
+    },
+    {
+      "seed": 99002,
+      "group": "before",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "yuanshu",
+      "attacks": 565,
+      "attacks_ok": 38,
+      "ok_rate": 0.067,
+      "battles": 28,
+      "battles_per_turn": 0.292,
+      "surviving": 12,
+      "top_share": 0.241,
+      "hhi": 0.1249,
+      "neutral_left": 2,
+      "reasons": {
+        "SUCCESS": 38,
+        "no_hex_path": 164,
+        "general_not_in_city": 363
+      }
+    },
+    {
+      "seed": 99003,
+      "group": "before",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "sunjian",
+      "attacks": 793,
+      "attacks_ok": 26,
+      "ok_rate": 0.033,
+      "battles": 14,
+      "battles_per_turn": 0.146,
+      "surviving": 12,
+      "top_share": 0.179,
+      "hhi": 0.0995,
+      "neutral_left": 3,
+      "reasons": {
+        "SUCCESS": 26,
+        "no_hex_path": 359,
+        "general_not_in_city": 408
+      }
+    },
+    {
+      "seed": 99004,
+      "group": "before",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "yuanshu",
+      "attacks": 684,
+      "attacks_ok": 43,
+      "ok_rate": 0.063,
+      "battles": 31,
+      "battles_per_turn": 0.323,
+      "surviving": 12,
+      "top_share": 0.161,
+      "hhi": 0.103,
+      "neutral_left": 0,
+      "reasons": {
+        "SUCCESS": 43,
+        "general_not_in_city": 641
+      }
+    },
+    {
+      "seed": 99005,
+      "group": "before",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "caocao",
+      "attacks": 647,
+      "attacks_ok": 41,
+      "ok_rate": 0.063,
+      "battles": 27,
+      "battles_per_turn": 0.281,
+      "surviving": 12,
+      "top_share": 0.194,
+      "hhi": 0.1072,
+      "neutral_left": 0,
+      "reasons": {
+        "SUCCESS": 41,
+        "general_not_in_city": 548,
+        "no_hex_path": 58
+      }
+    },
+    {
+      "seed": 99001,
+      "group": "after",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "zhangjiao",
+      "attacks": 50,
+      "attacks_ok": 50,
+      "ok_rate": 1.0,
+      "battles": 34,
+      "battles_per_turn": 0.354,
+      "surviving": 12,
+      "top_share": 0.133,
+      "hhi": 0.0933,
+      "neutral_left": 1,
+      "reasons": {
+        "SUCCESS": 50
+      }
+    },
+    {
+      "seed": 99002,
+      "group": "after",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "yuanshu",
+      "attacks": 46,
+      "attacks_ok": 46,
+      "ok_rate": 1.0,
+      "battles": 31,
+      "battles_per_turn": 0.323,
+      "surviving": 12,
+      "top_share": 0.194,
+      "hhi": 0.1072,
+      "neutral_left": 0,
+      "reasons": {
+        "SUCCESS": 46
+      }
+    },
+    {
+      "seed": 99003,
+      "group": "after",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "yuanshao",
+      "attacks": 72,
+      "attacks_ok": 50,
+      "ok_rate": 0.694,
+      "battles": 35,
+      "battles_per_turn": 0.365,
+      "surviving": 12,
+      "top_share": 0.138,
+      "hhi": 0.0987,
+      "neutral_left": 2,
+      "reasons": {
+        "SUCCESS": 50,
+        "no_hex_path": 22
+      }
+    },
+    {
+      "seed": 99004,
+      "group": "after",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "yuanshu",
+      "attacks": 42,
+      "attacks_ok": 42,
+      "ok_rate": 1.0,
+      "battles": 30,
+      "battles_per_turn": 0.312,
+      "surviving": 12,
+      "top_share": 0.194,
+      "hhi": 0.1113,
+      "neutral_left": 0,
+      "reasons": {
+        "SUCCESS": 42
+      }
+    },
+    {
+      "seed": 99005,
+      "group": "after",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "zhangjiao",
+      "attacks": 46,
+      "attacks_ok": 46,
+      "ok_rate": 1.0,
+      "battles": 32,
+      "battles_per_turn": 0.333,
+      "surviving": 12,
+      "top_share": 0.172,
+      "hhi": 0.0987,
+      "neutral_left": 2,
+      "reasons": {
+        "SUCCESS": 46
+      }
+    },
+    {
+      "seed": 99001,
+      "group": "after_full",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "zhangjiao",
+      "attacks": 50,
+      "attacks_ok": 50,
+      "ok_rate": 1.0,
+      "battles": 34,
+      "battles_per_turn": 0.354,
+      "surviving": 12,
+      "top_share": 0.133,
+      "hhi": 0.0933,
+      "neutral_left": 1,
+      "reasons": {
+        "SUCCESS": 50
+      }
+    },
+    {
+      "seed": 99002,
+      "group": "after_full",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "yuanshu",
+      "attacks": 46,
+      "attacks_ok": 46,
+      "ok_rate": 1.0,
+      "battles": 31,
+      "battles_per_turn": 0.323,
+      "surviving": 12,
+      "top_share": 0.194,
+      "hhi": 0.1072,
+      "neutral_left": 0,
+      "reasons": {
+        "SUCCESS": 46
+      }
+    },
+    {
+      "seed": 99003,
+      "group": "after_full",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "yuanshao",
+      "attacks": 72,
+      "attacks_ok": 50,
+      "ok_rate": 0.694,
+      "battles": 35,
+      "battles_per_turn": 0.365,
+      "surviving": 12,
+      "top_share": 0.138,
+      "hhi": 0.0987,
+      "neutral_left": 2,
+      "reasons": {
+        "SUCCESS": 50,
+        "no_hex_path": 22
+      }
+    },
+    {
+      "seed": 99004,
+      "group": "after_full",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "yuanshu",
+      "attacks": 42,
+      "attacks_ok": 42,
+      "ok_rate": 1.0,
+      "battles": 30,
+      "battles_per_turn": 0.312,
+      "surviving": 12,
+      "top_share": 0.194,
+      "hhi": 0.1113,
+      "neutral_left": 0,
+      "reasons": {
+        "SUCCESS": 42
+      }
+    },
+    {
+      "seed": 99005,
+      "group": "after_full",
+      "speed": 4,
+      "max_turns": 96,
+      "end_turn": 96,
+      "winner": "zhangjiao",
+      "attacks": 46,
+      "attacks_ok": 46,
+      "ok_rate": 1.0,
+      "battles": 32,
+      "battles_per_turn": 0.333,
+      "surviving": 12,
+      "top_share": 0.172,
+      "hhi": 0.0987,
+      "neutral_left": 2,
+      "reasons": {
+        "SUCCESS": 46
+      }
+    }
+  ]
+}

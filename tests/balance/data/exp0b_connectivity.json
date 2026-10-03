@@ -1,0 +1,28 @@
+{
+  "total_pairs": 465,
+  "a_star_reachable": 351,
+  "a_star_unreachable": 114,
+  "unreachable_pct": 24.52,
+  "cities_on_blocked_tile": [],
+  "orphan_neutral_cities": [
+    "beihai",
+    "linzi"
+  ],
+  "terrain_cost": {
+    "grass": 1.0,
+    "grassland": 1.0,
+    "plain": 1.0,
+    "forest": 1.5,
+    "dense_forest": 2.0,
+    "hill": 2.0,
+    "mountain": null,
+    "peak": null,
+    "desert": 1.5,
+    "marsh": 2.5,
+    "tundra": 1.5,
+    "snow": 2.0,
+    "water": null,
+    "deep_water": null,
+    "river": 2.0
+  }
+}

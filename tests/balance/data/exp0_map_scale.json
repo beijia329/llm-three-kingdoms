@@ -1,0 +1,43 @@
+{
+  "scale": {
+    "n_cities": 31,
+    "n_pairs": 351,
+    "unreachable_pairs": 114,
+    "min": 2,
+    "p25": 13,
+    "median": 21,
+    "mean": 23.18,
+    "p75": 32,
+    "max": 73
+  },
+  "speed_rows": {
+    "4": {
+      "neighbor_p25": 3.25,
+      "median": 5.25,
+      "p75": 8.0,
+      "max": 18.25,
+      "mean": 5.79
+    },
+    "6": {
+      "neighbor_p25": 2.17,
+      "median": 3.5,
+      "p75": 5.33,
+      "max": 12.17,
+      "mean": 3.86
+    },
+    "8": {
+      "neighbor_p25": 1.62,
+      "median": 2.62,
+      "p75": 4.0,
+      "max": 9.12,
+      "mean": 2.9
+    },
+    "10": {
+      "neighbor_p25": 1.3,
+      "median": 2.1,
+      "p75": 3.2,
+      "max": 7.3,
+      "mean": 2.32
+    }
+  }
+}
