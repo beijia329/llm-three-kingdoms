@@ -67,9 +67,21 @@ def classify(desc: str) -> str:
     return "other:" + d[:40]
 
 
-def diagnose(seed: int, speed: int, max_turns: int, variant: str) -> Dict[str, Any]:
+def diagnose(seed: int, speed: int, max_turns: int, variant: str,
+             full_baseline: bool = False) -> Dict[str, Any]:
+    """跑一局并归因进攻失败。
+
+    full_baseline=True 时**完整还原 P0 修复前状态**（地形 + 将领跨城兜底），
+    与 exp10 的 before 组口径一致；False 时只按 variant 切换地形。
+    """
     P.set_march_speed(speed)
-    apply_variant(variant)
+    if full_baseline:
+        # 完整基线：地形 PEAK 阻断 + CLIPlayer 恢复跨城兜底将领
+        from exp10_p0_before_after import set_peak_passable, set_general_fallback
+        set_peak_passable(False)
+        set_general_fallback(True)
+    else:
+        apply_variant(variant)
     engine = GameEngine(seed=seed)
     engine.init_game(load_game_data())
     engine.max_turns = max_turns
@@ -103,9 +115,14 @@ def diagnose(seed: int, speed: int, max_turns: int, variant: str) -> Dict[str, A
 
     from exp4_terrain import restore
     restore()
+    if full_baseline:
+        from exp10_p0_before_after import set_peak_passable, set_general_fallback
+        set_peak_passable(True)          # 恢复工作区的 PEAK 可通行
+        set_general_fallback(False)      # 恢复工作区的"不跨城兜底"
 
     return {
         "seed": seed, "speed": speed, "max_turns": max_turns, "variant": variant,
+        "full_baseline": full_baseline,
         "end_turn": engine.turn,
         "attack_total": total, "attack_ok": ok,
         "reasons": dict(reasons),
@@ -142,7 +159,7 @@ def main() -> int:
 
     rows: List[Dict[str, Any]] = []
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
-        for r in ex.map(_worker, [(s, args.speed, args.turns, args.variant) for s in seeds]):
+        for r in ex.map(_worker, [(s, args.speed, args.turns, args.variant, args.baseline) for s in seeds]):
             rows.append(r)
 
     agg: Counter = Counter()

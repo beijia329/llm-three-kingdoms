@@ -201,10 +201,25 @@ class CLIPlayer(BasePlayer):
 
     @staticmethod
     def _find_general_in_city(city_id: str, obs: GameObservation) -> Optional[General]:
+        """找驻守在 city_id 的将领。
+
+        🔴 2026-10-03 二次修复（v3.1）：删除原先末尾的
+            `return obs.own_generals[0] if obs.own_generals else None`
+        —— 那是**跨城兜底**，会把别的城的将领塞进 attack 命令，
+        然后被 engine.py:508 `general.location != from_city.id` 拒绝。
+
+        为什么 150fa87 只改调用处不够：调用处加了 `if gen:` 判断，
+        但本函数在找不到本地将领时仍会返回「己方第一个将领」，
+        `if gen:` 永远为真 → 兜底依然生效。
+        实测（exp6_attack_reject，同seed 三次逐位一致）：
+          修复前 general_not_in_city = 609/935（65.1%）
+          150fa87 之后      =93/154（60.4%）← 仍大量存在
+        改为真找不到就返回 None，调用处`if gen:` 才能真正拦住。
+        """
         for g in obs.own_generals:
             if g.location == city_id:
                 return g
-        return obs.own_generals[0] if obs.own_generals else None
+        return None
 
     @staticmethod
     def _find_attack_target(city: City, enemy_ids: Set[str], obs: GameObservation) -> str:

@@ -25,17 +25,24 @@ class PromptBuilder:
     # ============================================================
 
     @staticmethod
-    def build_system_prompt(faction: str) -> str:
+    def build_system_prompt(faction: str, max_turns: int = None) -> str:
         """构建系统Prompt
 
         Args:
             faction: 势力名称
+            max_turns: 本局实际最大回合数。**必须由调用方从 observation.max_turns 传入**，
+                否则本方法回退到 MAX_TURNS 常量（192）。
+                🔴 此前硬读常量，而 build_state_prompt 用的是 observation.max_turns，
+                   于是把局数改成 48 时 LLM 会同时收到"本局共 192 回合"（系统提示）
+                   和"当前第 X/48 回合"（状态提示）两条矛盾信息，时间预算判断整个错掉。
+                保留默认值仅为兼容直接调用本方法的旧代码/测试。
 
         Returns:
             系统Prompt文本
         """
         faction_name = FACTIONS.get(faction, faction)
-        max_turns = MAX_TURNS
+        if max_turns is None:
+            max_turns = MAX_TURNS
 
         # 加载性格背景
         personality_hint = ""
@@ -328,7 +335,11 @@ class PromptBuilder:
             适用于 LLMClient.chat() 的 messages 列表
         """
         system_parts = [
-            PromptBuilder.build_system_prompt(faction),
+            # 🔴 必须传本局实际回合数：不传则系统提示写死 192，而状态提示写"第X/48回合"，
+            #    LLM 会收到两条互相矛盾的时间预算信息（B-1）。
+            PromptBuilder.build_system_prompt(
+                faction, max_turns=getattr(observation, "max_turns", None)
+            ),
             PromptBuilder.build_commands_help(faction_keys=faction_keys),
         ]
         system_prompt = "\n\n".join(system_parts)

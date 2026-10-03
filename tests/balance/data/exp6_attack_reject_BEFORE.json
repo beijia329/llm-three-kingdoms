@@ -15,43 +15,44 @@
       "speed": 4,
       "max_turns": 40,
       "variant": "base",
+      "full_baseline": true,
       "end_turn": 40,
-      "attack_total": 302,
-      "attack_ok": 42,
+      "attack_total": 346,
+      "attack_ok": 38,
       "reasons": {
-        "SUCCESS": 42,
-        "general_not_in_city": 210,
-        "no_hex_path": 50
+        "SUCCESS": 38,
+        "no_hex_path": 104,
+        "general_not_in_city": 204
       },
       "by_faction": {
         "han": {
           "general_not_in_city": 21
         },
         "zhangjiao": {
-          "general_not_in_city": 37
+          "general_not_in_city": 56
         },
         "yuanshao": {
-          "general_not_in_city": 14
+          "no_hex_path": 18
         },
         "caocao": {
-          "general_not_in_city": 27
+          "general_not_in_city": 50,
+          "no_hex_path": 19
         },
         "sunjian": {
-          "general_not_in_city": 35,
-          "no_hex_path": 40
+          "no_hex_path": 46
         },
         "liuyan": {
           "general_not_in_city": 4
         },
         "gongsunzan": {
-          "general_not_in_city": 33
-        },
-        "mateng": {
           "general_not_in_city": 28
         },
+        "mateng": {
+          "general_not_in_city": 32
+        },
         "yuanshu": {
-          "no_hex_path": 10,
-          "general_not_in_city": 11
+          "no_hex_path": 21,
+          "general_not_in_city": 13
         }
       }
     },
@@ -60,37 +61,45 @@
       "speed": 4,
       "max_turns": 40,
       "variant": "base",
+      "full_baseline": true,
       "end_turn": 40,
-      "attack_total": 258,
-      "attack_ok": 47,
+      "attack_total": 338,
+      "attack_ok": 32,
       "reasons": {
-        "SUCCESS": 47,
-        "general_not_in_city": 211
+        "no_hex_path": 89,
+        "SUCCESS": 32,
+        "general_not_in_city": 217
       },
       "by_faction": {
         "han": {
-          "general_not_in_city": 13
+          "general_not_in_city": 11
         },
         "zhangjiao": {
-          "general_not_in_city": 64
+          "no_hex_path": 33,
+          "general_not_in_city": 24
         },
         "yuanshao": {
-          "general_not_in_city": 14
+          "no_hex_path": 23
+        },
+        "caocao": {
+          "general_not_in_city": 49
         },
         "sunjian": {
-          "general_not_in_city": 46
+          "no_hex_path": 6,
+          "general_not_in_city": 48
         },
         "liuyan": {
-          "general_not_in_city": 4
+          "general_not_in_city": 3
         },
         "gongsunzan": {
-          "general_not_in_city": 36
+          "general_not_in_city": 40,
+          "no_hex_path": 27
         },
         "mateng": {
-          "general_not_in_city": 9
+          "general_not_in_city": 30
         },
         "yuanshu": {
-          "general_not_in_city": 25
+          "general_not_in_city": 12
         }
       }
     },
@@ -99,6 +108,7 @@
       "speed": 4,
       "max_turns": 40,
       "variant": "base",
+      "full_baseline": true,
       "end_turn": 40,
       "attack_total": 267,
       "attack_ok": 49,
@@ -138,10 +148,10 @@
     }
   ],
   "agg": {
-    "SUCCESS": 138,
-    "general_not_in_city": 639,
-    "no_hex_path": 50
+    "SUCCESS": 119,
+    "no_hex_path": 193,
+    "general_not_in_city": 639
   },
-  "total": 827,
-  "ok": 138
+  "total": 951,
+  "ok": 119
 }

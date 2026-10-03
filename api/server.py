@@ -28,12 +28,51 @@ logger = logging.getLogger(__name__)
 _manager: Optional[GameManager] = None
 
 
+def _env_int(name: str, default: int) -> int:
+    """读取整数型环境变量，非法值回退默认值
+
+    run_web.py 会把 --seed/--max-turns/--mode 写进 GAME_SEED/GAME_MAX_TURNS/GAME_MODE
+    再拉起 uvicorn。此前本文件从不读这三个变量，等于启动参数全部失效
+    （`python run_web.py --seed 42 --max-turns 48` 跑出来的仍是默认 seed=42/192 回合）。
+    """
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning("环境变量 %s=%r 不是合法整数，回退默认值 %s", name, raw, default)
+        return default
+
+
+def default_config_from_env() -> GameConfig:
+    """按环境变量构造默认对局配置
+
+    这是"启动脚本可配置"的唯一生效途径：GameConfig 保持纯默认值 dataclass，
+    由本函数负责叠加环境变量。显式 POST /api/reset 传入的参数优先级更高
+    （reset 里直接 GameConfig(**config)），不受这里影响。
+    """
+    mode = os.environ.get("GAME_MODE", "").strip() or "standard"
+    if mode not in ("standard", "infinite"):
+        logger.warning("GAME_MODE=%r 不是合法模式，回退 standard", mode)
+        mode = "standard"
+    return GameConfig(
+        seed=_env_int("GAME_SEED", GameConfig.seed),
+        max_turns=_env_int("GAME_MAX_TURNS", GameConfig.max_turns),
+        game_mode=mode,
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期"""
     global _manager
-    _manager = GameManager()
-    logger.info("FastAPI 服务启动，游戏管理器已初始化")
+    cfg = default_config_from_env()
+    _manager = GameManager(config=cfg)
+    logger.info(
+        "FastAPI 服务启动，游戏管理器已初始化: seed=%s max_turns=%s mode=%s",
+        cfg.seed, cfg.max_turns, cfg.game_mode,
+    )
     yield
     _manager = None
     logger.info("FastAPI 服务关闭")
@@ -148,12 +187,14 @@ async def game_websocket(websocket: WebSocket) -> None:
 
             if msg_type == "init":
                 # [前端 LLM 模式入口] 透传 LLM 相关配置。
-                # 仅新增字段透传，不改变任何对局逻辑；缺省值与 GameConfig 一致，
-                # 因此旧前端（不传这些字段）的行为完全不变。
+                # 仅新增字段透传，不改变任何对局逻辑。
+                # 缺省值取自环境变量（default_config_from_env），而不是写死 42/192，
+                # 否则前端一次 init 就会把 `run_web.py --seed/--max-turns` 的配置冲掉。
+                env_cfg = default_config_from_env()
                 cfg = GameConfig(
-                    seed=msg.get("seed", 42),
-                    max_turns=msg.get("max_turns", 192),
-                    game_mode=msg.get("game_mode", "standard"),
+                    seed=msg.get("seed", env_cfg.seed),
+                    max_turns=msg.get("max_turns", env_cfg.max_turns),
+                    game_mode=msg.get("game_mode") or env_cfg.game_mode,
                     human_faction=msg.get("human_faction"),
                     use_llm=bool(msg.get("use_llm", False)),
                     model=msg.get("model") or GameConfig.model,
