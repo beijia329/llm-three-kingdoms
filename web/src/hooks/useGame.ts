@@ -30,6 +30,9 @@ export interface ResetOptions {
   factions: string[]
   model?: string
   provider?: string
+  /** v4.0.1：势力 id → 模型名。用于「不同大模型同台竞技」（大乱斗的核心）。
+   *  未列出的势力回退到 model。 */
+  factionModels?: Record<string, string>
 }
 
 export interface UseGameReturn {
@@ -178,6 +181,10 @@ export function useGame(): UseGameReturn {
     }
     if (options.factions.length > 0) {
       payload.factions = options.factions
+    }
+    // v4.0.1：按势力分配模型（多模型对战）。只传非空项，未指定的由后端回退默认模型。
+    if (options.factionModels && Object.keys(options.factionModels).length > 0) {
+      payload.faction_models = options.factionModels
     }
 
     try {

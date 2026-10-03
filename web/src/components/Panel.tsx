@@ -102,6 +102,17 @@ function FactionList({
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isSelected ? '#e8e0d0' : '#b8b3aa', fontWeight: 600, fontSize: '14px' }}>
                 <i className="fa-solid fa-flag" style={{ color, fontSize: '12px' }}></i>
                 {row.name}
+                {/* v4.0.1：标出这一方由哪个大模型指挥 —— 多模型对战的关键信息，
+                    让观众一眼看出"曹操是 v4-pro 在打，孙坚是 flash 在打"。 */}
+                {row.model && (
+                  <span
+                    style={styles.modelTag}
+                    title={`由 ${row.model} 指挥`}
+                  >
+                    <i className="fa-solid fa-robot" style={{ marginRight: '3px', fontSize: '8px' }}></i>
+                    {row.model.replace(/^deepseek-/, '')}
+                  </span>
+                )}
               </span>
               {row.cities >= 5 && <i className="fa-solid fa-crown" style={{ color: '#d4a84b', fontSize: '11px' }} title="称帝"></i>}
               {row.cities >= 3 && row.cities < 5 && <i className="fa-solid fa-gem" style={{ color: '#64a0d2', fontSize: '11px' }} title="称王"></i>}
@@ -707,6 +718,18 @@ function EventsPanel({ state }: { state: GameState }) {
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  /** 势力卡上的「指挥模型」小标签（v4.0.1 多模型对战） */
+  modelTag: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '0 4px',
+    border: '1px solid rgba(100, 160, 210, 0.5)',
+    borderRadius: '8px',
+    color: '#64a0d2',
+    fontSize: '9px',
+    fontWeight: 400,
+    whiteSpace: 'nowrap',
+  },
   container: {
     width: '300px',
     height: '100%',

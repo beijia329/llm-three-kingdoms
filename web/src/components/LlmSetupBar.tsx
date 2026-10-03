@@ -39,7 +39,30 @@ export function LlmSetupBar({
   const [mode, setMode] = useState<'cli' | 'llm'>('cli')
   const [selected, setSelected] = useState<string[]>([])
   const [expanded, setExpanded] = useState(false)
+  // v4.0.1：势力 → 模型（多模型对战）。空对象 = 全部用默认模型。
+  const [models, setModels] = useState<Record<string, string>>({})
+  // 候选模型带上 provider，便于提示"哪些模型本机没配 key"
+  const [modelOptions, setModelOptions] = useState<Array<{ id: string; provider: string }>>([])
   const wrapRef = useRef<HTMLDivElement | null>(null)
+
+  // 拉取可用模型清单（后端静态返回，不实时请求外网，成本为零）。
+  // 失败时静默降级为"只能使用默认模型"，不阻塞主流程。
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/models')
+      .then((r) => r.json())
+      .then((d: { models?: Record<string, string[]> }) => {
+        if (cancelled) return
+        const opts = Object.entries(d.models || {}).flatMap(([provider, list]) =>
+          (list as string[]).map((id) => ({ id, provider })),
+        )
+        setModelOptions(opts)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // 只在首次拿到后端参战势力时回填一次。
   // 🔴 不能直接依赖 activeFactions（数组）：WS 每次推送 state 都会产生**新数组**，
@@ -79,8 +102,40 @@ export function LlmSetupBar({
   const modeLabel = mode === 'llm' ? 'LLM 围观' : 'CLI AI'
 
   const handleRestart = () => {
-    void onRestart({ useLlm: mode === 'llm', factions: selected })
+    // 只提交「已选势力」的模型分配，未指定的由后端回退到默认模型
+    const factionModels: Record<string, string> = {}
+    for (const fid of selected) {
+      const m = models[fid]
+      if (m) factionModels[fid] = m
+    }
+    void onRestart({
+      useLlm: mode === 'llm',
+      factions: selected,
+      factionModels,
+    })
   }
+
+  /** 把可用模型轮流分配给已选势力 —— 一键做出「多模型混战」
+   *
+   * 🔴 只用**当前已有 key 的 provider** 的模型（默认 deepseek）：
+   * 否则一键分配会把 gpt-4o 之类分给某一方，选完才发现调不通。
+   * 用户仍可手动为某一方指定其它 provider 的模型（届时应自备 key）。
+   */
+  const assignModelsRoundRobin = () => {
+    const usable = modelOptions.filter((m) => m.provider === 'deepseek')
+    const pool = usable.length > 0 ? usable : modelOptions
+    if (pool.length === 0) return
+    const next: Record<string, string> = {}
+    selected.forEach((fid, i) => {
+      next[fid] = pool[i % pool.length].id
+    })
+    setModels(next)
+  }
+
+  const distinctModelsInUse = useMemo(
+    () => new Set(selected.map((f) => models[f]).filter(Boolean)).size,
+    [selected, models],
+  )
 
   return (
     <div style={styles.wrap} ref={wrapRef}>
@@ -181,6 +236,54 @@ export function LlmSetupBar({
                   )
                 })}
               </div>
+
+              {/* ---- 模型分配（v4.0.1：不同大模型同台竞技）---- */}
+              {selected.length > 0 && modelOptions.length > 0 && (
+                <div style={styles.modelAssign}>
+                  <div style={styles.modelAssignHead}>
+                    <i className="fa-solid fa-chess-knight" style={{ marginRight: '4px' }}></i>
+                    模型分配
+                    {distinctModelsInUse > 1 && (
+                      <span style={styles.modelBadge}>{distinctModelsInUse} 个模型混战</span>
+                    )}
+                  </div>
+                  <div style={styles.modelList}>
+                    {selected.map((fid) => (
+                      <div key={fid} style={styles.modelRow}>
+                        <span
+                          style={{ ...styles.chipDot, background: FACTION_COLORS[fid] || '#888' }}
+                        />
+                        <span style={styles.modelFactionName}>{FACTIONS[fid]}</span>
+                        <select
+                          style={styles.modelSelect}
+                          value={models[fid] || ''}
+                          onChange={(e) =>
+                            setModels((prev) => ({ ...prev, [fid]: e.target.value }))
+                          }
+                        >
+                          <option value="">默认</option>
+                          {modelOptions.map((m) => (
+                            <option key={`${m.provider}/${m.id}`} value={m.id}>
+                              {/* 非默认 provider 的模型本机多半没有对应 key，
+                                  标出来避免选完才发现调不通（真实可用性仍以首次调用为准） */}
+                              {m.provider === 'deepseek' ? m.id : `${m.id}（需 ${m.provider} key）`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={styles.modelAssignFoot}>
+                    <button style={styles.linkBtn} onClick={assignModelsRoundRobin}>
+                      轮流分配不同模型
+                    </button>
+                    <button style={styles.linkBtn} onClick={() => setModels({})}>
+                      全部用默认
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div style={styles.dropdownFooter}>
                 <button
                   style={styles.linkBtn}
@@ -388,6 +491,60 @@ const styles: Record<string, React.CSSProperties> = {
     height: '6px',
     borderRadius: '50%',
     flexShrink: 0,
+  },
+  modelAssign: {
+    marginTop: '10px',
+    paddingTop: '9px',
+    borderTop: '1px solid rgba(212, 168, 75, 0.22)',
+  },
+  modelAssignHead: {
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: '10px',
+    color: '#d4a84b',
+    marginBottom: '7px',
+  },
+  modelBadge: {
+    marginLeft: '6px',
+    padding: '0 5px',
+    border: '1px solid rgba(212, 168, 75, 0.5)',
+    borderRadius: '8px',
+    fontSize: '9px',
+    color: '#e8d5a0',
+  },
+  modelList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    maxHeight: '190px',
+    overflowY: 'auto',
+  },
+  modelRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '11px',
+  },
+  modelFactionName: {
+    flex: 1,
+    color: '#b8b3aa',
+    whiteSpace: 'nowrap',
+  },
+  modelSelect: {
+    width: '150px',
+    padding: '2px 4px',
+    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.14)',
+    borderRadius: '5px',
+    color: '#e8e0d0',
+    fontSize: '10px',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+  },
+  modelAssignFoot: {
+    display: 'flex',
+    gap: '10px',
+    marginTop: '7px',
   },
   dropdownFooter: {
     display: 'flex',

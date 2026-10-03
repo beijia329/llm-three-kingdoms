@@ -68,6 +68,10 @@ export interface FactionStat {
   gold: number
   food: number
   population: number
+  /** v4.0.1：该势力由哪个大模型指挥（多模型对战；CLI 模式下为空串） */
+  model?: string
+  /** v4.0.1：是否仍有城池（用于「已出局」展示） */
+  is_alive?: boolean
 }
 
 export interface GameEvent {
