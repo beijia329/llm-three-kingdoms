@@ -46,3 +46,39 @@ jobs:
 
       - name: Typecheck
         run: npx tsc --noEmit
+
+  hygiene:
+    name: Repo hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 凭据扫描。pattern 刻意要求 key 主体 >=20 位，
+      # 以放行 README 里的占位符写法（如 export LLM_API_KEY="sk-..."）：
+      # 占位符在 sk- 后只有 3 个点，不会命中。
+      - name: Scan for committed credentials
+        run: |
+          set -euo pipefail
+          PATTERN='sk-[A-Za-z0-9]{20,}'
+          echo "扫描全历史中的 API key 形态（pattern: ${PATTERN}）"
+          if git log --all -G"${PATTERN}" --format='%h %s' | grep -q .; then
+            echo "::error::检测到疑似已提交的凭据，见上。请轮换该密钥并从历史中移除。"
+            git log --all -G"${PATTERN}" --format='%h %s'
+            exit 1
+          fi
+          echo "✅ 全历史未发现 key 形态"
+
+      - name: Ensure .env is not tracked
+        run: |
+          set -euo pipefail
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "::error::.env 被纳入版本控制——请 git rm --cached .env 并确认 .gitignore 含 .env"
+            exit 1
+          fi
+          git check-ignore -q .env || {
+            echo "::error::.gitignore 未忽略 .env"
+            exit 1
+          }
+          echo "✅ .env 未被跟踪且已被忽略"
