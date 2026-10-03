@@ -28,6 +28,25 @@ from game.constants import FACTIONS
 from players.base_player import BasePlayer
 
 
+# ============================================================
+# 平衡常量（v4.0「灭国压力」修复）
+# ============================================================
+
+ATTACK_FORCE_RATIO: float = 0.9
+"""进攻所需兵力 / 目标守军的比例门槛。
+
+🔴 2026-10-0X v4.0 新增（原为硬编码 1.0）。
+满员时本城可派兵力 = 本城守军 − 100；而守军约与城市等级成正比
+（CITY_LEVELS.initial_garrison：500/1000/2000/3500/5000）。
+于是门槛 `troops >= tgt_garrison * 1.0` 在满员时等价于
+`本城等级 > 目标等级`：同级城之间永久互不可攻 —— 最后一座城被同级邻居
+永久豁免，这是「从不灭国」的绝对地板。必须 < 1.0 才能解开同级城互不可攻。
+
+数据来源：tests/balance/data/exp15_landed_96t.json（落地版 G+A 下 top_share 0.28，
+在 0.30 红线内）；对照组 G+A 无刹车时 top_share 冲到 0.49（单局 0.74）。
+"""
+
+
 class CLIPlayer(BasePlayer):
     """CLI 自动玩家——决策受性格参数驱动"""
 
@@ -148,12 +167,13 @@ class CLIPlayer(BasePlayer):
                     if tgt_garrison:
                         desired = max(desired, int(tgt_garrison * 1.3) + 200)
                     troops = min(city.garrison - 100, desired)
-                    # 门槛分层：中立/无主城 → 低门槛扩张；敌城 → 兵力需达其守军 ~1.0 倍才打
+                    # 门槛分层：中立/无主城 → 低门槛扩张；敌城 → 兵力需达其守军
+                    # ATTACK_FORCE_RATIO 倍才打（v4.0：1.0 → 0.9，解开同级城互不可攻）
                     if tgt_is_neutral:
                         confident = troops >= 200
                     else:
                         confident = (troops >= 200) and (
-                            tgt_garrison == 0 or troops >= tgt_garrison * 1.0
+                            tgt_garrison == 0 or troops >= tgt_garrison * ATTACK_FORCE_RATIO
                         )
                     if confident:
                         gen = self._find_general_in_city(city.id, observation)
