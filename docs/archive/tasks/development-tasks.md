@@ -1,3 +1,7 @@
+> ⚠️ **本文档为历史记录（归档于 2026-10）。**
+> 其中**部分结论已被后续版本推翻**，引用前必须以**当前代码**为准。
+> 已确认失效：① 阶段一~八任务**全部完成**；② 引用的 `game/state_manager.py` / `state_validator.py` / `game_logger.py` / `battle_context.py` / `players/gui_player.py` **均不存在**（状态校验/日志内联于 `engine.py`，`BattleContext` 在 `models.py`）；③ 「三方胜率 25%-40%」→ 现行 **12 方基准**（`docs/specs/testing.md` §7.2）。
+
 # 开发任务清单
 
 > 所有开发Agent必须按此清单顺序执行任务。

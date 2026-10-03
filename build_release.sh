@@ -1,11 +1,11 @@
 #!/bin/bash
-# 乱斗三国 v2.3 发布包构建脚本
+# 乱斗三国 v4.1.0 发布包构建脚本
 # 用法: bash build_release.sh
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT="llm-sanguo"
-VERSION="2.3.0"
+VERSION="4.1.0"
 RELEASE_NAME="${PROJECT}-v${VERSION}"
 RELEASE_DIR="$SCRIPT_DIR/release"
 DIST_DIR="$RELEASE_DIR/$RELEASE_NAME"
@@ -67,9 +67,9 @@ cat > "$APP_DIR/Contents/Info.plist" << 'PLIST'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>2.2</string>
+    <string>4.1.0</string>
     <key>CFBundleVersion</key>
-    <string>2</string>
+    <string>4.1.0</string>
     <key>LSMinimumSystemVersion</key>
     <string>10.15</string>
     <key>NSHighResolutionCapable</key>
@@ -176,7 +176,7 @@ rm -rf "$DIST_DIR/game" "$DIST_DIR/players" "$DIST_DIR/renderer" \
 
 # 创建简单的启动说明
 cat > "$DIST_DIR/使用说明.txt" << 'README'
-乱斗三国 v2.3 — 使用方法
+乱斗三国 v4.1.0 — 使用方法
 ============================
 
 【macOS】双击 乱斗三国.app

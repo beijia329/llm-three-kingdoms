@@ -1,3 +1,8 @@
+> ⚠️ **本文档为历史记录（归档于 2026-10）。**
+> 其中**部分结论已被后续版本推翻**，引用前必须以**当前代码**为准。
+> 已确认失效：① B-1「prompt 写死回合数」已修（`players/llm/prompt_builder.py:44` 改读 `observation.max_turns`）；② B-2「启动参数不生效」已修（`api/server.py:61` 读 `GAME_MAX_TURNS`）。
+> 仍成立：192 回合实际覆盖到 **231 年**（非注释里的 232）。
+
 # v3.1 回合 ↔ 年份体系审计
 
 > **作者**：文策渊（design-strategist）

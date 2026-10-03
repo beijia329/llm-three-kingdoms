@@ -1,4 +1,5 @@
 #!/bin/bash
+# ⚠️ 已归档（2026-10）：本脚本已废弃，被 build_release.sh 取代。仅供追溯，勿执行。
 # 乱斗三国 v2.3 — 构建 macOS 自安装 .app
 # 首次双击自动 pip install，之后点击即玩
 set -e

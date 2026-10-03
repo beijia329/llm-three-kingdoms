@@ -1,3 +1,7 @@
+> ⚠️ **本文档为历史记录（归档于 2026-10）。**
+> 其中**部分结论已被后续版本推翻**，引用前必须以**当前代码**为准。
+> 已确认失效：① 本计划的六角格升级**已落地**；② 旧的 `City.position=[x,y]` / `faction="wei"` 示例已过时（现 `HexCoord` + 12 方真实 key）。
+
 # 文明风格六角格真实地图实现计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

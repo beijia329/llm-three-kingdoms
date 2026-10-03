@@ -1,3 +1,8 @@
+> ⚠️ **本文档为历史记录（归档于 2026-10）。**
+> 其中**部分结论已被 v4.0 推翻**，引用前必须以**当前代码**为准。
+> 已确认失效：①「俘虏链完全断裂、忠诚链路从不触发」→ v4.0 已修（`game/battle/battle_resolver.py:165` 现传 `defender_generals`）；②「`LOYALTY_COMBAT_*` 零引用、忠诚不影响战力」→ v4.0 已接线（`game/systems/general_system.py:360` `loyalty_combat_factor`）；③「politics 按城内求和」→ v4.0 改为「主官全额 + 副手半额并封顶」（`game/systems/resource_system.py`）。
+> 仍成立：`intelligence` 在外交/流言侧不可达（`game/engine.py:738` `target_faction=""` 未回填）。
+
 # v3.1 武将数据合理性评估
 
 > **作者**：文策渊（design-strategist）
