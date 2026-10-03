@@ -32,18 +32,19 @@ from players.base_player import BasePlayer
 # 平衡常量（v4.0「灭国压力」修复）
 # ============================================================
 
-ATTACK_FORCE_RATIO: float = 0.9
-"""进攻所需兵力 / 目标守军的比例门槛。
+ATTACK_FORCE_RATIO: float = 1.0
+"""进攻所需兵力 / 目标守军的比例门槛（默认 1.0 = 不改变原有门槛行为）。
 
-🔴 2026-10-0X v4.0 新增（原为硬编码 1.0）。
-满员时本城可派兵力 = 本城守军 − 100；而守军约与城市等级成正比
-（CITY_LEVELS.initial_garrison：500/1000/2000/3500/5000）。
-于是门槛 `troops >= tgt_garrison * 1.0` 在满员时等价于
-`本城等级 > 目标等级`：同级城之间永久互不可攻 —— 最后一座城被同级邻居
-永久豁免，这是「从不灭国」的绝对地板。必须 < 1.0 才能解开同级城互不可攻。
+🔴 2026-10-0X v4.0 保留本常量以保留可调能力；曾于 d6ceebf 取 0.9，现回退为 1.0。
+实测（tests/balance/exp16_attribution，5 局 × 96 回合 seeds 1..5）：
+  0.9 会把归一化 `top_share × surviving_factions` 从 2.38 推到 2.98（+25%），
+  是雪球杠杆（逐局出现 0.633 / 0.613 的极端 top_share）；
+  默认取 1.0 即不改变原有门槛行为，无需配涨价刹车。
 
-数据来源：tests/balance/data/exp15_landed_96t.json（落地版 G+A 下 top_share 0.28，
-在 0.30 红线内）；对照组 G+A 无刹车时 top_share 冲到 0.49（单局 0.74）。
+⚠️ 注意：原硬编码 1.0 的副作用是「同级城永久互不可攻」（满员时可派兵力 =
+   本城守军 − 100，与城市等级成正比，故 1.0 等价于「本城等级 > 目标等级」）。
+   但 exp16 归因表明这并非「打不完」的必要条件：G 单独下存活 12→9（3 方被灭）、
+   首灭 22.2 回合，灭国路径真实存在（高级城打低级城）。故不为解开 RC1 而放宽门槛。
 """
 
 
@@ -168,7 +169,8 @@ class CLIPlayer(BasePlayer):
                         desired = max(desired, int(tgt_garrison * 1.3) + 200)
                     troops = min(city.garrison - 100, desired)
                     # 门槛分层：中立/无主城 → 低门槛扩张；敌城 → 兵力需达其守军
-                    # ATTACK_FORCE_RATIO 倍才打（v4.0：1.0 → 0.9，解开同级城互不可攻）
+                    # ATTACK_FORCE_RATIO 倍才打（v4.0 归因后回退为 1.0，见常量文档：
+                    # 0.9 是雪球杠杆，且解开 RC1 并非灭国的必要条件）
                     if tgt_is_neutral:
                         confident = troops >= 200
                     else:

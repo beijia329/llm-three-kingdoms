@@ -2,12 +2,19 @@
 """实验 16：三件套【单变量归因】+ 悬念度 + 经济刹车响应曲线
 
 == 背景 ==
-v4.0「灭国压力」修复包含三根杠杆（均已落地进生产源码）：
+v4.0「灭国压力」修复曾评估三根杠杆：
   G   解将荒       —— 允许从「位于己方城市中的空闲将领」调人随军出征
                      （game/engine.py::_execute_attack 放宽校验 + 维护 city.generals；
                       players/cli_player.py::_find_dispatchable_general）
+                     ✅ 已落地生产源码（唯一保留项）
   A   攻城门槛比   —— players/cli_player.py::ATTACK_FORCE_RATIO 1.0 → 0.9
-  涨价 征兵刹车     —— game/constants.py RECRUIT_COST_GOLD 1→3 / RECRUIT_COST_FOOD 2→6
+                     ❌ 已归因撤回：本实验证明 A 才是雪球杠杆（归一化 +25%）
+  涨价 征兵刹车     —— game/constants.py RECRUIT_COST_GOLD/FOOD 1/2 → 3/6（及 5/10、8/16）
+                     ❌ 已撤回：仅用于抵消 A 的雪球，A 撤了刹车也不需要
+
+⚠️ 本脚本按**当前生产源码**的标识注入（G/A/涨价均可在进程内开关），
+   生产默认已回到 pre 的数值（ratio=1.0、成本=1/2），故 `pre` 档 = 生产默认。
+   下列 A / 涨价 口径仅作为实验档位保留，用于留证归因结论。
 
 团队决策（2026-10-0X）：0.493 才是真实游戏平衡，需回答三个问题：
   1. 雪球到底由哪根杠杆造成？（单变量归因）
@@ -46,6 +53,18 @@ v4.0「灭国压力」修复包含三根杠杆（均已落地进生产源码）�
   C     ：G + A(0.9) + 金3粮6       ← 应逐位复现 tests/balance/data/exp12_landed_after.json
   C5    ：G + A(0.9) + 金5粮10
   C8    ：G + A(0.9) + 金8粮16
+
+== 红线判据 ==
+  判据 = 归一化 `top_share × surviving_factions`（对照改前 pre = 2.42）+ 翻盘率 ≥ 2/5。
+
+  ⚠️ 单独看 `top_share ≤ 0.30` 是**错误判据**：top_share 的分母是「仍有城的势力数」，
+     与存活势力数强耦合。G 单独把 surviving 从 12 压到 9（灭了 3 方）会让分母变小、
+     top_share 从 0.201 升到 0.267 —— 但归一化仅 2.42 → 2.38（-1.7%，等于零代价）。
+     只看 top_share 会把「灭国成功、地图更动荡」误判成「雪球失控」。
+     归因结论（5 局 × 96 回合，seeds 1..5）：
+       pre 2.42 / G 2.38（无雪球，零代价）/ G+A(0.9) 2.98（+25%，A 才是雪球杠杆）
+       C(3/6) 3.21（刹车无效）/ C8(8/16) 2.33（需 8/16 才压回基线）
+     → 决策：只上 G，撤回 A(0.9) 与征兵涨价。
 
 运行：
     export SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy PYTHONHASHSEED=0

@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 """实验 15-b：灭国压力【单变量对照】——哪根杠杆真的能让「12 方」走向统一？
 
+⚠️⚠️ 已失效（历史脚本，保留备查，请勿用于新结论）⚠️⚠️
+本脚本的 `_patch_cli` 断言基于**改前**源码字符串
+（`troops >= tgt_garrison * 1.0` / `city.garrison < 3000`）。
+A 门槛比（ATTACK_FORCE_RATIO 0.9）与征兵涨价曾在 48abdbb~002558f 落地，
+虽已回退，但本脚本仍应改用 exp16_attribution.py 做杠杆实验：
+exp16 独立实现与当前源码对齐的进程内注入（改 `cp.ATTACK_FORCE_RATIO` /
+`cs.RECRUIT_COST_*` 模块绑定，而非源码字符串替换），并补了「归一化 top_share ×
+surviving」这一正确判据。本文件**不删除**，仅用于保留历史与可复现轨迹。
+详见 tests/balance/exp16_attribution.py。
+
 【只读研究】不改 game/ 或 web/。所有杠杆均为**进程内注入**，每档跑完即还原。
 
 == 杠杆一览 ==
