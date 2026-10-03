@@ -29,11 +29,50 @@ interface BattleOverlayProps {
   zoom: number
 }
 
-const RESULT_META: Record<string, { label: string; color: string; icon: string }> = {
-  attacker_win: { label: '占领', color: '#d4a84b', icon: 'fa-flag' },
-  defender_win: { label: '守住', color: '#5ab464', icon: 'fa-shield-halved' },
-  retreat: { label: '溃退', color: '#b06a5a', icon: 'fa-person-running' },
-  draw: { label: '相持', color: '#96918a', icon: 'fa-equals' },
+const RESULT_META: Record<string, { label: string; color: string; icon: string; dash: string }> = {
+  attacker_win: { label: '占领', color: '#d4a84b', icon: 'fa-flag', dash: 'solid' },
+  defender_win: { label: '守住', color: '#5ab464', icon: 'fa-shield-halved', dash: 'solid' },
+  retreat: { label: '溃退', color: '#b06a5a', icon: 'fa-person-running', dash: 'dashed' },
+  draw: { label: '相持', color: '#96918a', icon: 'fa-equals', dash: 'dotted' },
+}
+
+/** 箭头「亮色芯线」颜色。
+ *  地图制图的标准三层描线：暗 casing（浅底可读）+ 势力色主线（身份）+ 亮色芯线（深底可读）。
+ *  没有它时，攻方从**同色领土**出发（如朱红汉室→朱红领地），主线与 casing 双双隐入深色填充，
+ *  整条箭头读成一块墨色污渍——这是「只看地图看不出从哪来」的直接原因之一。 */
+const CORE_COLOR = '#fbf6ea'
+
+/** 箭头三层结构里「亮芯」这一层的占比（相对主线宽 w） */
+const CORE_RATIO = 0.45
+
+/** 结果环（目标城上的常驻标识）直径，屏幕像素量级。
+ *  取值略大于城市标记（16~32px），保证整图缩放下也能一眼看到「哪座城刚打完」。 */
+const RING_SIZE = 42
+
+/** 「攻 / 守」角色小徽标——让「谁在打谁」不用猜哪边是攻方 */
+function RoleChip({ role }: { role: '攻' | '守' }) {
+  const isAtt = role === '攻'
+  return (
+    <span
+      style={{
+        flex: '0 0 auto',
+        width: 15,
+        height: 15,
+        borderRadius: 3,
+        background: isAtt ? '#8a3a30' : '#31506e',
+        color: '#f2ede2',
+        fontSize: 10,
+        fontWeight: 700,
+        lineHeight: 1,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: '1px solid rgba(0,0,0,0.45)',
+      }}
+    >
+      {role}
+    </span>
+  )
 }
 
 function cityPixel(cities: Record<string, City>, id: string | null) {
@@ -43,10 +82,13 @@ function cityPixel(cities: Record<string, City>, id: string | null) {
   return axialToPixel(c.position, HEX_SIZE)
 }
 
-/** 势力名 + 单字（地图上认人靠「色 + 字」双线索，色盲也认得出） */
+/** 势力名 + 单字（地图上认人靠「色 + 字」双线索，色盲也认得出）
+ *  ⚠️ `neutral`（中立城）不在 FACTIONS / FACTION_GLYPH 里（theme 的类型守卫只覆盖 12 方），
+ *     若不特判会直接把 id 原样印出来——标签上出现英文 "neutral"（实测截图）。这里兜到「中立 / 中」。 */
 function FactionTag({ faction, size = 12 }: { faction: string; size?: number }) {
   const color = FACTION_COLORS[faction] || '#888'
-  const glyph = FACTION_GLYPH[faction]
+  const glyph = FACTION_GLYPH[faction] || (faction === 'neutral' ? '中' : undefined)
+  const display = FACTIONS[faction] || (faction === 'neutral' ? '中立' : faction)
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
       {glyph && (
@@ -70,7 +112,7 @@ function FactionTag({ faction, size = 12 }: { faction: string; size?: number }) 
         </span>
       )}
       <span style={{ color: '#f0ece2', fontSize: size * 0.95, textShadow: '0 0 3px #000, 0 0 2px #000' }}>
-        {FACTIONS[faction] || faction}
+        {display}
       </span>
     </span>
   )
@@ -79,6 +121,20 @@ function FactionTag({ faction, size = 12 }: { faction: string; size?: number }) 
 export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: BattleOverlayProps) {
   if (!battles || battles.length === 0) return null
   const inv = 1 / Math.max(zoom, 0.02)
+
+  // 结果环（常驻）：只取**最近一回合有战斗的那一回合**的战果，且同一目标城只留最后一场
+  // （去重避免同一城叠出好几圈）。这是「战斗结束后地图上仍能读出结果」的载体——
+  // 三态不再只活在回放标签的文字里。
+  const latestTurn = battles.reduce((m, b) => Math.max(m, b.turn ?? 0), -1)
+  const ringBattles: BattleReport[] = (() => {
+    const byCity = new Map<string, BattleReport>()
+    for (const b of battles) {
+      if ((b.turn ?? 0) !== latestTurn) continue
+      if (!b.defender_city) continue
+      byCity.set(b.defender_city, b)
+    }
+    return [...byCity.values()]
+  })()
 
   return (
     <div style={{ position: 'absolute', left: 0, top: 0, width: '1px', height: '1px', pointerEvents: 'none' }}>
@@ -109,6 +165,8 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
         // 没有目标城就退化为在出发城上画爆点；有目标城但没出发城（如反击）→ 目标城爆点
         const burstAt = target || origins[0]
         const labelAt = target || origins[0]
+        // 守方「城名」——回放标签里直接写出来，省得观众去侧栏对照（守方主将字段后端暂无）
+        const defenderCityName = (b.defender_city && cities[b.defender_city]?.name) || ''
 
         return (
           <div key={b.battle_id || i}>
@@ -127,6 +185,21 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                   markerUnits="strokeWidth"
                 >
                   <path d="M0,0 L2.2,1.1 L0,2.2 Z" fill={attColor} />
+                </marker>
+                {/* 箭头头部「亮芯」：与主线 markerEnd 同步（同样的 progress>0.85 逻辑）。
+                    尺寸按亮芯线宽等比缩小（1.6/2.2 = 0.727，与主线芯线占比一致），
+                    所以视觉上只是给彩色箭头头嵌了一颗浅色中心——浅底靠彩色翼、深底靠亮芯，
+                    两种情况都能看出「箭头指向哪」。 */}
+                <marker
+                  id={`arrow-core-${i}`}
+                  markerWidth={1.6}
+                  markerHeight={1.6}
+                  refX={1.3}
+                  refY={0.8}
+                  orient="auto"
+                  markerUnits="strokeWidth"
+                >
+                  <path d="M0,0 L1.6,0.8 L0,1.6 Z" fill={CORE_COLOR} />
                 </marker>
               </defs>
 
@@ -183,6 +256,39 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                         markerEnd={active ? (progress > 0.85 ? `url(#arrow-${i})` : undefined) : `url(#arrow-${i})`}
                         style={active ? { strokeDashoffset: -(progress * 30 * inv) } : undefined}
                       />
+                      {/* 第 3 层「亮色芯线」（压在暗 casing 与势力色主线之上、比主线细）。
+                          casing 管浅羊皮纸底、亮芯管深色势力填充——同一支箭头两种底色都能读出走向。
+                          动画语义与主线**完全一致**（相同 dasharray / dashoffset / markerEnd 触发条件），
+                          故回放表现不变，只是多了一条常驻的浅色芯。 */}
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke={CORE_COLOR}
+                        strokeWidth={w * CORE_RATIO}
+                        strokeOpacity={active ? 0.95 : 0.5}
+                        strokeLinecap="round"
+                        strokeDasharray={active ? `${9 * inv} ${6 * inv}` : undefined}
+                        markerEnd={active ? (progress > 0.85 ? `url(#arrow-core-${i})` : undefined) : `url(#arrow-core-${i})`}
+                        style={active ? { strokeDashoffset: -(progress * 30 * inv) } : undefined}
+                      />
+                      {/* 起点圆点：给「从哪来」一个明确锚点——不必沿箭头回溯才知道出发点。
+                          外圈=势力色 + 深描边（与箭头同構），内芯=亮色（深色领土上仍可见）。 */}
+                      <circle
+                        cx={o.x}
+                        cy={o.y}
+                        r={4.2 * inv}
+                        fill={attColor}
+                        stroke="#120c06"
+                        strokeWidth={1.6 * inv}
+                        opacity={active ? 1 : 0.5}
+                      />
+                      <circle
+                        cx={o.x}
+                        cy={o.y}
+                        r={1.9 * inv}
+                        fill={CORE_COLOR}
+                        opacity={active ? 0.95 : 0.45}
+                      />
                     </g>
                   )
                 })}
@@ -208,7 +314,8 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                   top: labelAt.y,
                   transform: `translate(-50%, -100%) scale(${inv})`,
                   transformOrigin: 'center bottom',
-                  marginTop: -18,
+                  // 抬高一点，别压住目标城上的结果环与箭头头部（原来 -18 时标签下缘正好盖住战斗点）
+                  marginTop: -44,
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -229,12 +336,22 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                     boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
                   }}
                 >
+                  {/* 「谁在打谁」：显式标出 攻/守 角色 + 攻方（势力+主将）+ 守方（势力+城名），
+                      不用观众自己去侧栏拼。守方主将字段后端尚未提供，故守方给到「势力+城」。 */}
+                  <RoleChip role="攻" />
                   <FactionTag faction={b.attacker_faction} />
+                  {b.attacker_general_name && (
+                    <span style={{ color: '#f6f2e8', fontSize: 12, fontWeight: 700 }}>{b.attacker_general_name}</span>
+                  )}
+                  <span style={{ color: '#e8e0d0', fontSize: 13, fontWeight: 700 }}>⚔</span>
+                  <RoleChip role="守" />
+                  <FactionTag faction={b.defender_faction} />
+                  {defenderCityName && (
+                    <span style={{ color: '#f6f2e8', fontSize: 12, fontWeight: 700 }}>{defenderCityName}</span>
+                  )}
                   {origins.length > 1 && (
                     <span style={{ color: '#8a86a0', fontSize: 10 }}>×{origins.length}路</span>
                   )}
-                  <span style={{ color: '#e8e0d0', fontSize: 13, fontWeight: 700 }}>⚔</span>
-                  <FactionTag faction={b.defender_faction} />
                   <span
                     style={{
                       marginLeft: 4,
@@ -302,6 +419,52 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                 )}
               </div>
             )}
+          </div>
+        )
+      })}
+
+      {/* 结果三态环（常驻，与回放是否在播无关）：目标城上留一枚结果标识。
+          三重编码避免「只靠颜色」：环线型（solid / dashed / dotted）× 颜色（金/绿/褐/灰）
+          × 图标（旗/盾/跑/等号）——色盲用户也能靠线型与图标区分四态。 */}
+      {ringBattles.map((b) => {
+        const target = cityPixel(cities, b.defender_city)
+        if (!target) return null
+        const meta = RESULT_META[b.result] || RESULT_META.draw
+        return (
+          <div
+            key={`ring-${b.battle_id}`}
+            style={{
+              position: 'absolute',
+              left: target.x,
+              top: target.y,
+              width: RING_SIZE,
+              height: RING_SIZE,
+              transform: `translate(-50%, -50%) scale(${inv})`,
+              borderRadius: '50%',
+              border: `3px ${meta.dash} ${meta.color}`,
+              boxShadow: '0 0 0 2px rgba(0,0,0,0.6)',
+              pointerEvents: 'none',
+            }}
+          >
+            <span
+              style={{
+                position: 'absolute',
+                left: -3,
+                top: -3,
+                width: 16,
+                height: 16,
+                borderRadius: '50%',
+                background: meta.color,
+                border: '1.5px solid rgba(0,0,0,0.65)',
+                color: contrastText(meta.color),
+                fontSize: 9,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <i className={`fa-solid ${meta.icon}`} />
+            </span>
           </div>
         )
       })}
