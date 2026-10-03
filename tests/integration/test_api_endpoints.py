@@ -82,6 +82,13 @@ def _city_of_other_faction(state: dict, faction: str) -> str:
     raise AssertionError("找不到不属于该势力的城市（测试前提不成立）")
 
 
+def _live_manager():
+    """取当前 lifespan 建立的全局 GameManager（供直接注入内部状态用）。"""
+    from api import server as _server
+    assert _server._manager is not None, "lifespan 未建立 _manager"
+    return _server._manager
+
+
 # ============================================================
 # GET /api/state
 # ============================================================
@@ -134,6 +141,22 @@ class TestGetState:
         assert state["llm_active"] is False        # 无 key → 回退 CLI
         assert state["llm_error"]                  # 必须非空：告知用户为什么降级
         assert state["llm_model"] == ""
+
+    def test_state_reasoning_limit_query_param(self, client):
+        """`?reasoning_limit=N` 只返回最近 N 条；省略则返回全部。"""
+        _reset(client)
+        mgr = _live_manager()
+        mgr._reasoning = [
+            {"turn": i, "faction": "caocao", "reasoning": f"r{i}", "commands": []}
+            for i in range(5)
+        ]
+        # 省略参数 → 全部（与旧行为一致）
+        assert len(client.get("/api/state").json()["reasoning"]) == 5
+        # 传 2 → 末尾 2 条
+        body = client.get("/api/state", params={"reasoning_limit": 2}).json()
+        assert [r["reasoning"] for r in body["reasoning"]] == ["r3", "r4"]
+        # 传 0 → 空（不返回）
+        assert client.get("/api/state", params={"reasoning_limit": 0}).json()["reasoning"] == []
 
 
 # ============================================================
@@ -331,12 +354,7 @@ class TestWebSocket:
 # ============================================================
 
 class TestModelEndpoints:
-    """模型清单 / 跨局战绩端点
-
-    ⚠️ 这两个端点为 v4.0.1 新增（与另一路并行开发相关）。为不与那一路的
-    合入/回退耦合，这里用「404 即 skip」的方式：端点不存在时跳过而非失败，
-    存在时则校验其契约。这样本文件无论该特性是否合入都不会拖垮全量测试。
-    """
+    """模型清单端点（v4.0.1）"""
 
     def test_models_listing(self, client):
         r = client.get("/api/models")
@@ -348,13 +366,62 @@ class TestModelEndpoints:
             assert key in body, f"/api/models 缺少字段: {key}"
         assert "deepseek" in body["providers"]
 
-    def test_model_records_structure(self, client):
-        r = client.get("/api/model_records")
-        if r.status_code == 404:
+
+class TestModelRecordsEndpoint:
+    """跨局模型战绩端点：文件缺失 / 损坏 / 正常聚合 三条路径
+
+    ⚠️ v4.0.1 新增端点；404 时 skip，避免与并行特性合入/回退耦合。
+    `data/model_records.json` 是**运行时产物**（已被 .gitignore 忽略），
+    首次启动时很可能不存在 —— 必须保证"文件缺失时返回空榜单"而非报错。
+    """
+
+    @staticmethod
+    def _body_or_skip(resp):
+        if resp.status_code == 404:
             pytest.skip("/api/model_records 未实现（v4.0.1 特性未合入）")
-        assert r.status_code == 200
-        body = r.json()
-        for key in ("leaderboard", "recent", "total_matches"):
-            assert key in body, f"/api/model_records 缺少字段: {key}"
-        assert isinstance(body["leaderboard"], list)
-        assert isinstance(body["recent"], list)
+        assert resp.status_code == 200
+        return resp.json()
+
+    def test_records_empty_when_file_missing(self, client, monkeypatch, tmp_path):
+        import api.game_manager as gm_mod
+        monkeypatch.setattr(gm_mod, "MODEL_RECORDS_PATH", tmp_path / "absent.json")
+        body = self._body_or_skip(client.get("/api/model_records"))
+        assert body["total_matches"] == 0
+        assert body["leaderboard"] == []
+        assert body["recent"] == []
+
+    def test_records_empty_when_file_corrupted(self, client, monkeypatch, tmp_path):
+        import api.game_manager as gm_mod
+        bad = tmp_path / "corrupt.json"
+        bad.write_text("{ this is not json", encoding="utf-8")
+        monkeypatch.setattr(gm_mod, "MODEL_RECORDS_PATH", bad)
+        body = self._body_or_skip(client.get("/api/model_records"))
+        assert body["total_matches"] == 0
+        assert body["leaderboard"] == []
+
+    def test_records_aggregate_from_file(self, client, monkeypatch, tmp_path):
+        import json as _json
+        import api.game_manager as gm_mod
+        p = tmp_path / "records.json"
+        p.write_text(_json.dumps({"matches": [
+            {"results": [
+                {"model": "deepseek-flash", "rank": 1, "cities": 5, "winner": True},
+                {"model": "gpt-x", "rank": 2, "cities": 3, "winner": False},
+            ]},
+            {"results": [
+                {"model": "deepseek-flash", "rank": 2, "cities": 2, "winner": False},
+                {"model": "gpt-x", "rank": 1, "cities": 6, "winner": True},
+            ]},
+        ]}, ensure_ascii=False), encoding="utf-8")
+        monkeypatch.setattr(gm_mod, "MODEL_RECORDS_PATH", p)
+        body = self._body_or_skip(client.get("/api/model_records"))
+        assert body["total_matches"] == 2
+        lb = {row["model"]: row for row in body["leaderboard"]}
+        assert lb["deepseek-flash"]["matches"] == 2
+        assert lb["deepseek-flash"]["wins"] == 1
+        assert lb["deepseek-flash"]["win_rate"] == 0.5
+        assert lb["deepseek-flash"]["avg_cities"] == 3.5   # (5+2)/2
+        assert lb["gpt-x"]["wins"] == 1
+        assert lb["gpt-x"]["win_rate"] == 0.5
+        # 胜率并列 → 按模型名稳定排序（deterministic）
+        assert [row["model"] for row in body["leaderboard"]] == ["deepseek-flash", "gpt-x"]

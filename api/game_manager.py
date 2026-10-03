@@ -274,8 +274,13 @@ class GameManager:
     # 状态序列化
     # ============================================================
 
-    def get_state(self) -> Dict[str, Any]:
+    def get_state(self, reasoning_limit: Optional[int] = None) -> Dict[str, Any]:
         """获取当前游戏状态（JSON 可序列化）
+
+        Args:
+            reasoning_limit: 只返回最近 N 条决策理由；None = 返回全部
+                （上限由 MAX_REASONING_HISTORY 控制）。前端「决策」面板
+                可按需限制传输量；不传时行为与旧版一致（返回全部）。
 
         Returns:
             包含 cities、armies、generals、turn、game_over 等字段的字典
@@ -335,8 +340,13 @@ class GameManager:
             gdata["element_name"] = ELEMENT_NAMES.get(element, "")
             gdata["title"] = get_general_title(gid)
 
-        # 决策理由（前端「决策」面板）：最近若干条 LLM 决策
-        data["reasoning"] = list(self._reasoning)
+        # 决策理由（前端「决策」面板）：默认全部（上限 MAX_REASONING_HISTORY）；
+        # 传 reasoning_limit 时只返回最近 N 条（0 表示不返回）
+        if reasoning_limit is None:
+            data["reasoning"] = list(self._reasoning)
+        else:
+            limit = max(0, int(reasoning_limit))
+            data["reasoning"] = list(self._reasoning[-limit:]) if limit > 0 else []
         data["human_faction"] = self.config.human_faction
         # LLM 实际启用状态 + 降级原因（前端要显式提示，不能让用户误以为在跑 LLM）
         data["llm_requested"] = bool(self.config.use_llm)

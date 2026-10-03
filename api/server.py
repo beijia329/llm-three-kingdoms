@@ -100,11 +100,16 @@ app.add_middleware(
 # ============================================================
 
 @app.get("/api/state")
-async def get_state() -> Dict[str, Any]:
-    """获取当前游戏完整状态"""
+async def get_state(reasoning_limit: Optional[int] = None) -> Dict[str, Any]:
+    """获取当前游戏完整状态
+
+    reasoning_limit（可选）：只返回最近 N 条决策理由；省略则返回全部
+    （条数上限由 GameManager.MAX_REASONING_HISTORY 控制）。供前端「决策」面板
+    按需拉取，长局下避免一次传回全部历史。
+    """
     if _manager is None:
         return {"error": "游戏管理器未初始化"}
-    return _manager.get_state()
+    return _manager.get_state(reasoning_limit=reasoning_limit)
 
 
 @app.get("/api/models")
