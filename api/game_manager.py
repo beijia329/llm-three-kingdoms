@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import logging
 import os
+import zlib
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -19,6 +21,7 @@ from game.models import (
     DeclareWarCommand,
     DevelopCommand,
     ExploreCommand,
+    GameObservation,
     MessageCommand,
     ProposeAllianceCommand,
     RecruitCommand,
@@ -32,6 +35,25 @@ from players.llm.llm_client import LLMClient
 from players.llm.llm_player import LLMPlayer
 
 logger = logging.getLogger(__name__)
+
+
+def _stable_hash(text: str) -> int:
+    """跨进程稳定的字符串哈希（替代内置 hash()）
+
+    🔴 Python 的 `str.__hash__` 默认按进程随机加盐（PYTHONHASHSEED），
+    同一 seed 在不同进程会派生出不同的玩家随机流 → **对局不可复现**。
+    design-strategist 与 quality-lead 都独立复现过该现象
+    （同一 seed 出征次数 271 vs 245）。
+
+    这里用 CRC32，跨进程恒定，保证「同 seed → 同对局」。
+
+    Args:
+        text: 待哈希文本（此处为势力键）
+
+    Returns:
+        0 ~ 2^32-1 的稳定整数
+    """
+    return zlib.crc32(text.encode("utf-8")) & 0xFFFFFFFF
 
 
 @dataclass
@@ -51,6 +73,17 @@ class GameConfig:
     """LLM 提供商（deepseek / openai / openrouter）"""
     factions: Optional[List[str]] = None
     """只给这些势力建玩家；None = 全部 12 方参战"""
+    # ---- 并发采集（v4.0）----
+    parallel_players: bool = True
+    """并发采集各势力决策。
+
+    LLM 模式下 get_commands 是**阻塞网络调用**（实测 3 方串行 27~42 秒/回合），
+    12 方串行会到分钟级 → 前端点「下一回合」必然超时。
+    并发后单回合耗时约等于最慢的一方，12 方从 ~6 分钟降到 ~40 秒。
+    关闭本项可退回串行（用于对照实验/排障）。
+    """
+    max_workers: int = 12
+    """并发决策的最大线程数"""
 
 
 class GameManager:
@@ -151,7 +184,9 @@ class GameManager:
             else:
                 self._players[faction] = CLIPlayer(
                     faction=faction,
-                    rng=GameRandom(self.config.seed + hash(faction) % 10000),
+                    # 🔴 必须用稳定哈希：内置 hash() 按进程随机加盐，
+                    #    会让同一 seed 在不同进程跑出不同对局（不可复现）。
+                    rng=GameRandom(self.config.seed + _stable_hash(faction) % 10000),
                 )
 
         self._add_event("游戏开始：184年 黄巾之乱", "info")
@@ -363,6 +398,56 @@ class GameManager:
     # 回合推进
     # ============================================================
 
+    def _collect_decisions(
+        self, observations: Dict[str, GameObservation]
+    ) -> Dict[str, List[Command]]:
+        """并发采集各势力的本回合决策（v4.0）
+
+        并发边界的设计（很重要，关系到确定性）：
+        - 「取观察」在主线程串行完成，**不在并发区里调用 engine**，
+          避免多线程同时读引擎内部可变状态；
+        - 「做决策」在并发区 —— LLM 模式下 get_commands 是阻塞网络调用，
+          12 方串行会让单回合到分钟级，前端必然超时；
+        - 结果按势力键写回 dict，调用方仍按固定顺序遍历执行命令，
+          因此**对局结果与串行版本一致**（CLIPlayer 每个势力持有独立 RNG，
+          其随机流只取决于自己被调用的次数，与线程调度无关）。
+
+        Args:
+            observations: 势力键 → 该势力的观察（主线程已生成）
+
+        Returns:
+            势力键 → 命令列表
+        """
+        factions = list(observations.keys())
+
+        if not self.config.parallel_players or len(factions) <= 1:
+            return {
+                f: self._players[f].get_commands(observations[f]) for f in factions
+            }
+
+        decisions: Dict[str, List[Command]] = {}
+        workers = max(1, min(self.config.max_workers, len(factions)))
+        with ThreadPoolExecutor(
+            max_workers=workers, thread_name_prefix="sanguo-decide"
+        ) as pool:
+            future_map = {
+                pool.submit(self._players[f].get_commands, observations[f]): f
+                for f in factions
+            }
+            for future in as_completed(future_map):
+                faction = future_map[future]
+                try:
+                    decisions[faction] = future.result()
+                except Exception as exc:  # noqa: BLE001
+                    # 单个势力决策失败绝不能让整回合崩掉（LLM 超时/解析异常都可能）：
+                    # 记为该方本回合按兵不动，其余势力照常推进。
+                    logger.error("势力 %s 决策失败，本回合按兵不动: %r", faction, exc)
+                    decisions[faction] = []
+
+        for f in factions:
+            decisions.setdefault(f, [])
+        return decisions
+
     def process_turn(self) -> Dict[str, Any]:
         """推进一回合（执行 AI 命令 + 引擎回合处理）
 
@@ -375,9 +460,19 @@ class GameManager:
         # 执行 AI 玩家命令
         ai_events = []
         turn_no = self.engine.turn  # 本回合号（决策归属回合）
+
+        # 1. 主线程统一取观察（并发区里不碰引擎状态）
+        observations = {
+            faction: self.engine.get_observation(faction)
+            for faction in self._players
+        }
+
+        # 2. 并发采集决策（LLM 模式下这是耗时大头）
+        decisions = self._collect_decisions(observations)
+
+        # 3. 按固定顺序执行命令 → 保证确定性
         for faction, player in self._players.items():
-            obs = self.engine.get_observation(faction)
-            commands = player.get_commands(obs)
+            commands = decisions.get(faction, [])
 
             # 收集本回合的决策理由（仅 LLMPlayer 会设置 last_reasoning；
             # CLIPlayer 无此属性，getattr 回退为空串 → 不记录噪声）
