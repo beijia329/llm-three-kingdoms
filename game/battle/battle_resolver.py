@@ -170,8 +170,20 @@ class BattleResolver:
             #
             #    为什么加了注释还要加测试：单元测试曾全绿，是因为测试**直接给
             #    process_aftermath 传参**，绕过了本调用链（本项目"假绿"的经典形态）。
-            #    2026-10-03 这行曾被发现误删（工作区未提交状态），
-            #    故由 tests/integration/test_battle_report.py 在生产链路上断言锁定。
+            #    2026-10-03 这行曾被发现误删（工作区未提交状态）。
+            #
+            #    🔴 2026-10-03 更正：以下原句为**失真声明**，已作废重写——
+            #      「故由 tests/integration/test_battle_report.py 在生产链路上断言锁定」
+            #    该说法不成立：test_battle_report.py 只断言 BattleReport /
+            #    recent_battles 的字段契约，对 defender_generals 与
+            #    process_capture **无任何断言**。原句出自凭文件名推断而非实跑，
+            #    属本项目「记录失真」家族，此处保留痕迹以示警戒。
+            #
+            #    实测（改坏验证，2026-10-03）：把本行注释掉后跑
+            #    tests/unit + tests/integration → 631 passed, 1 skipped, **0 failed**。
+            #    即：本行目前**没有任何自动化测试保护**——摘掉它 CI 不会报警，
+            #    俘虏 / 投降 / 降将转投三条链会静默失效。
+            #    补上生产链路回归测试之前，改动本文件请手动验证这条链。
             defender_generals=list(context.defender_general_ids),
         )
         result.battle_log = battle_log
