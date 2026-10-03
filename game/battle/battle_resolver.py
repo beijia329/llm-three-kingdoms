@@ -162,6 +162,16 @@ class BattleResolver:
         result = self.process_aftermath(
             context,
             defender_city_owner="",  # 由 GameEngine 填充
+            # 🔴 v4.0 修复，**勿删**：必须把守方将领传进去。
+            #    不传 → defender_generals 取默认 None → [] →
+            #    process_aftermath 里 `for gen_id in defender_generals` 永不执行 →
+            #    captured_generals 恒为空 → GameEngine.process_capture 永不被调用 →
+            #    俘虏 / 投降 / 降将转投整条链在生产环境完全断裂。
+            #
+            #    为什么加了注释还要加测试：单元测试曾全绿，是因为测试**直接给
+            #    process_aftermath 传参**，绕过了本调用链（本项目"假绿"的经典形态）。
+            #    2026-10-03 这行曾被发现误删（工作区未提交状态），
+            #    故由 tests/integration/test_battle_report.py 在生产链路上断言锁定。
             defender_generals=list(context.defender_general_ids),
         )
         result.battle_log = battle_log
