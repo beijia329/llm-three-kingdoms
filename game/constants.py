@@ -77,7 +77,13 @@ OVERTIME_EXTRA_SOLDIERS: int = 500
 
 FACTIONS: Dict[str, str] = {
     "han":        "汉室",
-    "zhangjiao":  "张角",
+    # v4.1 内容口径修正：显示名「张角」→「黄巾」（内部 key 仍为 zhangjiao，不影响存档/外交/personality）
+    # 原显示名与 data/generals.json:48 的**将领**张角（zhang_jiao）撞名，
+    # 战报/将领表/外交会出现「张角背叛张角」这类主语与宾语同名的句子。
+    # 参照 han="汉室" 的口径：184 年 12 方里唯二的「非个人政治实体」就是汉室与黄巾，
+    # 二者用阵营名，其余 10 路用领袖名 —— 二分自洽。
+    # （且 constants.py 下方势力色注释、art 审计报告早已称「黄巾」，此改动是收敛到既有语义。）
+    "zhangjiao":  "黄巾",
     "dongzhuo":   "董卓",
     "yuanshao":   "袁绍",
     "caocao":     "曹操",
