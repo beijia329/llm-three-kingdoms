@@ -1,0 +1,223 @@
+{
+ "rows": [
+  {
+   "seed": 1,
+   "turns": 96,
+   "game_over": true,
+   "winner": "gongsunzan",
+   "battles": 137,
+   "surviving_factions": 5,
+   "hhi": 0.52,
+   "top_share": 0.7,
+   "armies_left": 6,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 13270,
+   "troops_in_cities": 59163,
+   "troops_trapped_pct": 18.3,
+   "freeze_turn": 95,
+   "first_elim_turn": 7,
+   "eliminated": {
+    "han": 95,
+    "zhangjiao": 42,
+    "dongzhuo": 7,
+    "yuanshao": 52,
+    "liubei": 11,
+    "liubiao": 41,
+    "yuanshu": 27
+   },
+   "leaked": [
+    {
+     "id": "army_189",
+     "faction": "gongsunzan",
+     "soldiers": 2900,
+     "status": "marching",
+     "from": "jiangling",
+     "to": "bai_di",
+     "progress": 0.889
+    },
+    {
+     "id": "army_190",
+     "faction": "gongsunzan",
+     "soldiers": 3070,
+     "status": "marching",
+     "from": "changan",
+     "to": "bai_di",
+     "progress": 0.818
+    },
+    {
+     "id": "army_191",
+     "faction": "liuyan",
+     "soldiers": 1200,
+     "status": "marching",
+     "from": "jian_ge",
+     "to": "changan",
+     "progress": 0.8
+    },
+    {
+     "id": "army_192",
+     "faction": "liuyan",
+     "soldiers": 1200,
+     "status": "marching",
+     "from": "bai_di",
+     "to": "changan",
+     "progress": 0.364
+    },
+    {
+     "id": "army_193",
+     "faction": "gongsunzan",
+     "soldiers": 3000,
+     "status": "marching",
+     "from": "luoyang",
+     "to": "xiangyang",
+     "progress": 0.667
+    },
+    {
+     "id": "army_194",
+     "faction": "gongsunzan",
+     "soldiers": 1900,
+     "status": "marching",
+     "from": "changsha",
+     "to": "cangwu",
+     "progress": 0.2
+    }
+   ]
+  },
+  {
+   "seed": 2,
+   "turns": 96,
+   "game_over": true,
+   "winner": "yuanshu",
+   "battles": 82,
+   "surviving_factions": 10,
+   "hhi": 0.1759,
+   "top_share": 0.323,
+   "armies_left": 1,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 66,
+   "troops_in_cities": 66045,
+   "troops_trapped_pct": 0.1,
+   "freeze_turn": 88,
+   "first_elim_turn": 8,
+   "eliminated": {
+    "dongzhuo": 8,
+    "liubei": 14
+   },
+   "leaked": [
+    {
+     "id": "army_112",
+     "faction": "mateng",
+     "soldiers": 66,
+     "status": "retreating",
+     "from": "jiangling",
+     "to": "bai_di",
+     "progress": 0.667
+    }
+   ]
+  },
+  {
+   "seed": 3,
+   "turns": 96,
+   "game_over": true,
+   "winner": "gongsunzan",
+   "battles": 112,
+   "surviving_factions": 8,
+   "hhi": 0.257,
+   "top_share": 0.387,
+   "armies_left": 1,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 1844,
+   "troops_in_cities": 64434,
+   "troops_trapped_pct": 2.8,
+   "freeze_turn": 96,
+   "first_elim_turn": 7,
+   "eliminated": {
+    "dongzhuo": 8,
+    "yuanshao": 55,
+    "liubei": 7,
+    "liuyan": 78
+   },
+   "leaked": [
+    {
+     "id": "army_139",
+     "faction": "gongsunzan",
+     "soldiers": 1844,
+     "status": "marching",
+     "from": "he_fei",
+     "to": "chai_sang",
+     "progress": 0.714
+    }
+   ]
+  },
+  {
+   "seed": 4,
+   "turns": 96,
+   "game_over": true,
+   "winner": "gongsunzan",
+   "battles": 131,
+   "surviving_factions": 5,
+   "hhi": 0.5556,
+   "top_share": 0.733,
+   "armies_left": 1,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 3800,
+   "troops_in_cities": 62060,
+   "troops_trapped_pct": 5.8,
+   "freeze_turn": 94,
+   "first_elim_turn": 20,
+   "eliminated": {
+    "han": 21,
+    "zhangjiao": 70,
+    "dongzhuo": 20,
+    "yuanshao": 43,
+    "caocao": 60,
+    "liubei": 23,
+    "liubiao": 60
+   },
+   "leaked": [
+    {
+     "id": "army_165",
+     "faction": "gongsunzan",
+     "soldiers": 3800,
+     "status": "marching",
+     "from": "changsha",
+     "to": "cangwu",
+     "progress": 0.789
+    }
+   ]
+  },
+  {
+   "seed": 5,
+   "turns": 96,
+   "game_over": true,
+   "winner": "yuanshao",
+   "battles": 142,
+   "surviving_factions": 8,
+   "hhi": 0.1988,
+   "top_share": 0.323,
+   "armies_left": 1,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 2900,
+   "troops_in_cities": 63866,
+   "troops_trapped_pct": 4.3,
+   "freeze_turn": 96,
+   "first_elim_turn": 7,
+   "eliminated": {
+    "han": 33,
+    "dongzhuo": 7,
+    "liubei": 10,
+    "mateng": 82
+   },
+   "leaked": [
+    {
+     "id": "army_174",
+     "faction": "yuanshao",
+     "soldiers": 2900,
+     "status": "marching",
+     "from": "yecheng",
+     "to": "xuchang",
+     "progress": 0.875
+    }
+   ]
+  }
+ ]
+}
