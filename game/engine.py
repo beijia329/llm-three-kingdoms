@@ -36,6 +36,7 @@ from game.constants import (
     CITY_LOSS_LOYALTY_PENALTY,
 )
 from game.event_bus import EventBus
+from game.command_registry import get_handler, register_command
 from game.models import (
     Army,
     ArmyStatus,
@@ -432,30 +433,24 @@ class GameEngine:
         self._turn_actions.append((command.faction, command_type))
 
         try:
-            if command_type == "develop" and isinstance(command, DevelopCommand):
-                return self._execute_develop(command)
-            elif command_type == "recruit" and isinstance(command, RecruitCommand):
-                return self._execute_recruit(command)
-            elif command_type == "attack" and isinstance(command, AttackCommand):
-                return self._execute_attack(command)
-            elif command_type == "reward" and isinstance(command, RewardCommand):
-                return self._execute_reward(command)
-            elif command_type == "explore" and isinstance(command, ExploreCommand):
-                return self._execute_explore(command)
-            elif command_type == "message" and isinstance(command, MessageCommand):
-                return self._execute_message(command)
-            elif command_type == "rumor" and isinstance(command, RumorCommand):
-                return self._execute_rumor(command)
-            elif command_type == "propose_alliance" and isinstance(command, ProposeAllianceCommand):
-                return self._execute_propose_alliance(command)
-            elif command_type == "declare_war" and isinstance(command, DeclareWarCommand):
-                return self._execute_declare_war(command)
-            else:
+            # 命令分发走注册表（game/command_registry.py）——单一扩展点。
+            # 新增命令只需 register_command(...)，**本函数不再枚举命令类型**。
+            entry = get_handler(command_type)
+            if entry is None:
                 return CommandResult(
                     success=False,
                     command_type=command_type,
                     description=f"未知命令类型: {command_type}",
                 )
+            expected_cls, handler = entry
+            # 保留原语义：type 命中但命令类不匹配（isinstance 失败）也按「未知命令」处理
+            if not isinstance(command, expected_cls):
+                return CommandResult(
+                    success=False,
+                    command_type=command_type,
+                    description=f"未知命令类型: {command_type}",
+                )
+            return handler(self, command)
         except Exception as e:
             logger.exception("命令执行失败: %s", command)
             return CommandResult(
@@ -1560,3 +1555,21 @@ class GameEngine:
         self.map = MapSystem()
         for city in self.cities.values():
             self.map.add_city(city)
+
+
+# ============================================================
+# 内置命令注册（命令类型 → 期望命令类 → 处理器方法）
+# ============================================================
+# 顺序即注册顺序，确定。新增内置命令在此加一行即可（分发逻辑无需改动）；
+# 外部/mod 命令调用 game.command_registry.register_command(...) 另行登记。
+register_command("develop", DevelopCommand, GameEngine._execute_develop)
+register_command("recruit", RecruitCommand, GameEngine._execute_recruit)
+register_command("attack", AttackCommand, GameEngine._execute_attack)
+register_command("reward", RewardCommand, GameEngine._execute_reward)
+register_command("explore", ExploreCommand, GameEngine._execute_explore)
+register_command("message", MessageCommand, GameEngine._execute_message)
+register_command("rumor", RumorCommand, GameEngine._execute_rumor)
+register_command(
+    "propose_alliance", ProposeAllianceCommand, GameEngine._execute_propose_alliance
+)
+register_command("declare_war", DeclareWarCommand, GameEngine._execute_declare_war)
