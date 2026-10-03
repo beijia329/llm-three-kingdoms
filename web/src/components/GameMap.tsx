@@ -5,6 +5,7 @@ import { FACTION_COLORS, TERRAIN_PARCHMENT, hexToNumber } from '../theme'
 import { HEX_SIZE, axialToPixel, hexNeighbors, hexPoints } from '../utils/hex'
 import { CityMarker } from './map/CityMarker'
 import { ArmyMarker } from './map/ArmyMarker'
+import { BattleOverlay } from './map/BattleOverlay'
 
 interface GameMapProps {
   state: GameState | null
@@ -419,7 +420,6 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
         return { city, pos }
       })
     : []
-
   const armyMarkers = state
     ? Object.values(state.armies)
         .filter((a) => a.soldiers > 0 && a.current_hex)
@@ -428,6 +428,55 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
           return { army, pos }
         })
     : []
+
+  // === 战斗回放（v4.1 · 阶段C2）===
+  // 后端每回合把近 N 场战斗放进 state.recent_battles；这里对**新出现的**战斗
+  // 逐场短回放（每场 ~1.5s），让观众看到「谁打谁 / 结果 / 从哪来打向哪」。
+  // 用 battle_id 保序；recent_battles 缺省时（后端未落地）整个叠层不渲染。
+  const battles = state?.recent_battles || []
+  const [replayIdx, setReplayIdx] = useState(-1)
+  const [replayProgress, setReplayProgress] = useState(0)
+  const replayKeyRef = useRef('')
+  const REPLAY_PER_BATTLE_MS = 1500
+  const REPLAY_MAX = 3
+
+  useEffect(() => {
+    if (battles.length === 0) {
+      setReplayIdx(-1)
+      return
+    }
+    // 只在「出现新战斗」时触发（WS 每次推送都是新数组，不能只看引用）
+    const last = battles[battles.length - 1]
+    const key = `${last.battle_id}|${last.turn}|${battles.length}`
+    if (key === replayKeyRef.current) return
+    replayKeyRef.current = key
+
+    let cancelled = false
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+    const start = Math.max(0, battles.length - REPLAY_MAX)
+    const run = async () => {
+      for (let i = start; i < battles.length; i++) {
+        if (cancelled) return
+        setReplayIdx(i)
+        const t0 = performance.now()
+        while (true) {
+          if (cancelled) return
+          const p = (performance.now() - t0) / REPLAY_PER_BATTLE_MS
+          setReplayProgress(Math.min(1, p))
+          if (p >= 1) break
+          await sleep(50)
+        }
+      }
+      if (cancelled) return
+      await sleep(700)
+      if (!cancelled) setReplayIdx(-1)
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.recent_battles, state?.turn])
 
   const cam = cameraRef.current
 
@@ -473,6 +522,16 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
         {armyMarkers.map(({ army, pos }) => (
           <ArmyMarker key={army.id} army={army} x={pos.x} y={pos.y} zoom={cam.zoom} />
         ))}
+        {/* 战斗回放层（箭头 + 回放标签），与城市/军队同一世界坐标 transform */}
+        {battles.length > 0 && (
+          <BattleOverlay
+            battles={battles}
+            cities={state?.cities || {}}
+            activeIndex={replayIdx}
+            progress={replayProgress}
+            zoom={cam.zoom}
+          />
+        )}
       </div>
 
       {/* CSS 动画定义 */}

@@ -1,4 +1,4 @@
-import { FACTION_COLORS, FACTION_GLOW } from '../../theme'
+import { FACTION_COLORS, FACTION_GLOW, FACTION_GLYPH, contrastText } from '../../theme'
 // [阶段A 2026-10-03] 接入已下载的 game-icons 素材（CC BY 3.0，见 assets/art/ATTRIBUTION.md）。
 // 原来城池只是一个纯色圆点，看不出「这是城」；现按等级换宫门/堡垒/城堡剪影，
 // 用 CSS mask 着色，颜色仍随势力。
@@ -94,6 +94,34 @@ export function CityMarker({ city, x, y, zoom, onClick }: CityMarkerProps) {
         }}
       >
         <span aria-hidden style={maskStyle(cityIcon(city.level), color, iconSize)} />
+
+        {/* 势力单字（非颜色线索，色盲也认得出是谁）——与图标一同放大，
+            只在放大到一定程度时显示，避免全图视角糊成一团 */}
+        {markerScreen > 18 && FACTION_GLYPH[city.faction] && (
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute',
+              bottom: '-3px',
+              right: '-5px',
+              width: `${Math.round(iconSize * 0.72)}px`,
+              height: `${Math.round(iconSize * 0.72)}px`,
+              borderRadius: '3px',
+              backgroundColor: color,
+              color: contrastText(color),
+              fontSize: `${Math.round(iconSize * 0.5)}px`,
+              fontWeight: 700,
+              lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid #2a2018',
+              boxSizing: 'border-box',
+            }}
+          >
+            {FACTION_GLYPH[city.faction]}
+          </span>
+        )}
 
         {/* 都城：右上角加冕（crown 剪影） */}
         {isCapital && !city.is_besieged && (

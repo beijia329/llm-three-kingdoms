@@ -80,6 +80,34 @@ export interface GameEvent {
   text: string
 }
 
+/**
+ * 单场战斗报告（v4.1 · 阶段C2 战斗可视化）
+ *
+ * 契约来源：`docs/design/v4.1-gameplay-gaps.md` §4.3 的 `BattleReport` DTO。
+ * 引擎已算出这些字段，后端只需打包后经 `recent_battles` 广播出来（见该文档 §4.1）。
+ *
+ * 🔴 `attacker_from_city` / `defender_city` 是「从哪来、打向哪」的关键——
+ *    没有它们只能显示结果，画不出进攻方向。
+ * 所有 `*_city` 是**城市 id**（前端再用 `state.cities[id].position` 转坐标）。
+ */
+export interface BattleReport {
+  battle_id: string
+  turn: number
+  attacker_faction: string
+  defender_faction: string
+  attacker_from_city: string | null
+  defender_city: string | null
+  attacker_soldiers: number
+  defender_soldiers: number
+  attacker_casualties: number
+  defender_casualties: number
+  /** attacker_win | defender_win | draw | retreat */
+  result: string
+  wall_hp_before?: number
+  wall_hp_after?: number
+  attacker_general_name?: string
+}
+
 export interface HexTile {
   q: number
   r: number
@@ -142,6 +170,8 @@ export interface GameState {
   faction_relations?: FactionRelation[]
   messages?: DiplomacyMessage[]
   turn_logs?: TurnLog[]
+  /** v4.1：近 N 场战斗（用于地图上的战斗回放）。后端未落地时为空/缺省。 */
+  recent_battles?: BattleReport[]
   provinces?: Record<string, ProvinceInfo>
   reasoning?: ReasoningEntry[]
   // ---- LLM 模式状态（api/game_manager.py get_state() 只读字段）----
