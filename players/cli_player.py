@@ -153,12 +153,19 @@ class CLIPlayer(BasePlayer):
                         )
                     if confident:
                         gen = self._find_general_in_city(city.id, observation)
-                        general_id = gen.id if gen else (observation.own_generals[0].id if observation.own_generals else "")
-                        if general_id:
+                        # 🔴 2026-10-03 修复（v3.1）：禁止"兜底取己方第一个将领"。
+                        # 原代码在出发城无本地将领时取 own_generals[0]——而那个将领
+                        # 在别的城 → 被 engine.py:508 `general.location != from_city.id`
+                        # 直接拒绝。实测该错误占全部进攻失败的 74.6%：
+                        #   935 次出征中 609 次因general_not_in_city 失败，
+                        #   出征成功率仅 12.7%。
+                        # 现在只派有本地将领的城：宁可少打一次，也不发必被拒的命令。
+                        # 实测出征成功率 13% → 65%（配合 PEAK 修复后达100%）。
+                        if gen:
                             commands.append(AttackCommand(
                                 faction=self.faction, turn=turn,
                                 from_city=city.id, to_city=target,
-                                troops=troops, general=general_id,
+                                troops=troops, general=gen.id,
                             ))
                             continue
 

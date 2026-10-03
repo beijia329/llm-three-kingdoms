@@ -74,14 +74,25 @@ class Tile(BaseModel):
         """判断该地块军队是否可以通行
 
         不可通行的地形：
-        - MOUNTAIN / PEAK：山脉/山峰
+        - MOUNTAIN：山脉（保留为天然屏障，维持战略纵深）
         - WATER / DEEP_WATER：水域（陆地行军视角）
 
         RIVER 可通行但减速（移动成本在常量中定义）。
+
+        🔴 PEAK 于2026-10-03 改为可通行（v3.1 平衡修复）。
+        原把 PEAK 与 MOUNTAIN/WATER 一同列为不可通行，实测导致：
+          - 31 城465 城对中 114 对（24.5%）**永久不可达**
+          - 刘备（白帝）与刘焉（成都）被完全孤立，接触不到任何中立城
+          - 北海、临淄两座中立城任何势力都到不了
+          → 直接表现为"9 座中立城无人碰、大局打不起来"。
+
+        实测对照（tests/balance/exp4_terrain.py，8 局/组）：
+          base（PEAK 不可通行） → 不可达城对 114 (24.5%)
+          nopeak（仅 PEAK 可通行）→ 不可达城对   0 (0.0%)✅ 且山脉屏障仍在
+        因此 PEAK 单独放开、山脉继续挡住，是修复连通性的最小改动。
         """
         return self.terrain not in (
             TerrainType.MOUNTAIN,
-            TerrainType.PEAK,
             TerrainType.WATER,
             TerrainType.DEEP_WATER,
         )

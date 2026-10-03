@@ -461,7 +461,13 @@ TERRAIN_MOVE_COST: Dict[str, float] = {
     "dense_forest": 2.0,
     "hill": 2.0,
     "mountain": float("inf"),
-    "peak": float("inf"),
+    # 🔴 peak 于 2026-10-03 由 inf 改为 3.0（v3.1 平衡修复，P0）
+    # 这是 A* 寻路真正使用的权表 —— 改 game/tile.py 的 is_passable() 不生效，
+    # 因为 find_path 走的是 terrain_move_cost() → 本表。两处必须同步改。
+    # 原为 inf 导致 31 城 465 城对中 114 对（24.5%）永久不可达，
+    # 刘备(白帝)/刘焉(成都) 被完全孤立，北海/临淄两座中立城无人能到。
+    # 山脉(mountain)继续保持 inf 作为天然屏障，仅放开山峰。
+    "peak": 3.0,
     "desert": 1.5,
     "marsh": 2.5,
     "tundra": 1.5,

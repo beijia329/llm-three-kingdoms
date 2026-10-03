@@ -156,9 +156,33 @@ class TestIsPassable:
         """山脉不可通行"""
         assert self._tile_with(TerrainType.MOUNTAIN).is_passable() is False
 
-    def test_peak_impassable(self):
-        """山峰不可通行"""
-        assert self._tile_with(TerrainType.PEAK).is_passable() is False
+    def test_peak_passable(self):
+        """山峰可通行（v3.1 P0 平衡修复，2026-10-03）
+
+        历史：peak 曾与 mountain/water 同列为不可通行，导致 31 城 465 城对中
+        114 对（24.5%）永久不可达，刘备(白帝)/刘焉(成都) 被完全孤立，
+        北海/临淄两座中立城任何势力都到不了 → 直接表现为"9 座中立城无人碰"。
+
+        现在仅放开山峰（move_cost=3.0），山脉(mountain)继续保持不可通行，
+        天然屏障与战略纵深不受影响。
+        """
+        assert self._tile_with(TerrainType.PEAK).is_passable() is True
+
+    def test_peak_move_cost_finite(self):
+        """山峰有有限移动消耗（A* 寻路可穿过，权表 constants.TERRAIN_MOVE_COST）"""
+        from game.constants import TERRAIN_MOVE_COST
+        from game.hex_map import HexMap
+
+        cost = HexMap.terrain_move_cost(TerrainType.PEAK)
+        assert cost != float("inf"), "PEAK 必须可通行，否则地图会被切断"
+        assert cost > 1.0, "山峰应有额外移动消耗（翻山更慢），不应与平原同速"
+        assert TERRAIN_MOVE_COST["mountain"] == float("inf"), "山脉应保持不可通行"
+
+    def test_mountain_still_impassable(self):
+        """山脉必须保持不可通行（作为天然屏障，这是 P0 修复的前提）"""
+        from game.constants import TERRAIN_MOVE_COST
+
+        assert TERRAIN_MOVE_COST["mountain"] == float("inf")
 
     def test_water_impassable(self):
         """水域不可通行（陆地行军视角）"""
