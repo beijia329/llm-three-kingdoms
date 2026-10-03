@@ -120,6 +120,10 @@ class CLIPlayer(BasePlayer):
         attack_gold = int(400 - self._aggression * 300)         # 激进:100金就够
         recruit_gold = int(300 - self._aggression * 150)        # 激进:150金就征兵
 
+        # [G 解将荒 2026-10-0X v4.0] 本回合已被派出的将领 id 集合。
+        # 同一回合内不让同一名将领被多路复用（避免"一将多路"重复领兵超发）。
+        assigned: Set[str] = set()
+
         for city in observation.own_cities:
             border = any(nid in enemy_ids for nid in city.neighbors)
             if not border:
@@ -161,7 +165,20 @@ class CLIPlayer(BasePlayer):
                         #   出征成功率仅 12.7%。
                         # 现在只派有本地将领的城：宁可少打一次，也不发必被拒的命令。
                         # 实测出征成功率 13% → 65%（配合 PEAK 修复后达100%）。
+                        # [G 一将一路 2026-10-0X v4.0] 本地驻将也须避开本回合已派出者：
+                        # 否则同一将领可能先被"调出"去领 A 城的兵、又被当作 C 城的本地
+                        # 驻将再次选中，生成一条必被引擎拒绝的命令（白白浪费一次进攻）。
+                        # 与 exp15 落地版 one_general 的 _USED_GEN 口径严格一致。
+                        if gen is not None and gen.id in assigned:
+                            gen = None
+                        if gen is None:
+                            # [G 解将荒 2026-10-0X v4.0] 出发城无本地驻将时，从
+                            # 「位于己方城市中的空闲将领」里挑一名（引擎会自动调他前来
+                            # 领兵）。不再因缺将而放弃进攻 —— 这是「无本地将领的城市
+                            # 永久瘫痪 → 地图第 26~31 回合冻结」的直接解法。
+                            gen = self._find_dispatchable_general(observation, assigned)
                         if gen:
+                            assigned.add(gen.id)
                             commands.append(AttackCommand(
                                 faction=self.faction, turn=turn,
                                 from_city=city.id, to_city=target,
@@ -220,6 +237,34 @@ class CLIPlayer(BasePlayer):
             if g.location == city_id:
                 return g
         return None
+
+    def _find_dispatchable_general(
+        self, obs: GameObservation, assigned: Set[str]
+    ) -> Optional[General]:
+        """从「位于己方城市中的空闲将领」挑一名可调度者（引擎会自动调他前来领兵）。
+
+        [G 解将荒 2026-10-0X v4.0] 与 engine._execute_attack 放宽后的校验同口径：
+          - general.faction == self.faction（obs.own_generals 通常已保证，仍显式校验）
+          - not general.is_captured
+          - general.location 是己方城市（出现在 obs.own_cities 中）
+          - 不在 assigned 中（同一回合不重复派同一名将领）
+
+        选择规则 max(candidates, key=lambda g: (g.command, g.id))：统帅最高者优先，
+        并列时按 id 二级排序 —— **不能只按 command**，否则同统帅并列时结果依赖
+        obs.own_generals 的输入顺序，可能破坏确定性（本项目对可复现性有硬要求，
+        见 tests/balance/pacing_lib）。
+        """
+        own_city_ids = {c.id for c in obs.own_cities}
+        candidates = [
+            g for g in obs.own_generals
+            if g.faction == self.faction
+            and not g.is_captured
+            and g.location in own_city_ids
+            and g.id not in assigned
+        ]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda g: (g.command, g.id))
 
     @staticmethod
     def _find_attack_target(city: City, enemy_ids: Set[str], obs: GameObservation) -> str:

@@ -268,6 +268,10 @@ class PromptBuilder:
                     f"{gen.loyalty} | {gen.location} |"
                 )
             lines.append("")
+            lines.append(
+                "> 派将说明：你可以派任何位于**己方城池**中的将领出征"
+                "（引擎会自动调他前来领兵），不必局限于出发城的驻将。"
+            )
 
         # 已知敌方城市
         if observation.known_cities:

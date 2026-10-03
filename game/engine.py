@@ -528,9 +528,33 @@ class GameEngine:
         if general is None:
             return CommandResult(success=False, command_type="attack",
                                  description=f"将领 {cmd.general} 不存在")
+
+        # [G 解将荒 2026-10-0X v4.0] 放宽将领校验：原实现硬要求
+        # `general.location == from_city.id`，导致「无驻将的城市」永久无法出征 ——
+        # 出征胜后将领驻留新占城（见本函数占领分支 `general.location = city.id`），
+        # 不回原城，终局约 48% 城市无本地将领 → 地图约第 26~31 回合彻底冻结。
+        # 现允许调度**位于己方任意城市**的空闲将领随军出征，引擎自动「调将前来领兵」。
+        dispatch_note = ""
         if general.location != from_city.id:
-            return CommandResult(success=False, command_type="attack",
-                                 description=f"将领 {cmd.general} 不在 {cmd.from_city}")
+            is_dispatchable = (
+                general.faction == cmd.faction
+                and not general.is_captured
+                and general.location in self.cities
+                and self.cities[general.location].faction == cmd.faction
+            )
+            if not is_dispatchable:
+                return CommandResult(success=False, command_type="attack",
+                                     description=f"将领 {cmd.general} 不在 {cmd.from_city}")
+            # 🔴 必须同步维护两座城的 city.generals 列表：
+            # battle_scheduler.stationed_generals 直接读 target_city.generals 计算守方
+            # 平均统帅/勇武/智力并生成 defender_general_ids，不维护会让守城将领名单错乱，
+            # 隐性影响战斗结算与俘虏判定。把该将领 id 从旧城移除、加入出发城。
+            old_city = self.cities[general.location]
+            if general.id in old_city.generals:
+                old_city.generals.remove(general.id)
+            if general.id not in from_city.generals:
+                from_city.generals.append(general.id)
+            dispatch_note = f"（自 {old_city.id} 调将 {general.name} 前来领兵）"
 
         # 计算距离
         distance = self.map.get_distance(cmd.from_city, cmd.to_city)
@@ -590,7 +614,7 @@ class GameEngine:
         return CommandResult(
             success=True,
             command_type="attack",
-            description=f"军队 {army.id} 从 {cmd.from_city} 出发，目标 {cmd.to_city}，距离 {distance} 回合",
+            description=f"军队 {army.id} 从 {cmd.from_city} 出发，目标 {cmd.to_city}，距离 {distance} 回合{dispatch_note}",
             data={"army_id": army.id, "distance": distance},
         )
 

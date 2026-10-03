@@ -14,6 +14,12 @@ v4.0 修了三个战斗机制缺陷（撤退僵尸军队 / 城墙上限膨胀 / 
   - armies_leaked       终局仍在场的军队数（应为 0；>0 说明还有军队泄漏）
   - zombie_armies       状态为 RETREATING 但在场超过 5 回合的军队（僵尸指标）
   - troops_in_armies    终局困在军队里的兵力（占全图兵力比例）
+  - freeze_turn         最后一次城池易主发生的回合（0 = 全程无易主；越早 = 地图越早冻结）
+  - first_elim_turn     首个势力城市数归零的回合（None = 从未灭国）
+
+🔴 2026-10-0X v4.0「灭国压力」修复：新增 freeze_turn / first_elim_turn 两项，
+口径与 exp15_levers.py 对齐（同一 capture/prev_owner 口径），用于量化
+「G 解将荒 + A 门槛比 0.9 + 征兵涨价」三件套对「地图冻结 / 从不灭国」的改善。
 
 运行：
     PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp12_unification_check.py --games 5 --turns 48
@@ -26,7 +32,7 @@ import json
 import os
 import statistics
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -51,6 +57,15 @@ def run_one(game_seed: int, max_turns: int) -> Dict[str, Any]:
     leaked_samples: List[Dict[str, Any]] = []
     battles = 0
 
+    # v4.0：易主 / 灭国追踪（口径与 exp15_levers 对齐）
+    prev_owner = {cid: c.faction for cid, c in engine.cities.items()}
+    initial_counts: Dict[str, int] = {}
+    for c in engine.cities.values():
+        if c.faction in P.FACTION_KEYS:
+            initial_counts[c.faction] = initial_counts.get(c.faction, 0) + 1
+    freeze_turn = 0                       # 末次城池易主的回合；0 = 全程无易主
+    first_zero: Dict[str, Optional[int]] = {f: None for f in P.FACTION_KEYS}
+
     turns = 0
     while not engine.game_over and turns <= P.SAFETY_MAX_ITER:
         for f in P.FACTION_KEYS:
@@ -60,6 +75,21 @@ def run_one(game_seed: int, max_turns: int) -> Dict[str, Any]:
         res = engine.process_turn()
         battles += int(res.get("battles_fought", 0) or 0)
         turns += 1
+
+        # 城池易主：任一城 faction 变化即记为本回合发生易主
+        for cid, c in engine.cities.items():
+            if c.faction != prev_owner[cid]:
+                prev_owner[cid] = c.faction
+                freeze_turn = engine.turn
+        # 灭国：开局有城的势力首次城市数归零
+        counts: Dict[str, int] = {}
+        for c in engine.cities.values():
+            if c.faction in first_zero:
+                counts[c.faction] = counts.get(c.faction, 0) + 1
+        for f in P.FACTION_KEYS:
+            if (initial_counts.get(f, 0) > 0 and first_zero[f] is None
+                    and counts.get(f, 0) == 0):
+                first_zero[f] = engine.turn
 
         # 僵尸巡检：RETREATING 状态持续 > 5 回合
         alive = set(engine.armies.keys())
@@ -106,6 +136,11 @@ def run_one(game_seed: int, max_turns: int) -> Dict[str, Any]:
         "troops_in_armies": troops_in_armies,
         "troops_in_cities": troops_in_cities,
         "troops_trapped_pct": round(troops_in_armies / total_troops * 100, 1) if total_troops else 0.0,
+        "freeze_turn": freeze_turn,
+        "first_elim_turn": min(
+            (t for t in first_zero.values() if t is not None), default=None
+        ),
+        "eliminated": {f: t for f, t in first_zero.items() if t is not None},
         "leaked": leaked_samples,
     }
 
@@ -127,7 +162,8 @@ def main() -> None:
         rows.append(r)
         print(f"  seed={seed} turns={r['turns']:3d} battles={r['battles']:3d} "
               f"存活势力={r['surviving_factions']:2d} hhi={r['hhi']:.3f} "
-              f"残留军队={r['armies_left']} 僵尸峰值={r['zombie_armies_max']}")
+              f"残留军队={r['armies_left']} 僵尸峰值={r['zombie_armies_max']} "
+              f"冻结于={r['freeze_turn']:3d} 首灭={r['first_elim_turn']}")
 
     print()
     print("=== 汇总 ===")
@@ -136,6 +172,14 @@ def main() -> None:
           f"   (12=仍无统一, 1=已统一)")
     print(f"  平均 HHI         {statistics.mean(r['hhi'] for r in rows):.4f}"
           f"   (0.083=完全均分, 1.0=完全统一)")
+    print(f"  平均 top_share   {statistics.mean(r['top_share'] for r in rows):.3f}"
+          f"   (红线 ≤ 0.30)")
+    print(f"  地图冻结回合     {statistics.mean(r['freeze_turn'] for r in rows):.1f}"
+          f"   (末次城池易主的回合；越早=地图越早冻结)")
+    elim_turns = [r["first_elim_turn"] for r in rows if r["first_elim_turn"] is not None]
+    print(f"  出现灭国的局数   {len(elim_turns)}/{len(rows)}"
+          + (f"   平均首灭回合 {statistics.mean(elim_turns):.1f}"
+             if elim_turns else "   (从未灭国)"))
     print(f"  终局残留军队     {sum(r['armies_left'] for r in rows)} 支（合计）")
     print(f"  僵尸军队峰值     {max(r['zombie_armies_max'] for r in rows)} 支（最大）")
     print(f"  困在军队的兵力   {statistics.mean(r['troops_trapped_pct'] for r in rows):.1f}%"
