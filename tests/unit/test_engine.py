@@ -141,14 +141,88 @@ class TestCommandExecution:
         assert result.success is True
 
     def test_execute_propose_alliance(self):
-        """执行提出同盟命令"""
+        """执行提出同盟命令 — 用一对**史实允许且信任度足够**的组合。
+
+        ⚠️ v4.1.2 起结盟有两道门槛：史实硬禁（`FORBIDDEN_ALLIANCE`）
+        与信任度下限（`DIPLOMACY_TRUST_MIN_FOR_ALLIANCE` = 45）。
+        原来的「曹操→刘备」信任度仅 35，已被结构性挡住（这正是修玩家反馈的
+        「曹操、刘备、孙坚居然互相都结盟」所必需的行为）。
+        本测试改用「曹操→袁绍」——184 年同为何进心腹、初值 65。
+        """
         engine = _make_initialized_engine()
         from game.models import ProposeAllianceCommand, DiplomaticStatus
-        cmd = ProposeAllianceCommand(faction="caocao", turn=1, to="liubei")
+        cmd = ProposeAllianceCommand(faction="caocao", turn=1, to="yuanshao")
         result = engine.execute_command(cmd)
         assert result.success is True
-        status = engine._diplomacy_relation_system.get_status("caocao", "liubei")
+        status = engine._diplomacy_relation_system.get_status("caocao", "yuanshao")
         assert status == DiplomaticStatus.ALLIANCE
+
+    def test_alliance_blocked_for_historical_nemesis(self):
+        """史实宿敌不得结盟（硬拒绝，不是概率降低）。"""
+        engine = _make_initialized_engine()
+        from game.models import ProposeAllianceCommand, DiplomaticStatus
+
+        for a, b in [("yuanshao", "yuanshu"), ("han", "zhangjiao"),
+                     ("dongzhuo", "caocao"), ("sunjian", "liubiao")]:
+            cmd = ProposeAllianceCommand(faction=a, turn=1, to=b)
+            result = engine.execute_command(cmd)
+            assert result.success is False, f"{a}×{b} 是史实宿敌，不该能结盟"
+            status = engine._diplomacy_relation_system.get_status(a, b)
+            assert status != DiplomaticStatus.ALLIANCE
+
+    def test_alliance_blocked_when_trust_too_low(self):
+        """信任度不足时不得结盟 —— 让 `trust` 成为真正的判据。
+
+        反例守卫：在 v4.1.2 之前 `trust` 只被显示、从不参与任何决策，
+        属于装饰。若有人把这道门槛去掉，本测试会红。
+        """
+        engine = _make_initialized_engine()
+        from game.models import ProposeAllianceCommand, DiplomaticStatus
+        from game.constants import DIPLOMACY_TRUST_MIN_FOR_ALLIANCE as MIN
+        from game.personality import initial_trust
+
+        # 找一对「非硬禁、但初始信任度低于门槛」的组合
+        pair = next(
+            (a, b)
+            for a in ("caocao", "liubei")
+            for b in ("sunjian", "yuanshu", "mateng", "liubiao")
+            if a != b and initial_trust(a, b) < MIN
+        )
+        a, b = pair
+        assert engine._diplomacy_relation_system.get_relation(a, b).trust < MIN
+
+        result = engine.execute_command(
+            ProposeAllianceCommand(faction=a, turn=1, to=b)
+        )
+        assert result.success is False, f"{a}×{b} 信任度不足 {MIN}，不该能结盟"
+        assert "信任度" in result.description
+
+    def test_alliance_becomes_possible_after_trust_buildup(self):
+        """信任度是可以"攒"出来的：信使往来把它抬过门槛后即可结盟。
+
+        这条保证门槛不是死路——否则「竞争」关系永远无法结盟，
+        外交就失去了投资意义。
+        """
+        engine = _make_initialized_engine()
+        from game.models import ProposeAllianceCommand, DiplomaticStatus
+        from game.constants import DIPLOMACY_TRUST_MIN_FOR_ALLIANCE as MIN
+
+        a, b = "caocao", "liubei"  # 初值 35（竞争）
+        system = engine._diplomacy_relation_system
+        assert system.get_relation(a, b).trust < MIN
+
+        # 攒到门槛之上（走真实的 change_trust 路径）
+        guard = 0
+        while system.get_relation(a, b).trust < MIN and guard < 50:
+            system.change_trust(a, b, 2)
+            guard += 1
+        assert system.get_relation(a, b).trust >= MIN
+
+        result = engine.execute_command(
+            ProposeAllianceCommand(faction=a, turn=1, to=b)
+        )
+        assert result.success is True, "信任度攒够后应当允许结盟"
+        assert system.get_status(a, b) == DiplomaticStatus.ALLIANCE
 
     def test_execute_declare_war(self):
         """执行宣战命令"""

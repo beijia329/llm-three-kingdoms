@@ -25,7 +25,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 
 class Personality(str, Enum):
@@ -57,6 +57,160 @@ FACTION_PERSONALITY: dict = {
     "mateng":     {"style": "aggressive",  "aggression": 0.6, "diplomacy": 0.2, "expand": 0.2},
     "yuanshu":    {"style": "ambitious",   "aggression": 0.6, "diplomacy": 0.3, "expand": 0.1},
 }
+
+
+# ============================================================
+# 势力相性 + 史实外交立场（v4.1.2 新增）
+# ============================================================
+# 为什么需要这一层
+# ----------------
+# 玩家实测反馈：「AI 行动同质化，曹操、刘备、孙坚居然互相都结盟，破坏历史沉浸感」。
+# 根因有二：
+#   1. 外交关系此前**白板起手**——所有两两组合都是 `NEUTRAL, trust=50`
+#      （见 `game/systems/diplomacy_relation.py` 的 __init__）。
+#      12 方在模型眼里完全对称，于是谁跟谁结盟纯看当回合随机，必然同质化。
+#   2. 提示词里没有任何"势力立场"信息，模型不知道谁跟谁是世仇。
+#
+# 设计取舍：**相性表达长期立场，硬禁列表兜住个人宿怨**
+# ----------------------------------------------------
+# 相性值取自《三国志》系列通行的 0-149 **环形**相性（距离 = min(d, 150-d)）：
+# 距离越小越亲近。但相性只能表达"长期战略立场"，**算不出**兄弟阋墙、
+# 杀父之仇这类个人宿怨——例如袁绍(101)×袁术(140) 距离仅 39，按距离会被判成
+# "竞争"而非"死仇"。故这类必须用 `FORBIDDEN_ALLIANCE` 显式硬禁。
+#
+# ⚠️ 已知局限（如实记录，不粉饰）
+# ------------------------------
+# 这套相性表源自《三国志》系列的**东汉末至三国成型期**立场，而本作**开局是 184 年**
+# ——那时曹操/刘备/孙坚都还是汉军里的中下层军官，彼此并无仇怨；曹操与袁绍更是
+# 同为何进心腹的盟友（直到 199 官渡才翻脸）。若直接照搬 208 年的相性，
+# 会出现「曹操袁绍天生敌对」这种**184 年不成立**的判定。
+# 故另设 `HISTORICAL_TRUST_OVERRIDE`：对「184 年关系与长期相性不符」的组合
+# 显式给定初始信任度。宁可用一张可复核的覆盖表，也不假装相性万能。
+
+FACTION_XIANGXING: Dict[str, int] = {
+    "dongzhuo": 1,
+    "zhangjiao": 7,
+    "caocao": 25,
+    "liubiao": 45,
+    "liuyan": 55,
+    "gongsunzan": 65,
+    "mateng": 70,
+    "liubei": 75,
+    "han": 90,
+    "yuanshao": 101,
+    "sunjian": 125,
+    "yuanshu": 140,
+}
+
+XIANGXING_RING: int = 150
+"""相性环长（0 与 149 相邻）。"""
+
+FORBIDDEN_ALLIANCE: List[frozenset] = [
+    # 黄巾 × 其余全部：184 年所有人都在讨黄巾（张角是天下公敌）。
+    # 这条让开局有一个共同敌人，是本时期最重要的战略格局。
+    frozenset({"han", "zhangjiao"}),
+    frozenset({"caocao", "zhangjiao"}),
+    frozenset({"dongzhuo", "zhangjiao"}),
+    frozenset({"yuanshao", "zhangjiao"}),
+    frozenset({"yuanshu", "zhangjiao"}),
+    frozenset({"liubei", "zhangjiao"}),
+    frozenset({"sunjian", "zhangjiao"}),
+    frozenset({"liubiao", "zhangjiao"}),
+    frozenset({"liuyan", "zhangjiao"}),
+    frozenset({"gongsunzan", "zhangjiao"}),
+    frozenset({"mateng", "zhangjiao"}),
+    # 董卓 × 汉室与讨董诸将：国贼与讨逆者，结构性敌对
+    frozenset({"dongzhuo", "han"}),
+    frozenset({"dongzhuo", "yuanshao"}),    # 袁绍是讨董盟主
+    frozenset({"dongzhuo", "caocao"}),      # 曹操首倡讨董
+    frozenset({"dongzhuo", "sunjian"}),     # 孙坚是讨董先锋
+    frozenset({"dongzhuo", "liubei"}),
+    frozenset({"dongzhuo", "yuanshu"}),
+    # 个人宿怨（相性距离算不出来，必须显式硬禁）
+    frozenset({"yuanshao", "gongsunzan"}),  # 界桥之争，长期死敌
+    frozenset({"yuanshao", "yuanshu"}),     # 亲兄弟，却是不共戴天的死敌
+    frozenset({"sunjian", "liubiao"}),      # 孙坚死于刘表部将黄祖之手（杀父之仇）
+]
+"""史实上**绝无可能结盟**的组合（个人宿怨/结构性敌对，相性距离算不出来）。
+
+命中即硬拒绝——不是降低概率，而是 `propose_alliance` 直接失败。
+"""
+
+HISTORICAL_TRUST_OVERRIDE: Dict[frozenset, int] = {
+    # 184 年同为汉臣、同讨黄巾，相性距离却很远 → 显式上调
+    frozenset({"caocao", "yuanshao"}): 65,   # 同为何进心腹，至 199 官渡才决裂
+    frozenset({"caocao", "han"}): 70,        # 曹操当时是汉臣
+    frozenset({"caocao", "sunjian"}): 58,    # 184 同为讨黄巾的汉军将领
+    frozenset({"han", "yuanshao"}): 75,      # 袁绍为何进心腹
+    frozenset({"han", "yuanshu"}): 65,
+    frozenset({"han", "sunjian"}): 65,
+    frozenset({"han", "liubei"}): 55,        # 刘备以汉室宗亲自居
+    frozenset({"han", "caocao"}): 70,
+    # 早年依附/同学关系（史实天然亲近）
+    frozenset({"sunjian", "yuanshu"}): 75,   # 孙坚早期依附袁术，粮草由其供给
+    frozenset({"liubei", "gongsunzan"}): 80,  # 同师卢植的故交，刘备早年依附公孙瓒
+    frozenset({"liubei", "mateng"}): 65,
+    frozenset({"liubiao", "liuyan"}): 60,    # 同为汉室宗亲
+    frozenset({"liubiao", "han"}): 60,
+    frozenset({"liuyan", "han"}): 60,
+    frozenset({"mateng", "dongzhuo"}): 55,   # 同为凉州出身（董卓仍受其余硬禁约束）
+    frozenset({"zhangjiao", "dongzhuo"}): 40,  # 董卓讨黄巾战败被免官，敌意但不至死仇
+}
+"""覆盖相性推导的初始信任度：仅用于「184 年实际关系 ≠ 长期相性」的组合。"""
+
+
+def xiangxing_distance(fa: str, fb: str) -> int:
+    """两势力在相性环上的距离（0-75），越小越亲近。"""
+    a = FACTION_XIANGXING.get(fa, 75)
+    b = FACTION_XIANGXING.get(fb, 75)
+    d = abs(a - b)
+    return min(d, XIANGXING_RING - d)
+
+
+def can_ally(fa: str, fb: str) -> bool:
+    """两势力**是否可能**结盟（史实硬约束）。
+
+    命中 `FORBIDDEN_ALLIANCE` 即返回 False —— 这是硬规则，不参与概率判定。
+    """
+    if fa == fb:
+        return False
+    return frozenset({fa, fb}) not in FORBIDDEN_ALLIANCE
+
+
+def initial_trust(fa: str, fb: str) -> int:
+    """两势力的**初始**信任度（0-100）。
+
+    优先级：硬禁 > 184 年史实覆盖 > 相性距离推导。
+    """
+    key = frozenset({fa, fb})
+    if key in FORBIDDEN_ALLIANCE:
+        return 5
+    if key in HISTORICAL_TRUST_OVERRIDE:
+        return HISTORICAL_TRUST_OVERRIDE[key]
+
+    d = xiangxing_distance(fa, fb)
+    if d <= 15:
+        return 80  # 天然后备盟友
+    if d <= 40:
+        return 60  # 可合作
+    if d <= 70:
+        return 35  # 竞争
+    return 15      # 天然敌对
+
+
+def relation_stance(fa: str, fb: str) -> str:
+    """给提示词用的一句话立场标签。"""
+    key = frozenset({fa, fb})
+    if key in FORBIDDEN_ALLIANCE:
+        return "宿敌（史实上绝无可能结盟）"
+    t = initial_trust(fa, fb)
+    if t >= 75:
+        return "天然盟友"
+    if t >= 55:
+        return "可合作"
+    if t >= 30:
+        return "竞争关系"
+    return "敌对"
 
 
 FACTION_LORD: Dict[str, str] = {

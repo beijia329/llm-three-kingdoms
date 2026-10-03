@@ -43,11 +43,21 @@ from game.models import DiplomaticStatus, MessageCommand
 def manager() -> GameManager:
     """规则-AI 模式的 GameManager（use_llm=False → CLIPlayer）。
 
+    ⚠️ 本作 v4.1.2 起结盟有两道门槛（史实硬禁 + 信任度 ≥ 45），
+    且 `CLIPlayer` 只有 `diplomacy > 0.3` 的势力才会**回应**结盟提议。
+    故势力组合必须挑「互相信任度够 + 有人愿意回应」的一组：
+
+        汉室(0.5) / 刘备(0.5) / 刘表(0.4)  ← 三者都 > 0.3，都能回应
+        han×liubei=55、han×liubiao=60、liubei×liubiao=60  ← 全部 ≥ 45
+
+    （早先用「曹操/刘备/袁绍」：曹×刘信任 35 已被结构性挡住，
+      而该组里只有刘备一个能回应 → 结盟永远不可能发生。）
+
     只取 3 个势力，跑得快，且足够产生外交互动。
     """
     return GameManager(
         GameConfig(seed=42, max_turns=48, use_llm=False,
-                   factions=["caocao", "liubei", "yuanshao"])
+                   factions=["han", "liubei", "liubiao"])
     )
 
 

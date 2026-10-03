@@ -412,7 +412,7 @@
     "faction": "gongsunzan",
     "command": 88,
     "politics": 65,
-    "bravery": 94,
+    "bravery": 96,
     "intelligence": 76,
     "loyalty": 90,
     "location": "ji"
@@ -511,7 +511,7 @@
     "faction": "caocao",
     "command": 76,
     "politics": 20,
-    "bravery": 94,
+    "bravery": 96,
     "intelligence": 30,
     "loyalty": 100,
     "location": "chenliu"

@@ -509,6 +509,28 @@ DIPLOMACY_TRUST_CAPTURE_CITY: int = -20
 DIPLOMACY_TRUST_MESSAGE_POSITIVE: int = 2
 """积极消息信任度变化"""
 
+DIPLOMACY_TRUST_MIN_FOR_ALLIANCE: int = 45
+"""结盟所需的最低信任度（v4.1.2 新增）。
+
+**为什么需要这个门槛**：在它出现之前，`trust` 是一个**只被显示、从不参与决策**
+的数字——外交系统里 `set_status` 会因结盟/宣战/背盟增减它，
+`on_city_captured` 会因占城扣它，但**没有任何逻辑读它**。
+本项目的判定标准很直接：一个不影响任何决策的数字等于装饰。
+
+设成 45 的依据（与 `personality.initial_trust()` 的分档对齐）：
+
+    80  天然盟友     ✅ 可结盟
+    55  可交易       ✅ 可结盟
+    35  竞争关系     ❌ 不可——这正是「曹操×刘备」「刘备×孙坚」的档位，
+                        玩家反馈的「曹刘孙互相结盟」在此被结构性挡住
+    15  天然敌对     ❌ 不可
+     5  宿敌         ❌ 不可（另有 FORBIDDEN_ALLIANCE 硬禁双保险）
+
+友好信使每条 +`DIPLOMACY_TRUST_MESSAGE_POSITIVE`(=2)，
+故一对「竞争」关系（35）需往来约 5 封信（≈12 回合）才够格结盟——
+把"拉关系"变成需要投入的真实动作，而不是随手就能结盟。
+"""
+
 DIPLOMACY_ALLIANCE_DURATION: int = 12
 """同盟默认持续回合数（12回合=3年）"""
 

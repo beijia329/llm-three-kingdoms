@@ -46,12 +46,23 @@ class DiplomacyRelationSystem:
         self._relations: Dict[Tuple[str, str], FactionRelation] = {}
         self._factions = list(factions)
 
-        # 初始化所有势力对为中立关系
+        # 初始化所有势力对的**史实**关系（v4.1.2）
+        #
+        # 🔴 此前是白板起手（全部 `NEUTRAL, trust=50`），导致 12 方在模型眼里
+        #    完全对称 → 谁跟谁结盟纯看当回合随机 → 玩家实测反馈
+        #    「曹操、刘备、孙坚居然互相都结盟，破坏历史沉浸感」。
+        #    现在初始信任度由 `personality.initial_trust()` 按
+        #    史实硬禁 > 184 年实际关系 > 相性距离 三级推导得出。
+        from game.personality import initial_trust
+
         for i, fa in enumerate(factions):
             for fb in factions[i + 1:]:
                 key = self._make_key(fa, fb)
                 self._relations[key] = FactionRelation(
-                    faction_a=fa, faction_b=fb, status=DiplomaticStatus.NEUTRAL, trust=50
+                    faction_a=fa,
+                    faction_b=fb,
+                    status=DiplomaticStatus.NEUTRAL,
+                    trust=initial_trust(fa, fb),
                 )
 
     @staticmethod

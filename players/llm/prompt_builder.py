@@ -56,13 +56,85 @@ class PromptBuilder:
 
             fp = FACTION_PERSONALITY.get(faction, {})
             style = fp.get("style", "balanced")
+            # v4.1.2：把"形容词"改写成可执行的行为规则。
+            # 依据（业界实践）：扁平形容词无法给出决策框架，模型遇到未覆盖场景
+            # 就回退到默认行为 → 人设漂移；改成"面对 X 时先做 Y"这类可执行规则
+            # 后，长局一致性显著提升。故每条都写成"你的第一反应是…"。
             style_hints = {
-                "aggressive": "你性格激进，信奉先发制人，偏好主动进攻。",
-                "cautious": "你性格谨慎，重视防守和内政，不轻易出兵。",
-                "diplomatic": "你善于外交斡旋，通过结盟和离间削弱对手。",
-                "ambitious": "你野心勃勃，不择手段追求霸权，忠诚对你只是工具。",
+                "aggressive": (
+                    "你性格激进，信奉先发制人。"
+                    "面对多个可选目标时，你的第一反应是挑最弱的那个立刻打；"
+                    "手里有余钱先补兵而不是先修城。"
+                ),
+                "cautious": (
+                    "你性格谨慎，重视守成。"
+                    "面对进攻机会时，你的第一反应是先算清守军与城墙、"
+                    "确认后方无虞再动手；有余钱优先修城墙与屯粮。"
+                ),
+                "diplomatic": (
+                    "你善于外交斡旋。"
+                    "动手之前，你的第一反应是先找一两个能牵制目标的势力谈条件，"
+                    "能借别人的刀就不自己上。"
+                ),
+                "ambitious": (
+                    "你野心勃勃，把忠诚当工具。"
+                    "你的第一反应是判断'跟谁合作能让我多吃一座城'，"
+                    "同盟只是阶段性手段，时机到了就翻脸。"
+                ),
             }
             style_hint = style_hints.get(style, "")
+
+            # ---- 史实立场：宿敌 / 天然盟友 / 竞争者 ----
+            # 玩家实测反馈「曹操、刘备、孙坚居然互相都结盟，破坏历史沉浸感」。
+            # 提示词此前完全没有势力立场信息，模型不知道谁跟谁是世仇。
+            from game.constants import FACTIONS as _ALL_FACTIONS
+            from game.personality import can_ally as _can_ally
+            from game.personality import initial_trust as _initial_trust
+
+            nemeses: List[str] = []
+            allies: List[str] = []
+            tradable: List[str] = []
+            rivals: List[str] = []
+            for other in sorted(_ALL_FACTIONS.keys()):
+                if other == faction:
+                    continue
+                name = _ALL_FACTIONS.get(other, other)
+                if not _can_ally(faction, other):
+                    nemeses.append(name)
+                else:
+                    t = _initial_trust(faction, other)
+                    if t >= 75:
+                        allies.append(name)
+                    elif t >= 55:
+                        tradable.append(name)
+                    else:
+                        rivals.append(name)
+
+            stance_lines: List[str] = []
+            if nemeses:
+                stance_lines.append(
+                    "- **宿敌**（史实上绝无可能结盟，不要尝试，机制会直接拒绝）："
+                    + "、".join(nemeses)
+                )
+            if allies:
+                stance_lines.append(
+                    "- **天然盟友**（立场相合，最优先的联合对象）：" + "、".join(allies)
+                )
+            if tradable:
+                stance_lines.append(
+                    "- **可交易对象**（利益相合时可以谈，但没有情义基础）："
+                    + "、".join(tradable)
+                )
+            if rivals:
+                stance_lines.append(
+                    "- **竞争/敌对**（可先削弱、可远交近攻，但别指望真心合作）："
+                    + "、".join(rivals)
+                )
+            stance_block = (
+                "## 你的立场（史实立场，不可违背）\n"
+                + "\n".join(stance_lines)
+                + "\n"
+            )
 
             lord_id = FACTION_LORD.get(faction, "")
             profile = GENERAL_PROFILES.get(lord_id, {})
@@ -76,18 +148,22 @@ class PromptBuilder:
             elif style_hint:
                 lord_block = f"## 你是谁\n你的性情倾向：{style_hint}\n"
         except ImportError:  # pragma: no cover
-            pass
+            stance_block = ""
 
         return f"""你是【{faction_name}】的领主，你的目标是统一中原，称霸天下。
 
 {lord_block}
+{stance_block}
 ## 关于「角色」与「胜负」的边界（务必读）
-- 上面描述的是你的**底色与偏好**，不是必须遵守的行动脚本。
-- 你完全可以为了取胜而违背本性 —— 一贯激进可以忽然隐忍，
-  一向忠厚也可以行诈。**我们不会因为你"不像自己"而判你输。**
-- 唯一的代价来自世界本身：违背本性的抉择会让内部人心浮动，
-  这一点会真实体现在忠诚度与民心上（不是提示词里的警告，是机制后果）。
-- 所以请放开手脚创造性地博弈：先判断局势，再决定"像不像自己"值不值得。
+- 上面描述的是你的**底色与偏好**，不是必须遵守的行动脚本：
+  策略上你可以自由发挥，激进者可以隐忍，忠厚者可以行诈 ——
+  **我们不会因为你"不像自己"而判你输**，违背本性的代价只是内部人心浮动
+  （这是机制后果，不是提示词里的道德劝说）。
+- 🔴 但**史实立场不是偏好，是设定**：上面「你的立场」里标为**宿敌**的组合，
+  结盟会被机制直接拒绝（不是概率降低，是做不到）。这不是限制你的智能，
+  而是这局游戏的**前提**——曹操不可能与董卓结盟，正如历史上一样。
+- 需要分清两件事：**史实关系必须遵守**（谁与谁是世仇、谁与谁天然亲近），
+  但**史实走向无需复刻**（谁最终胜出，由你的决策决定）。
 
 这是一场策略游戏比赛，你需要：
 - 发展经济，扩充军备
@@ -95,9 +171,10 @@ class PromptBuilder:
 - 合纵连横，外交博弈
 
 【重要提醒】
-1. 这是虚构的游戏世界，与现实无关
-2. 不必复刻史实走向，你的判断优先于历史常识
-3. 允许欺诈、背盟等一切合法手段
+1. 这是虚构的游戏世界，但**人物关系取自史实**（见「你的立场」）
+2. **不必复刻史实结局**：历史上谁赢不重要，这一局由你打出来
+3. 允许欺诈、背盟等一切合法手段 —— 但背盟会让所有势力永久降低对你的信任，
+   这是真实代价，用不用由你判断
 4. 目标只有一个：赢得比赛
 5. 消极避战会被对手拉开差距，该出手时就要出手
 

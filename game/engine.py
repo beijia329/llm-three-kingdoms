@@ -764,6 +764,43 @@ class GameEngine:
                 description="不能与自己结盟",
             )
 
+        # 史实硬约束（v4.1.2）：宿敌组合直接拒绝，不进入任何概率判定。
+        # 为什么设硬规则而不是"降低概率"：玩家实测反馈
+        # 「曹操、刘备、孙坚居然互相都结盟，破坏历史沉浸感」——
+        # 单靠提示词与信任度只能让荒谬结盟变少，不能保证不发生；
+        # 而「汉室与黄巾结盟」「袁绍与袁术结盟」这类是**史实上不可能**的，
+        # 必须由代码兜底（对照：P 社/三国志系列同样用硬门槛 + 数值双层）。
+        from game.personality import can_ally, relation_stance
+
+        if not can_ally(cmd.faction, cmd.to):
+            stance = relation_stance(cmd.faction, cmd.to)
+            return CommandResult(
+                success=False,
+                command_type="propose_alliance",
+                description=(
+                    f"与 {FACTIONS.get(cmd.to, cmd.to)} 为{stance}，"
+                    "史实上不可能结盟"
+                ),
+            )
+
+        # 信任度门槛（v4.1.2）：让 `trust` 从"只显示的数字"变成真正的判据。
+        # 在此之前 trust 从不参与任何决策（只被增减与展示），属于装饰。
+        # 🔴 读当前值而非初始值——玩家可以用信使往来把它抬上来。
+        from game.constants import DIPLOMACY_TRUST_MIN_FOR_ALLIANCE
+
+        current = self._diplomacy_relation_system.get_relation(cmd.faction, cmd.to)
+        current_trust = current.trust if current is not None else 0
+        if current_trust < DIPLOMACY_TRUST_MIN_FOR_ALLIANCE:
+            return CommandResult(
+                success=False,
+                command_type="propose_alliance",
+                description=(
+                    f"与 {FACTIONS.get(cmd.to, cmd.to)} 的信任度仅 {current_trust}，"
+                    f"不足以结盟（需 {DIPLOMACY_TRUST_MIN_FOR_ALLIANCE}）。"
+                    "可先遣使通信以积累信任。"
+                ),
+            )
+
         rel = self._diplomacy_relation_system.set_status(
             cmd.faction, cmd.to, DiplomaticStatus.ALLIANCE, turn=self.turn
         )

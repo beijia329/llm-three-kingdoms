@@ -38,22 +38,49 @@ class TestDiplomacyRelation:
     # ================================================================
 
     def test_init_all_neutral(self, system):
-        """初始化：所有 12 方势力对的初始状态均为 NEUTRAL，信任度 50"""
+        """初始化：所有 12 方势力对的初始状态均为 NEUTRAL。
+
+        ⚠️ v4.1.2 起**信任度不再统一为 50** —— 改为按史实推导
+        （`personality.initial_trust()`：史实硬禁 > 184 年实际关系 > 相性距离）。
+        故此处断言「等于该组合的史实初值」，而不是写死 50。
+        """
+        from game.personality import initial_trust
+
         relations = system.get_all_relations()
         assert len(relations) == 66  # C(12, 2)
 
         for key, rel in relations.items():
             assert rel.status == DiplomaticStatus.NEUTRAL
-            assert rel.trust == 50
+            assert rel.trust == initial_trust(rel.faction_a, rel.faction_b), (
+                f"{key} 的初始信任度应为史实推导值，而非写死的 50"
+            )
             assert rel.alliance_end_turn is None
             assert rel.truce_end_turn is None
+
+    def test_init_trust_is_not_blank_slate(self, system):
+        """反例守卫：初始信任度**不能**退化成"人人 50"的白板。
+
+        白板是玩家实测反馈的根因之一（「曹操、刘备、孙坚居然互相都结盟」）：
+        12 方在模型眼里完全对称 → 谁跟谁结盟纯看当回合随机 → 必然同质化。
+        """
+        trusts = {
+            r.trust for r in system.get_all_relations().values()
+        }
+        assert len(trusts) > 1, f"所有关系的初始信任度都相同（{trusts}）——白板起手又回来了"
+
+        # 具体核对几个史实锚点
+        assert system.get_relation("yuanshao", "yuanshu").trust < 20, "袁绍×袁术应是死敌"
+        assert system.get_relation("han", "zhangjiao").trust < 20, "汉室×黄巾应是死敌"
+        assert system.get_relation("liubei", "gongsunzan").trust >= 75, "刘备×公孙瓒是故交"
 
     def test_get_relation_returns_correct_object(self, system):
         """get_relation 返回正确的 FactionRelation 对象"""
         rel = system.get_relation("caocao", "liubei")
         assert isinstance(rel, FactionRelation)
         assert rel.status == DiplomaticStatus.NEUTRAL
-        assert rel.trust == 50
+        # 初始信任度由史实推导（v4.1.2 起不再是白板 50）
+        from game.personality import initial_trust
+        assert rel.trust == initial_trust("caocao", "liubei")
 
     def test_get_relation_order_independent(self, system):
         """get_relation 不依赖参数顺序"""
@@ -99,40 +126,54 @@ class TestDiplomacyRelation:
     # ================================================================
 
     def test_propose_alliance_increases_trust(self, system):
-        """提出同盟：信任度 +5"""
+        """提出同盟：信任度 +5
+
+        ⚠️ 断言**增量**而非绝对值 —— 初始值自 v4.1.2 起按史实推导，
+        写死绝对值会让本测试在调整史实表时无谓变红。
+        """
+        before = system.get_relation("caocao", "liubei").trust
         system.propose_alliance("caocao", "liubei")
         rel = system.get_relation("caocao", "liubei")
-        assert rel.trust == 55
+        assert rel.trust == before + 5
 
     def test_reject_alliance_decreases_trust(self, system):
         """拒绝同盟：信任度 -5"""
+        before = system.get_relation("caocao", "liubei").trust
         system.reject_alliance("caocao", "liubei")
         rel = system.get_relation("caocao", "liubei")
-        assert rel.trust == 45
+        assert rel.trust == before - 5
 
     def test_declare_war_decreases_trust(self, system):
         """宣战（NEUTRAL -> WAR）：信任度 -30"""
+        before = system.get_relation("caocao", "liubei").trust
         system.set_status("caocao", "liubei", DiplomaticStatus.WAR)
         rel = system.get_relation("caocao", "liubei")
         assert rel.status == DiplomaticStatus.WAR
-        assert rel.trust == 20  # 50 - 30
+        assert rel.trust == before - 30
 
     def test_break_alliance_punishment(self, system):
-        """撕毁同盟（ALLIANCE -> WAR）：信任度 -50"""
-        system.set_status("caocao", "liubei", DiplomaticStatus.ALLIANCE, turn=1)
-        rel = system.get_relation("caocao", "liubei")
-        assert rel.status == DiplomaticStatus.ALLIANCE
-        assert rel.trust == 60  # 50 + 10
+        """撕毁同盟（ALLIANCE -> WAR）：信任度 -50
 
-        system.set_status("caocao", "liubei", DiplomaticStatus.WAR)
-        rel = system.get_relation("caocao", "liubei")
+        ⚠️ 用「刘备×公孙瓒」（初值 80）而非「曹操×刘备」（35）：
+        后者 35 → 结盟 +10 = 45 → 再 -50 会触到下限被 clamp 到 0，
+        那样测的就不再是「-50」这个增量本身了。
+        """
+        before = system.get_relation("liubei", "gongsunzan").trust
+        system.set_status("liubei", "gongsunzan", DiplomaticStatus.ALLIANCE, turn=1)
+        rel = system.get_relation("liubei", "gongsunzan")
+        assert rel.status == DiplomaticStatus.ALLIANCE
+        assert rel.trust == before + 10
+
+        after_form = rel.trust
+        system.set_status("liubei", "gongsunzan", DiplomaticStatus.WAR)
+        rel = system.get_relation("liubei", "gongsunzan")
         assert rel.status == DiplomaticStatus.WAR
-        assert rel.trust == 10  # 60 - 50
+        assert rel.trust == after_form - 50
 
     def test_trust_clamped_to_zero(self, system):
         """信任度不低于 0"""
-        system.set_status("caocao", "liubei", DiplomaticStatus.WAR)  # 50 -> 20
-        system.set_status("caocao", "liubei", DiplomaticStatus.WAR)  # 20 -> -10, clamped to 0
+        system.set_status("caocao", "liubei", DiplomaticStatus.WAR)  # 各 -30
+        system.set_status("caocao", "liubei", DiplomaticStatus.WAR)
         rel = system.get_relation("caocao", "liubei")
         assert rel.trust == 0
 
@@ -149,10 +190,11 @@ class TestDiplomacyRelation:
 
     def test_form_alliance_sets_trust_and_end_turn(self, system):
         """结盟：信任度 +10，alliance_end_turn = turn + 12"""
+        before = system.get_relation("caocao", "liubei").trust
         system.set_status("caocao", "liubei", DiplomaticStatus.ALLIANCE, turn=5)
         rel = system.get_relation("caocao", "liubei")
         assert rel.status == DiplomaticStatus.ALLIANCE
-        assert rel.trust == 60
+        assert rel.trust == before + 10
         assert rel.alliance_end_turn == 17  # 5 + 12
         assert rel.truce_end_turn is None
 
@@ -245,24 +287,25 @@ class TestDiplomacyRelation:
 
     def test_on_city_captured(self, system):
         """城市被占领：信任度 -20"""
-        rel_before = system.get_relation("caocao", "liubei")
-        assert rel_before.trust == 50
+        before = system.get_relation("caocao", "liubei").trust
 
         system.on_city_captured("caocao", "liubei")
         rel_after = system.get_relation("caocao", "liubei")
-        assert rel_after.trust == 30  # 50 - 20
+        assert rel_after.trust == before - 20
 
     def test_on_message_sent_positive(self, system):
         """发送积极外交消息：信任度 +2"""
+        before = system.get_relation("caocao", "liubei").trust
         system.on_message_sent("caocao", "liubei", is_positive=True)
         rel = system.get_relation("caocao", "liubei")
-        assert rel.trust == 52
+        assert rel.trust == before + 2
 
     def test_on_message_sent_negative_no_change(self, system):
         """发送消极外交消息：不改变信任度"""
+        before = system.get_relation("caocao", "liubei").trust
         system.on_message_sent("caocao", "liubei", is_positive=False)
         rel = system.get_relation("caocao", "liubei")
-        assert rel.trust == 50  # 不变
+        assert rel.trust == before  # 不变
 
     # ================================================================
     # 边界情况测试
