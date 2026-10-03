@@ -53,6 +53,12 @@ export interface General {
   loyalty: number
   location: string
   is_captured: boolean
+  /** v4.0：将道五行键（fire/earth/metal/water/wood），由后端按五维推导 */
+  element?: string
+  /** v4.0：将道中文名（火/土/金/水/木） */
+  element_name?: string
+  /** v4.0：人物称号（来自人设档案，如「治世之能臣，乱世之奸雄」） */
+  title?: string
 }
 
 export interface FactionStat {

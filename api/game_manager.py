@@ -237,6 +237,23 @@ class GameManager:
         # max_turns / year 现在由 GameState 模型自动序列化（B-03 修复后）
         data["faction_stats"] = faction_stats
         data["events"] = list(self._events[-20:])
+
+        # v4.0：为前端补「将道（五行）」与「称号」。
+        # 这两项是武将系统的核心信息（五行相克 + 人设），但既不属于 General
+        # 数据模型的存储字段（五行由五维推导），也不在 data/generals.json 里
+        # （称号来自人设档案）→ 必须在序列化时补，否则界面上完全看不到机制。
+        from game.element import ELEMENT_NAMES, element_of
+        from game.personality import get_general_title
+
+        for gid, gdata in (data.get("generals") or {}).items():
+            general = self.engine.generals.get(gid)
+            if general is None:
+                continue
+            element = element_of(general)
+            gdata["element"] = element
+            gdata["element_name"] = ELEMENT_NAMES.get(element, "")
+            gdata["title"] = get_general_title(gid)
+
         # 决策理由（前端「决策」面板）：最近若干条 LLM 决策
         data["reasoning"] = list(self._reasoning)
         data["human_faction"] = self.config.human_faction

@@ -226,6 +226,7 @@ function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId:
             <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '12px' }}>
               <i className="fa-solid fa-user" style={{ color: '#96918a', fontSize: '10px' }}></i>
               <span style={{ color: '#e8e0d0', minWidth: '50px' }}>{g.name}</span>
+              <ElementBadge general={g} />
               <span style={{ color: '#c85046' }}>统{g.command}</span>
               <span style={{ color: '#64a0d2' }}>政{g.politics}</span>
               <span style={{ color: '#c85046' }}>武{g.bravery}</span>
@@ -236,6 +237,44 @@ function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId:
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * 五行配色（v4.0）
+ *
+ * 火赤 / 土黄 / 金白 / 水蓝 / 木青，与将领「将道」徽章配套使用。
+ * 将道决定了战斗中的相克关系（克制 +15% / 被克 -15%），
+ * 是观众理解「为什么这仗打赢了」的关键线索，因此必须在界面上可见。
+ */
+const ELEMENT_COLORS: Record<string, string> = {
+  fire: '#d9604a',
+  earth: '#c9a24b',
+  metal: '#c8c2b4',
+  water: '#5b93c4',
+  wood: '#5aa86a',
+}
+
+/** 将道徽章：显示五行 + 悬停显示人物称号 */
+function ElementBadge({ general }: { general: General }) {
+  if (!general.element_name) return null
+  const color = ELEMENT_COLORS[general.element || ''] || '#96918a'
+  return (
+    <span
+      title={general.title || undefined}
+      style={{
+        color,
+        border: `1px solid ${color}`,
+        borderRadius: '3px',
+        padding: '0 3px',
+        fontSize: '10px',
+        lineHeight: '14px',
+        opacity: 0.9,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {general.element_name}
+    </span>
   )
 }
 
@@ -268,6 +307,7 @@ function GeneralList({ state }: { state: GameState }) {
               <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '12px' }}>
                 <i className="fa-solid fa-user" style={{ color: '#96918a', fontSize: '9px' }}></i>
                 <span style={{ color: '#e8e0d0', minWidth: '50px' }}>{g.name}</span>
+                <ElementBadge general={g} />
                 <span style={{ color: '#c85046' }}>统{g.command}</span>
                 <span style={{ color: '#64a0d2' }}>政{g.politics}</span>
                 <span style={{ color: '#c85046' }}>武{g.bravery}</span>
