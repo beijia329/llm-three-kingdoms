@@ -346,6 +346,9 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                   <span style={{ color: '#e8e0d0', fontSize: 13, fontWeight: 700 }}>⚔</span>
                   <RoleChip role="守" />
                   <FactionTag faction={b.defender_faction} />
+                  {b.defender_general_name && (
+                    <span style={{ color: '#f6f2e8', fontSize: 12, fontWeight: 700 }}>{b.defender_general_name}</span>
+                  )}
                   {defenderCityName && (
                     <span style={{ color: '#f6f2e8', fontSize: 12, fontWeight: 700 }}>{defenderCityName}</span>
                   )}

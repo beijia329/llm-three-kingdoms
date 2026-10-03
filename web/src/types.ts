@@ -113,6 +113,9 @@ export interface BattleReport {
   wall_hp_before?: number
   wall_hp_after?: number
   attacker_general_name?: string
+  /** 守方主将名。后端 `BattleEndedEvent` 尚未携带该字段（engineering 侧小改进行中），
+   *  故为可选：有值就显示，无值静默不显示——落地后前端无需再改。 */
+  defender_general_name?: string
 }
 
 export interface HexTile {
