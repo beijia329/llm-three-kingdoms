@@ -35,7 +35,7 @@ export const FACTION_COLORS: Record<string, string> = {
 
 export const FACTIONS: Record<string, string> = {
   han: '汉室',
-  zhangjiao: '张角',
+  zhangjiao: '黄巾',
   dongzhuo: '董卓',
   yuanshao: '袁绍',
   caocao: '曹操',
@@ -64,14 +64,16 @@ export const FACTION_GLOW: Record<string, string> = Object.fromEntries(
 //   · {刘备, 刘表, 刘焉} 同姓「刘」→ 备 / 表 / 焉
 //   · {袁绍, 袁术}      同姓「袁」→ 绍 / 术
 //   （将来加新势力时按同一规则判断：先看姓氏，撞了再退到名。）
+//   例外：**汉室、黄巾**是 184 年 12 方里唯二的「非个人政治实体」（政权/教门），
+//   它们本来就没有姓氏，直接用阵营字。
 //
 // 🔴 守卫一：下面这个对象**以「字」为键**。若两个势力取到同一个字，
 //    就是「对象字面量重复键」，tsc 会直接编译失败（strict 下报 TS1117）。
 //    这是刻意的——本项目的构建是 `tsc && vite build`，撞字会让构建挂掉，
 //    不会出现「悄悄上线两个『刘』」。
 const GLYPH_TO_FACTION = {
-  汉: 'han',        // 汉室（阵营名，唯一用阵营字的势力）
-  张: 'zhangjiao',  // 张角（黄巾军领袖；沿用势力显示名「张角」的姓氏首字）
+  汉: 'han',        // 汉室（政权名）
+  黄: 'zhangjiao',  // 黄巾（教团/军队名。原显示名「张角」与麾下将领张角撞名，已改阵营名）
   董: 'dongzhuo',   // 董卓
   曹: 'caocao',     // 曹操
   孙: 'sunjian',    // 孙坚
