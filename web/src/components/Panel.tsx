@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import type { GameEvent, GameState, General, ReasoningEntry } from '../types'
 import { FACTION_COLORS, FACTIONS } from '../theme'
+import { commandIcon, commandLabel } from '../constants/commands'
 import { DiplomacyPanel } from './DiplomacyPanel'
 
 type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning'
@@ -285,56 +287,222 @@ function GeneralList({ state }: { state: GameState }) {
   )
 }
 
-function EventLog({ events }: { events: GameEvent[] }) {
-  const getEventIcon = (text: string): string => {
-    if (text.includes('攻占') || text.includes('占领')) return 'fa-chess-rook'
-    if (text.includes('战斗') || text.includes('攻')) return 'fa-khanda'
-    if (text.includes('围')) return 'fa-triangle-exclamation'
-    if (text.includes('迁都') || text.includes('建')) return 'fa-city'
-    if (text.includes('外交') || text.includes('盟')) return 'fa-handshake'
-    if (text.includes('投降') || text.includes('溃')) return 'fa-flag'
-    if (text.includes('募兵') || text.includes('训练')) return 'fa-users'
-    if (text.includes('发展') || text.includes('经济')) return 'fa-coins'
-    return 'fa-scroll'
-  }
+/**
+ * 战报 tab 事件分类
+ *
+ * 🔴 历史问题：建国/称王类事件（`X 称kingdom! 国号【魏】`）每回合都会刷一条，
+ * 12 方时几乎占满整个事件流，把真实战斗挤到很下面，观众根本看不到打仗。
+ * 现在把「战事」置顶常显，「建国/称王」单独归类并默认折叠。
+ */
+type EventCategory = 'battle' | 'kingdom' | 'diplomacy' | 'other'
 
-  const getEventColor = (text: string): string => {
-    if (text.includes('攻占') || text.includes('占领')) return '#d4a84b'
-    if (text.includes('战斗') || text.includes('攻')) return '#c85046'
-    if (text.includes('围')) return '#c85046'
-    if (text.includes('建')) return '#64a0d2'
-    if (text.includes('外交') || text.includes('盟')) return '#5ab464'
-    if (text.includes('投降') || text.includes('溃')) return '#96918a'
-    return '#96918a'
+const KINGDOM_PATTERNS = [/称(kingdom|王|帝|公|侯)/, /国号【/, /^🏰/]
+const DIPLOMACY_PATTERNS = [/结盟/, /盟约/, /外交/, /通使/, /宣战/, /中立/, /同盟/]
+const BATTLE_PATTERNS = [/攻占/, /占领/, /城陷/, /战斗/, /大战/, /围城/, /被围/, /投降/, /溃退/, /斩/, /大破/, /^第.*场战斗/]
+
+function categorizeEvent(evt: GameEvent): EventCategory {
+  const t = evt.text
+  // 后端已打 type="kingdom" 的直接归建国；否则按文案判定
+  if (evt.type === 'kingdom') return 'kingdom'
+  if (evt.type === 'battle') return 'battle'
+  if (KINGDOM_PATTERNS.some((p) => p.test(t))) return 'kingdom'
+  if (BATTLE_PATTERNS.some((p) => p.test(t))) return 'battle'
+  if (DIPLOMACY_PATTERNS.some((p) => p.test(t))) return 'diplomacy'
+  return 'other'
+}
+
+const CATEGORY_META: Record<EventCategory, { label: string; icon: string; color: string }> = {
+  battle: { label: '战事', icon: 'fa-khanda', color: '#c85046' },
+  kingdom: { label: '建国 · 称王', icon: 'fa-crown', color: '#d4a84b' },
+  diplomacy: { label: '外交', icon: 'fa-handshake', color: '#5ab464' },
+  other: { label: '其他', icon: 'fa-scroll', color: '#96918a' },
+}
+
+const getEventIcon = (text: string): string => {
+  if (text.includes('攻占') || text.includes('占领')) return 'fa-chess-rook'
+  if (text.includes('战斗') || text.includes('攻')) return 'fa-khanda'
+  if (text.includes('围')) return 'fa-triangle-exclamation'
+  if (text.includes('迁都') || text.includes('建')) return 'fa-city'
+  if (text.includes('外交') || text.includes('盟')) return 'fa-handshake'
+  if (text.includes('投降') || text.includes('溃')) return 'fa-flag'
+  if (text.includes('募兵') || text.includes('训练')) return 'fa-users'
+  if (text.includes('发展') || text.includes('经济')) return 'fa-coins'
+  return 'fa-scroll'
+}
+
+const getEventColor = (text: string): string => {
+  if (text.includes('攻占') || text.includes('占领')) return '#d4a84b'
+  if (text.includes('战斗') || text.includes('攻')) return '#c85046'
+  if (text.includes('围')) return '#c85046'
+  if (text.includes('建')) return '#64a0d2'
+  if (text.includes('外交') || text.includes('盟')) return '#5ab464'
+  if (text.includes('投降') || text.includes('溃')) return '#96918a'
+  return '#96918a'
+}
+
+function EventLog({ events }: { events: GameEvent[] }) {
+  // 倒序（最新在上）
+  const ordered = [...events].reverse()
+  const groups: Record<EventCategory, GameEvent[]> = {
+    battle: [], kingdom: [], diplomacy: [], other: [],
   }
+  ordered.forEach((e) => {
+    groups[categorizeEvent(e)].push(e)
+  })
+
+  // 战事置顶常显；建国/称王默认折叠（它每回合刷屏，是噪声大头）
+  const [showKingdom, setShowKingdom] = useState(false)
+  const showDiplo = groups.diplomacy.length > 0
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      {[...events].reverse().map((evt, idx) => {
-        const icon = getEventIcon(evt.text)
-        const color = getEventColor(evt.text)
-        return (
-          <div key={idx} style={styles.logCard}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-              <i className={`fa-solid ${icon}`} style={{ color, fontSize: '10px', width: '14px', textAlign: 'center' }}></i>
-              <span style={{ color: '#5a5a72', fontSize: '11px' }}>第{evt.turn}回合</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {groups.battle.length > 0 && (
+        <CategorySection
+          title={CATEGORY_META.battle.label}
+          icon={CATEGORY_META.battle.icon}
+          color={CATEGORY_META.battle.color}
+          events={groups.battle}
+        />
+      )}
+
+      {groups.battle.length === 0 && groups.kingdom.length > 0 && (
+        <div style={{ fontSize: '11px', color: '#7d7a92', textAlign: 'center', padding: '6px 0' }}>
+          暂无战斗事件（AI 还在内政发育）
+        </div>
+      )}
+
+      {showDiplo && (
+        <CategorySection
+          title={CATEGORY_META.diplomacy.label}
+          icon={CATEGORY_META.diplomacy.icon}
+          color={CATEGORY_META.diplomacy.color}
+          events={groups.diplomacy}
+        />
+      )}
+
+      {groups.other.length > 0 && (
+        <CategorySection
+          title={CATEGORY_META.other.label}
+          icon={CATEGORY_META.other.icon}
+          color={CATEGORY_META.other.color}
+          events={groups.other}
+        />
+      )}
+
+      {groups.kingdom.length > 0 && (
+        <div>
+          <button
+            style={styles.foldToggle}
+            onClick={() => setShowKingdom((v) => !v)}
+          >
+            <i className={`fa-solid fa-chevron-${showKingdom ? 'down' : 'right'}`} style={{ marginRight: '6px', fontSize: '9px' }}></i>
+            <i className={`fa-solid ${CATEGORY_META.kingdom.icon}`} style={{ marginRight: '5px', color: CATEGORY_META.kingdom.color }}></i>
+            <span style={{ color: CATEGORY_META.kingdom.color }}>{CATEGORY_META.kingdom.label}</span>
+            <span style={styles.foldCount}>{groups.kingdom.length} 条</span>
+            <span style={styles.foldHint}>{showKingdom ? '点击折叠' : '点击展开'}</span>
+          </button>
+          {showKingdom && (
+            <div style={{ marginTop: '6px' }}>
+              <CategorySection
+                title=""
+                icon={CATEGORY_META.kingdom.icon}
+                color={CATEGORY_META.kingdom.color}
+                events={groups.kingdom}
+                bare
+              />
             </div>
-            <span style={{ color: '#e8e0d0', fontSize: '12px', lineHeight: '1.5', paddingLeft: '20px' }}>{evt.text}</span>
-          </div>
-        )
-      })}
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
+function CategorySection({
+  title,
+  icon,
+  color,
+  events,
+  bare,
+}: {
+  title: string
+  icon: string
+  color: string
+  events: GameEvent[]
+  bare?: boolean
+}) {
+  return (
+    <div>
+      {!bare && (
+        <div style={{ ...styles.sectionHead, color }}>
+          <i className={`fa-solid ${icon}`} style={{ marginRight: '5px' }}></i>
+          {title}
+          <span style={styles.foldCount}>{events.length} 条</span>
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+        {events.map((evt, idx) => (
+          <div key={`${evt.turn}-${idx}`} style={styles.logCard}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+              <i
+                className={`fa-solid ${categorizeEvent(evt) === 'battle' ? icon : getEventIcon(evt.text)}`}
+                style={{ color: categorizeEvent(evt) === 'battle' ? color : getEventColor(evt.text), fontSize: '10px', width: '14px', textAlign: 'center' }}
+              ></i>
+              <span style={{ color: '#5a5a72', fontSize: '11px' }}>第{evt.turn}回合</span>
+            </div>
+            <span style={{ color: '#e8e0d0', fontSize: '12px', lineHeight: '1.5', paddingLeft: '20px' }}>{evt.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** 同一回合里同一种命令可能重复多次（发展 ×2），折叠成 "发展 ×2"，避免刷屏 */
+function countCommands(commands: string[]): [string, number][] {
+  const counts = new Map<string, number>()
+  commands.forEach((c) => counts.set(c, (counts.get(c) || 0) + 1))
+  return [...counts.entries()]
+}
+
 function ReasoningPanel({ state }: { state: GameState }) {
   const entries = state.reasoning || []
+  const llmActive = state.llm_active === true
+  const llmRequested = state.llm_requested === true
 
   if (entries.length === 0) {
     return (
-      <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
-        <i className="fa-solid fa-brain" style={{ fontSize: '28px', color: '#5a5a72', marginBottom: '10px' }}></i>
-        <div style={styles.dim}>当前为 CLI AI 对局，无决策理由；以 LLM 模式运行后可见</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
+          <i
+            className={`fa-solid ${llmActive ? 'fa-brain' : 'fa-circle-question'}`}
+            style={{ fontSize: '28px', color: llmActive ? '#5ab464' : '#5a5a72', marginBottom: '10px' }}
+          ></i>
+          <div style={styles.dim}>
+            {llmActive
+              ? '模型已就位，推进一回合即可看到它的决策理由'
+              : llmRequested
+                ? '本局 LLM 未生效（已回退规则 AI），不会有模型决策理由'
+                : '当前为规则 AI（CLI）开局，无决策理由。切换到「LLM 围观」并重开一局即可看到真实模型的意图。'}
+          </div>
+        </div>
+        {!llmActive && (
+          <div style={{ ...styles.card, borderLeft: '3px solid #d4a84b' }}>
+            <div style={{ color: '#d4a84b', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
+              <i className="fa-solid fa-lightbulb" style={{ marginRight: '5px' }}></i>
+              怎么看大模型的"主观意图"
+            </div>
+            <div style={{ color: '#b8b3aa', fontSize: '12px', lineHeight: '1.7' }}>
+              1. 顶部切到 <span style={{ color: '#d4a84b' }}>LLM 围观</span>
+              <br />
+              2. 选 <span style={{ color: '#d4a84b' }}>3 个势力</span>（12 方会到分钟级）
+              <br />
+              3. 点 <span style={{ color: '#d4a84b' }}>重开一局</span>
+              <br />
+              4. 点 <span style={{ color: '#d4a84b' }}>下一回合</span>，等约 30 秒
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -373,22 +541,20 @@ function ReasoningPanel({ state }: { state: GameState }) {
                   {e.reasoning}
                 </div>
                 {e.commands && e.commands.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                    {e.commands.map((cmd, ci) => (
-                      <span
-                        key={ci}
-                        style={{
-                          fontSize: '10px',
-                          color: '#d4a84b',
-                          backgroundColor: 'rgba(212, 168, 75, 0.12)',
-                          border: '1px solid rgba(212, 168, 75, 0.3)',
-                          borderRadius: '4px',
-                          padding: '1px 6px',
-                        }}
-                      >
-                        {cmd}
-                      </span>
-                    ))}
+                  <div style={styles.cmdRow}>
+                    <span style={styles.cmdLabel}>本回合行动</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                      {countCommands(e.commands).map(([raw, n]) => (
+                        <span key={raw} style={styles.cmdChip} title={raw}>
+                          <i
+                            className={`fa-solid ${commandIcon(raw)}`}
+                            style={{ marginRight: '4px', fontSize: '9px' }}
+                          ></i>
+                          {commandLabel(raw)}
+                          {n > 1 && <span style={styles.cmdCount}>×{n}</span>}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -578,5 +744,62 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '8px',
     padding: '8px 10px',
     border: '1px solid rgba(255, 255, 255, 0.04)',
+  },
+  sectionHead: {
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: '12px',
+    fontWeight: 600,
+    marginBottom: '6px',
+  },
+  foldCount: {
+    marginLeft: '6px',
+    color: '#7d7a92',
+    fontSize: '10px',
+    fontWeight: 400,
+  },
+  foldHint: {
+    marginLeft: 'auto',
+    color: '#5a5a72',
+    fontSize: '10px',
+    fontWeight: 400,
+  },
+  foldToggle: {
+    display: 'flex',
+    alignItems: 'center',
+    width: '100%',
+    padding: '7px 10px',
+    background: 'rgba(255, 255, 255, 0.03)',
+    border: '1px solid rgba(255, 255, 255, 0.06)',
+    borderRadius: '8px',
+    fontSize: '12px',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  cmdRow: {
+    paddingTop: '8px',
+    borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+  },
+  cmdLabel: {
+    display: 'block',
+    color: '#7d7a92',
+    fontSize: '10px',
+    marginBottom: '5px',
+  },
+  cmdChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    fontSize: '10px',
+    color: '#d4a84b',
+    backgroundColor: 'rgba(212, 168, 75, 0.12)',
+    border: '1px solid rgba(212, 168, 75, 0.3)',
+    borderRadius: '4px',
+    padding: '2px 7px',
+  },
+  cmdCount: {
+    marginLeft: '4px',
+    color: '#a8874a',
+    fontSize: '9px',
   },
 }

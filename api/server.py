@@ -147,11 +147,18 @@ async def game_websocket(websocket: WebSocket) -> None:
             msg_type = msg.get("type", "")
 
             if msg_type == "init":
+                # [前端 LLM 模式入口] 透传 LLM 相关配置。
+                # 仅新增字段透传，不改变任何对局逻辑；缺省值与 GameConfig 一致，
+                # 因此旧前端（不传这些字段）的行为完全不变。
                 cfg = GameConfig(
                     seed=msg.get("seed", 42),
                     max_turns=msg.get("max_turns", 192),
                     game_mode=msg.get("game_mode", "standard"),
                     human_faction=msg.get("human_faction"),
+                    use_llm=bool(msg.get("use_llm", False)),
+                    model=msg.get("model") or GameConfig.model,
+                    provider=msg.get("provider") or GameConfig.provider,
+                    factions=msg.get("factions") or None,
                 )
                 _manager = GameManager(config=cfg)
                 await send_state()

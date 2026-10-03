@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { EventTicker } from './components/EventTicker'
 import { GameMap } from './components/GameMap'
+import { LlmSetupBar } from './components/LlmSetupBar'
 import { Panel } from './components/Panel'
 import { TopBar } from './components/TopBar'
 import { useGame } from './hooks/useGame'
@@ -8,7 +9,10 @@ import { useGame } from './hooks/useGame'
 type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning'
 
 function App() {
-  const { state, connected, auto, nextTurn, toggleAuto } = useGame()
+  const {
+    state, connected, auto, nextTurn, toggleAuto, restart,
+    restarting, restartError, thinking, thinkingSeconds, llmActive, llmError,
+  } = useGame()
   const [tab, setTab] = useState<TabKey>('factions')
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null)
   const [selectedFaction, setSelectedFaction] = useState<string | null>(null)
@@ -41,7 +45,6 @@ function App() {
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [auto, nextTurn, toggleAuto])
-
   const handleSelectCity = (cityId: string) => {
     setSelectedCityId(cityId)
     setTab('city')
@@ -51,20 +54,36 @@ function App() {
     <div style={styles.app}>
       <div style={styles.mapArea}>
         <TopBar state={state} connected={connected} />
+        <LlmSetupBar
+          llmActive={llmActive}
+          llmError={llmError}
+          llmModel={state?.llm_model}
+          activeFactions={state?.llm_factions}
+          restarting={restarting}
+          restartError={restartError}
+          thinking={thinking}
+          thinkingSeconds={thinkingSeconds}
+          onRestart={restart}
+        />
         <GameMap state={state} onSelectCity={handleSelectCity} />
         <EventTicker events={state?.events || []} />
 
         <button
           style={{
             ...styles.nextButton,
-            opacity: auto ? 0.5 : 1,
-            cursor: auto ? 'not-allowed' : 'pointer',
+            opacity: auto || thinking ? 0.5 : 1,
+            cursor: auto || thinking ? 'not-allowed' : 'pointer',
           }}
-          onClick={() => !auto && nextTurn()}
-          disabled={auto}
+          onClick={() => !auto && !thinking && nextTurn()}
+          disabled={auto || thinking}
         >
-          <i className="fa-solid fa-forward-step" style={{ color: '#d4a84b', fontSize: '16px' }}></i>
-          <div style={{ color: '#d4a84b', fontSize: '14px', fontWeight: 600 }}>下一回合</div>
+          <i
+            className={`fa-solid ${thinking ? 'fa-spinner fa-spin' : 'fa-forward-step'}`}
+            style={{ color: '#d4a84b', fontSize: '16px' }}
+          ></i>
+          <div style={{ color: '#d4a84b', fontSize: '14px', fontWeight: 600 }}>
+            {thinking ? '思考中...' : '下一回合'}
+          </div>
           <div style={{ color: '#96918a', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <i className="fa-solid fa-keyboard" style={{ fontSize: '9px' }}></i>空格 / A
           </div>

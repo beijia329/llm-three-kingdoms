@@ -134,6 +134,17 @@ export interface GameState {
   turn_logs?: TurnLog[]
   provinces?: Record<string, ProvinceInfo>
   reasoning?: ReasoningEntry[]
+  // ---- LLM 模式状态（api/game_manager.py get_state() 只读字段）----
+  /** 前端请求了 LLM 模式 */
+  llm_requested?: boolean
+  /** 后端**实际**是否真的建了 LLMPlayer（false = 已静默回退规则 AI） */
+  llm_active?: boolean
+  /** 回退原因（人类可读），llm_active=false 且 llm_requested=true 时有值 */
+  llm_error?: string
+  /** 实际生效的模型 id */
+  llm_model?: string
+  /** 本局实际参战势力 */
+  llm_factions?: string[]
 }
 
 export interface ProvinceInfo {
