@@ -430,12 +430,13 @@
 
 > 核实日期：2026-10-03（v4.0.1）。若后续实现，请同步移除本表对应行与 `constants.py` 上的 `⚠️` 注释。
 
-### 另：`general_system.py` 的残留死 import
+### 另：`general_system.py` 的残留死 import（已全部清理）
 
-`game/systems/general_system.py` 顶部 `from game.constants import (...)` 中，
-`LOYALTY_DECAY_PER_TURN` 与 `CAPTURE_SURRENDER_BASE_CHANCE` 已在 v4.0.1 清理删除
-（二者自 v4.0 忠诚度/投降逻辑重写后即不再被任何代码读取，仅在注释文本里出现过一次）。
+`game/systems/general_system.py` 顶部 `from game.constants import (...)` 中，三个死 import 现已全部删除：
+`LOYALTY_DECAY_PER_TURN`、`CAPTURE_SURRENDER_BASE_CHANCE`（v4.0.1），
+以及 `CAPTURE_SURRENDER_LOYALTY_FACTOR`（`2f0281e`）。投降概率现由
+`SURRENDER_CHANCE_*` 分档常量驱动。
 
-**仍未清理**：`CAPTURE_SURRENDER_LOYALTY_FACTOR` 同样是死 import
-（全文件仅第 18 行 import 一处，无任何使用；投降概率改由
-`SURRENDER_CHANCE_*` 分档常量驱动）。本轮未动，留待确认。
+⚠️ **遗留：`CAPTURE_SURRENDER_LOYALTY_FACTOR` 的常量定义仍在 `game/constants.py`（L378）且全仓 0 引用**
+（`*.py` 实扫仅此一处命中）——import 清了、定义没删，成了孤立的**死常量**。
+待裁决：删除该定义，或接回逻辑（两者都不是它原本的用途，倾向删除）。
