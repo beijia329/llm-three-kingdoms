@@ -84,7 +84,10 @@ class CLIPlayer(BasePlayer):
         self._msg_sent = False
 
         enemy_ids: Set[str] = {c.id for c in observation.known_cities}
-        enemy_factions = list({c.faction for c in observation.known_cities if c.faction != self.faction})
+        # 🔴 sorted()：集合迭代顺序随 PYTHONHASHSEED 变化，而其结果会喂给
+        # self._rng.choice(...) 选外交/宣战目标 → 跨进程时同一 seed 会选出不同目标，
+        # 整局分叉（违反 ADR-0002）。必须排序后使用。
+        enemy_factions = sorted({c.faction for c in observation.known_cities if c.faction != self.faction})
 
         # 外交响应：如果收到结盟提议，根据性格决定是否接受
         if self._pending_alliance and self._diplomacy > 0.3 and not self._msg_sent:

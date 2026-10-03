@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from game.engine import GameEngine, TurnResult
 from game.data_loader import load_game_data
 from game.constants import FACTIONS
-from game.random import GameRandom
+from game.random import GameRandom, stable_hash
 from players.cli_player import CLIPlayer
 from players.llm.llm_client import LLMClient
 from players.llm.llm_player import LLMPlayer
@@ -97,7 +97,7 @@ def run_ai_vs_ai(
         print(f"  🤖 全势力 LLM 对战: {model}")
     else:
         for faction in FACTIONS:
-            players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
+            players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + stable_hash(faction) % 10000))
         print(f"  👤 全势力 CLI AI 对战")
 
     print(f"\n初始状态: {len(engine.cities)} 城市, {len(engine.generals)} 将领")
@@ -204,7 +204,7 @@ def run_gui_mode(
             players[faction] = LLMPlayer(faction=faction, llm_client=llm_client)
     else:
         for faction in FACTIONS:
-            players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
+            players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + stable_hash(faction) % 10000))
 
     if human_faction and human_faction in FACTIONS:
         title = f"乱斗三国 — 扮演{FACTIONS[human_faction]}"
@@ -253,7 +253,7 @@ def run_infinite_mode(
             players[faction] = LLMPlayer(faction=faction, llm_client=llm_client)
     else:
         for faction in FACTIONS:
-            players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + hash(faction) % 10000))
+            players[faction] = CLIPlayer(faction=faction, rng=GameRandom(seed + stable_hash(faction) % 10000))
 
     from renderer.game_renderer import GameRenderer
     renderer = GameRenderer(engine, title="乱斗三国 - 无限模式")

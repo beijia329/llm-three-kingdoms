@@ -1,7 +1,15 @@
 """确定性随机数生成器单元测试"""
 
+import os
+import re
+import subprocess
+import sys
+import zlib
+from pathlib import Path
+
 import pytest
-from game.random import GameRandom
+
+from game.random import GameRandom, stable_hash
 
 
 class TestGameRandomSeed:
@@ -242,3 +250,69 @@ class TestGameRandomEdgeCases:
         rng = GameRandom(seed=42)
         value = rng.randint(-50, 50)
         assert -50 <= value <= 50
+
+
+class TestStableHash:
+    """stable_hash —— 跨进程稳定的字符串哈希（替代内置 hash）
+
+    背景：内置 hash(str) 按 PYTHONHASHSEED 随机加盐 → 同 seed 派生种子随进程变化
+    → 对局不可复现（违反 ADR-0002）。stable_hash 用 CRC32，跨进程恒定。
+    """
+
+    # 项目根目录：tests/unit/test_random.py → parents[2]
+    _ROOT = Path(__file__).resolve().parents[2]
+
+    def test_is_deterministic(self):
+        """同一输入多次调用结果一致"""
+        assert stable_hash("caocao") == stable_hash("caocao")
+        assert stable_hash("liubei") == stable_hash("liubei")
+
+    def test_known_value_matches_crc32(self):
+        """实现即 CRC32 & 0xFFFFFFFF（golden 值，防实现漂移）"""
+        assert stable_hash("caocao") == (zlib.crc32(b"caocao") & 0xFFFFFFFF)
+
+    def test_in_uint32_range_and_distinct(self):
+        """结果落在 0..2^32-1，且不同势力键几乎必然不同"""
+        seeds = {f: stable_hash(f) for f in ("caocao", "liubei", "sunjian")}
+        for v in seeds.values():
+            assert 0 <= v <= 0xFFFFFFFF
+        assert len(set(seeds.values())) == len(seeds)
+
+    def test_independent_of_pythonhashseed(self):
+        """🔴 跨进程一致性：不同 PYTHONHASHSEED 下派生种子必须相同
+
+        直接执行 main.py 使用的表达式，在两个不同 PYTHONHASHSEED 的子进程里
+        各跑一次，结果必须逐字相同（这正是本次修复要保证的性质）。
+        """
+        code = (
+            "import sys; sys.path.insert(0, '.'); "
+            "from game.random import stable_hash; "
+            "print(stable_hash('caocao') % 10000)"
+        )
+        results = []
+        for seed in ("0", "1"):
+            env = {**os.environ, "PYTHONHASHSEED": seed}
+            proc = subprocess.run(
+                [sys.executable, "-c", code],
+                cwd=str(self._ROOT),
+                env=env,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            results.append(proc.stdout.strip())
+        assert results[0] != ""
+        assert results[0] == results[1], (
+            f"stable_hash 派生种子随 PYTHONHASHSEED 变化: {results}"
+        )
+
+    def test_main_py_uses_stable_hash_not_builtin(self):
+        """🔴 回归守卫：main.py 不得再用内置 hash() 派生每方种子
+
+        用否定环视排除 `stable_hash(` 里的 `hash(`，只揪真正的内置调用。
+        """
+        src = (self._ROOT / "main.py").read_text(encoding="utf-8")
+        assert "stable_hash(faction)" in src
+        assert re.search(r"(?<![A-Za-z0-9_])hash\s*\(", src) is None, (
+            "main.py 仍含内置 hash() 调用——会破坏跨进程确定性"
+        )

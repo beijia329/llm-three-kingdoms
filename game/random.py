@@ -13,12 +13,34 @@
 from __future__ import annotations
 
 import random
+import zlib
 from typing import Any, List, Optional, Sequence, TypeVar
 
 T = TypeVar("T")
 
 DEFAULT_SEED: int = 42
 """默认种子，确保不传seed时行为也确定"""
+
+
+def stable_hash(text: str) -> int:
+    """跨进程稳定的字符串哈希（替代内置 hash()）
+
+    🔴 为什么必须用它替代内置 `hash(str)`：CPython 的 `str.__hash__` 默认按进程
+    随机加盐（`PYTHONHASHSEED`），**同一字符串在不同进程会得到不同结果**。
+    用它来派生「每方玩家的随机种子」会让「同一 seed 跑出的对局」随进程变化，
+    直接违反 ADR-0002（确定性）——实测同一 `--seed` 在两进程出征次数不同
+    （见 api/game_manager.py 的历史注释）。
+
+    本函数用 CRC32，跨进程恒定，保证「同 seed → 同对局」。
+    全项目凡「由字符串稳定派生种子」之处都应调用本函数，不要再用内置 hash()。
+
+    Args:
+        text: 待哈希文本（典型为势力键）
+
+    Returns:
+        0 ~ 2^32-1 的稳定整数
+    """
+    return zlib.crc32(text.encode("utf-8")) & 0xFFFFFFFF
 
 
 class GameRandom:
