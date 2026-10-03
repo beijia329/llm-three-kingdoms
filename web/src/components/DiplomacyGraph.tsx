@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { FactionRelation, GameState } from '../types'
-import { FACTION_COLORS, FACTION_GLYPH, FACTIONS, contrastText } from '../theme'
+import { FACTION_COLORS, FACTION_GLYPH, FACTIONS, contrastText, UI_COLORS } from '../theme'
 
 /**
  * 外交关系可视化（v4.1 · 阶段D）
@@ -23,7 +23,7 @@ import { FACTION_COLORS, FACTION_GLYPH, FACTIONS, contrastText } from '../theme'
 /** 关系状态配色（与列表标签共用同一事实源，避免两处各写一份） */
 export const REL_STATUS_COLOR: Record<string, string> = {
   war: '#c85046',
-  neutral: '#96918a',
+  neutral: UI_COLORS.textSecondary,
   alliance: '#5ab464',
   truce: '#d4a84b',
 }
@@ -129,7 +129,7 @@ function GlyphBadge({ faction, size = 18, dim = false }: { faction: string; size
 /** 图例（图与矩阵共用） */
 export function RelationLegend() {
   return (
-    <div style={{ display: 'flex', gap: 10, fontSize: 11, color: '#96918a', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 10, fontSize: 11, color: UI_COLORS.textSecondary, flexWrap: 'wrap' }}>
       {(['war', 'alliance', 'truce'] as const).map((s) => (
         <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 9, height: 9, borderRadius: 2, background: REL_STATUS_COLOR[s], display: 'inline-block' }} />
@@ -194,7 +194,7 @@ export function RelationGraph({ state }: { state: GameState }) {
                 y1={p.y}
                 x2={q.x}
                 y2={q.y}
-                stroke={REL_STATUS_COLOR[e.status] || '#96918a'}
+                stroke={REL_STATUS_COLOR[e.status] || UI_COLORS.textSecondary}
                 strokeWidth={1.1 + 2.6 * inten}
                 strokeOpacity={focus ? 0.95 : 0.35 + 0.5 * inten}
                 strokeLinecap="round"
@@ -317,7 +317,7 @@ export function RelationMatrix({ state }: { state: GameState }) {
             const status = rel?.status || 'neutral'
             const trust = rel?.trust ?? 0
             const inten = rel ? relIntensity(status, trust) : 0
-            const color = REL_STATUS_COLOR[status] || '#96918a'
+            const color = REL_STATUS_COLOR[status] || UI_COLORS.textSecondary
             // 中立格压到很浅：66 对里大部分是中立，若同色会淹没真正的战/盟
             const alpha = status === 'neutral' ? 0.13 : 0.3 + 0.6 * inten
             return (

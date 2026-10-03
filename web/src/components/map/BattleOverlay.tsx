@@ -1,5 +1,5 @@
 import type { BattleReport, City } from '../../types'
-import { FACTION_COLORS, FACTIONS, FACTION_GLYPH, contrastText } from '../../theme'
+import { FACTION_COLORS, FACTIONS, FACTION_GLYPH, contrastText, UI_COLORS } from '../../theme'
 import { HEX_SIZE, axialToPixel } from '../../utils/hex'
 
 /**
@@ -33,7 +33,7 @@ const RESULT_META: Record<string, { label: string; color: string; icon: string; 
   attacker_win: { label: '占领', color: '#d4a84b', icon: 'fa-flag', dash: 'solid' },
   defender_win: { label: '守住', color: '#5ab464', icon: 'fa-shield-halved', dash: 'solid' },
   retreat: { label: '溃退', color: '#b06a5a', icon: 'fa-person-running', dash: 'dashed' },
-  draw: { label: '相持', color: '#96918a', icon: 'fa-equals', dash: 'dotted' },
+  draw: { label: '相持', color: UI_COLORS.textSecondary, icon: 'fa-equals', dash: 'dotted' },
 }
 
 /** 箭头「亮色芯线」颜色。

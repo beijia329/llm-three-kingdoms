@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { City, GameState } from '../types'
-import { FACTION_COLORS, FACTIONS, STAT_COLORS } from '../theme'
+import { FACTION_COLORS, FACTIONS, STAT_COLORS, UI_COLORS } from '../theme'
 import { Hint } from './Tooltip'
 import { FactionBadge } from './FactionBadge'
 import panelFrame from '../assets/ui/panel-frame.svg'
@@ -198,10 +198,10 @@ export function CityCard({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
           {generals.filter((g) => g.location === city.id).map((g) => (
             <div key={g.id} style={styles.genRow}>
-              <i className="fa-solid fa-user" style={{ color: '#96918a', fontSize: '9px' }}></i>
+              <i className="fa-solid fa-user" style={{ color: UI_COLORS.textSecondary, fontSize: '9px' }}></i>
               <span style={{ color: '#e8e0d0', minWidth: '46px' }}>{g.name}</span>
               {g.element_name && (
-                <span style={{ color: ELEMENT_COLORS[g.element || ''] || '#96918a', border: `1px solid ${ELEMENT_COLORS[g.element || ''] || '#96918a'}`, borderRadius: '3px', padding: '0 3px', fontSize: '9px' }}>{g.element_name}</span>
+                <span style={{ color: ELEMENT_COLORS[g.element || ''] || UI_COLORS.textSecondary, border: `1px solid ${ELEMENT_COLORS[g.element || ''] || UI_COLORS.textSecondary}`, borderRadius: '3px', padding: '0 3px', fontSize: '9px' }}>{g.element_name}</span>
               )}
               <span style={{ color: STAT_COLORS.command, marginLeft: 'auto' }}>统{g.command}</span>
               <span style={{ color: STAT_COLORS.bravery }}>武{g.bravery}</span>
@@ -419,7 +419,7 @@ const styles: Record<string, CSSProperties> = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     marginBottom: '8px', gap: '6px',
   },
-  factionName: { color: '#96918a', fontSize: '11px', whiteSpace: 'nowrap' },
+  factionName: { color: UI_COLORS.textSecondary, fontSize: '11px', whiteSpace: 'nowrap' },
   close: { background: 'transparent', border: 'none', color: '#a8a29a', cursor: 'pointer', fontSize: '13px', padding: '2px 4px', flexShrink: 0 },
   besieged: {
     margin: '0 0 8px', padding: '6px 9px', background: 'rgba(200, 80, 70, 0.15)',

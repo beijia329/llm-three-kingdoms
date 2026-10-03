@@ -9,7 +9,7 @@ import { Panel } from './components/Panel'
 import { ShortcutHelp } from './components/ShortcutHelp'
 import { TooltipProvider, useHintProps } from './components/Tooltip'
 import { TopBar } from './components/TopBar'
-import { FACTION_COLORS, FACTIONS } from './theme'
+import { FACTION_COLORS, FACTIONS, GAP_PANEL, NEXT_BTN_W, PANEL_W } from './theme'
 import { useGame } from './hooks/useGame'
 
 type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning'
@@ -27,6 +27,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 function App() {
   const {
     state, connected, auto, nextTurn, toggleAuto, restart,
+    // thinkingSeconds 仅透传给 LlmSetupBar（等待条在那边渲染，见 M7 注释）
     restarting, restartError, thinking, thinkingSeconds, llmActive, llmError,
     runCommand, commandPending, commandResult,
   } = useGame()
@@ -164,14 +165,11 @@ function App() {
             </div>
           )}
 
-          {/* 回合推进中：全局可见的等待条（不必盯着按钮也知道 AI 在跑） */}
-          {thinking && (
-            <div style={styles.thinkingBar}>
-              <i className="fa-solid fa-brain fa-beat" style={{ marginRight: '8px', color: '#d4a84b' }}></i>
-              AI 思考中 · 已等待 {thinkingSeconds}s
-              <span style={styles.thinkingHint}>（LLM 单回合约 30 秒）</span>
-            </div>
-          )}
+          {/* [M7 2026-10-04] 原「AI 思考中 · 已等待 Ns（LLM 单回合约 30 秒）」等待条已删除：
+              ① 与 LlmSetupBar 的等待条重复（同一 thinking 状态两处渲染，文案还不一样）；
+              ② 「约 30 秒」在 CLI 规则 AI 模式下是错的（实测单回合 <120ms）。
+              LlmSetupBar 那条已按 llmActive 区分文案，信息更完整，保留它。
+              按钮上的「思考中...」+ 转圈图标仍然是即时反馈。 */}
 
           {/* 城池详情卡（含真实可执行操作） */}
           {state && selectedCity && (
@@ -285,8 +283,9 @@ const styles: Record<string, React.CSSProperties> = {
   nextButton: {
     position: 'absolute',
     bottom: '14px',
-    right: '318px',
-    width: '140px',
+    // [M5] 由面板宽度推导（原魔数 318 → 与顶栏/事件流统一为 324）
+    right: PANEL_W + GAP_PANEL,
+    width: NEXT_BTN_W,
     height: '46px',
     background: 'rgba(18, 18, 34, 0.82)',
     border: '1px solid rgba(212, 168, 75, 0.5)',
@@ -303,7 +302,8 @@ const styles: Record<string, React.CSSProperties> = {
   autoIndicator: {
     position: 'absolute',
     bottom: '14px',
-    right: '470px',
+    // [M5] 紧邻「下一回合」按钮左侧：面板 + 间距 + 按钮宽 + 12 间距
+    right: PANEL_W + GAP_PANEL + NEXT_BTN_W + 12,
     padding: '10px 16px',
     background: 'rgba(18, 18, 34, 0.82)',
     border: '1px solid rgba(90, 180, 100, 0.4)',
@@ -316,27 +316,6 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
   },
-  /** 回合推进中的全局等待条（顶部居中） */
-  thinkingBar: {
-    position: 'absolute',
-    top: '12px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    padding: '8px 18px',
-    background: 'rgba(18, 18, 34, 0.9)',
-    border: '1px solid rgba(212, 168, 75, 0.5)',
-    borderRadius: '10px',
-    color: '#e8c877',
-    fontSize: '13px',
-    fontWeight: 600,
-    zIndex: 35,
-    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.35)',
-    backdropFilter: 'blur(12px)',
-    display: 'flex',
-    alignItems: 'center',
-    whiteSpace: 'nowrap',
-  },
-  thinkingHint: { color: '#8a86a0', fontSize: '11px', fontWeight: 400, marginLeft: '4px' },
   /** 自动推进的「停止」按钮（此前只能按 A 键，界面无入口） */
   stopBtn: {
     marginLeft: '10px',

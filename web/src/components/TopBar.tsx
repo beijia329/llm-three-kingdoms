@@ -1,5 +1,5 @@
 import type { GameState } from '../types'
-import { FACTIONS } from '../theme'
+import { FACTIONS, GAP_PANEL, PANEL_W } from '../theme'
 
 interface TopBarProps {
   state: GameState | null
@@ -62,7 +62,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     top: '12px',
     left: '12px',
-    right: '324px',
+    right: PANEL_W + GAP_PANEL, // [M5] 由面板宽度推导（原魔数 324）
     height: '50px',
     background: 'rgba(18, 18, 34, 0.82)',
     border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -73,6 +73,8 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     padding: '0 16px',
     boxSizing: 'border-box',
+    // [L12] 与 stats 的 overflow 配合，保证顶栏不撑破布局
+    overflow: 'hidden',
     zIndex: 10,
     boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
   },
@@ -92,12 +94,20 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: '12px',
     marginTop: '2px',
+    // [L12 2026-10-04] 极窄窗口下（实测 900px 宽时顶栏仅剩 264px）5 个势力统计会被
+    // flex 挤压变形。这里禁止换行 + 允许裁切：宁可少显示几个，也不要把文字压成一团。
+    // 完整势力数据在右侧面板，不受影响。
+    flexWrap: 'nowrap',
+    minWidth: 0,
+    overflow: 'hidden',
   },
   statItem: {
     color: '#a8a29a', // 阶段A：提亮，#96918a → 深底上更清晰
     fontSize: '11px',
     display: 'flex',
     alignItems: 'center',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   right: {
     display: 'flex',

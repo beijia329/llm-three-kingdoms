@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ResetOptions } from '../hooks/useGame'
-import { FACTION_COLORS, FACTIONS } from '../theme'
+import { FACTION_COLORS, FACTIONS, UI_COLORS } from '../theme'
 
 interface LlmSetupBarProps {
   /** 后端回报的**实际** LLM 生效状态 */
@@ -43,6 +43,8 @@ export function LlmSetupBar({
   const [models, setModels] = useState<Record<string, string>>({})
   // 候选模型带上 provider，便于提示"哪些模型本机没配 key"
   const [modelOptions, setModelOptions] = useState<Array<{ id: string; provider: string }>>([])
+  /** [M6] 重开一局的二次确认层是否展开 */
+  const [confirmRestart, setConfirmRestart] = useState(false)
   const wrapRef = useRef<HTMLDivElement | null>(null)
 
   // 拉取可用模型清单（后端静态返回，不实时请求外网，成本为零）。
@@ -101,7 +103,13 @@ export function LlmSetupBar({
   const busy = restarting || thinking
   const modeLabel = mode === 'llm' ? 'LLM 围观' : 'CLI AI'
 
-  const handleRestart = () => {
+  /**
+   * [M6 2026-10-04] 重开一局改为两段式：先弹确认，再执行。
+   * 此前点一下就直接 POST /api/reset，清空整局进度且**不可撤销**
+   * （本地单机、无存档回滚），提示只写在 title 里，鼠标一晃就过去了。
+   */
+  const doRestart = () => {
+    setConfirmRestart(false)
     // 只提交「已选势力」的模型分配，未指定的由后端回退到默认模型
     const factionModels: Record<string, string> = {}
     for (const fid of selected) {
@@ -113,6 +121,11 @@ export function LlmSetupBar({
       factions: selected,
       factionModels,
     })
+  }
+
+  const handleRestart = () => {
+    if (busy) return
+    setConfirmRestart(true)
   }
 
   /** 把可用模型轮流分配给已选势力 —— 一键做出「多模型混战」
@@ -196,7 +209,7 @@ export function LlmSetupBar({
                 </span>
               </>
             ) : (
-              <span style={{ color: '#7d7a92' }}>全部 12 方</span>
+              <span style={{ color: UI_COLORS.textMuted }}>全部 12 方</span>
             )}
             <i
               className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`}
@@ -349,6 +362,28 @@ export function LlmSetupBar({
           {restarting ? '重开中...' : '重开一局'}
         </button>
       </div>
+
+      {/* [M6 2026-10-04] 重开二次确认：本地单机无存档回滚，清空进度不可撤销。
+          风格沿用本组件的提示条（同 thinkingBar 一层），只多两个按钮。 */}
+      {confirmRestart && !restarting && (
+        <div style={styles.confirmBar} role="alertdialog" aria-label="确认重开一局">
+          <i
+            className="fa-solid fa-triangle-exclamation"
+            style={{ marginRight: '6px', color: '#e0776d' }}
+          ></i>
+          <span style={{ flex: 1 }}>
+            重开会按当前设置重新开局，
+            <strong style={{ color: '#e8e0d0' }}>当前对局进度将被清空且不可撤销</strong>
+            。确定？
+          </span>
+          <button style={styles.confirmBtn} onClick={doRestart}>
+            <i className="fa-solid fa-rotate-right" style={{ marginRight: '4px' }}></i>确定重开
+          </button>
+          <button style={styles.cancelBtn} onClick={() => setConfirmRestart(false)}>
+            取消
+          </button>
+        </div>
+      )}
 
       {/* 长耗时反馈：点了必须看得到 */}
       {thinking && (
@@ -601,6 +636,45 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#e8e0d0',
     marginLeft: '4px',
     fontVariantNumeric: 'tabular-nums',
+  },
+  /** [M6] 重开二次确认条 —— 与 thinkingBar 同一视觉层 */
+  confirmBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '7px 12px',
+    background: 'rgba(18, 18, 34, 0.92)',
+    border: '1px solid rgba(200, 80, 70, 0.5)',
+    borderRadius: '8px',
+    color: UI_COLORS.textSecondary,
+    fontSize: '12px',
+    backdropFilter: 'blur(12px)',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
+  },
+  confirmBtn: {
+    padding: '3px 10px',
+    borderRadius: '6px',
+    border: '1px solid rgba(200, 80, 70, 0.55)',
+    background: 'rgba(200, 80, 70, 0.16)',
+    color: '#e0776d',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    display: 'inline-flex',
+    alignItems: 'center',
+    whiteSpace: 'nowrap',
+  },
+  cancelBtn: {
+    padding: '3px 10px',
+    borderRadius: '6px',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
+    background: 'transparent',
+    color: UI_COLORS.textSecondary,
+    fontSize: '12px',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    whiteSpace: 'nowrap',
   },
   errorBar: {
     display: 'flex',

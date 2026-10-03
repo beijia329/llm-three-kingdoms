@@ -11,10 +11,14 @@
       依据 assets/art/ATTRIBUTION.md。建议后续加一个「关于/素材」入口做可见署名。
     -->
     <link rel="icon" type="image/png" href="/favicon.png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!--
+      [离线可用 2026-10-04] 移除两处外网 CDN 依赖：
+        · Google Fonts（Noto Sans SC）
+        · cdnjs（Font Awesome 6.5.1）
+      前者改由系统字体栈承接（macOS 走 PingFang SC，Windows 走 Microsoft YaHei）；
+      后者改由 npm 依赖 @fortawesome/fontawesome-free 在 src/main.tsx 中引入。
+      本项目定位「本地单机浏览器展示」，离线/内网/代理掉线时必须可用。
+    -->
     <style>
       * {
         box-sizing: border-box;

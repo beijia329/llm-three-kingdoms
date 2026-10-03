@@ -1,5 +1,5 @@
 import type { GameState, DiplomacyMessage } from '../types'
-import { FACTIONS, FACTION_COLORS } from '../theme'
+import { FACTIONS, FACTION_COLORS, UI_COLORS } from '../theme'
 import { useState } from 'react'
 import {
   RelationGraph,
@@ -63,7 +63,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
               borderRadius: '6px',
               border: 'none',
               background: activeTab === t ? 'rgba(212,168,75,0.2)' : 'rgba(255,255,255,0.05)',
-              color: activeTab === t ? '#d4a84b' : '#96918a',
+              color: activeTab === t ? '#d4a84b' : UI_COLORS.textSecondary,
               fontSize: '12px',
               cursor: 'pointer',
             }}
@@ -134,7 +134,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
                   >
                     {statusLabel[rel.status]}
                   </span>
-                  <span style={{ fontSize: '11px', color: '#96918a', width: '30px', textAlign: 'right' }}>
+                  <span style={{ fontSize: '11px', color: UI_COLORS.textSecondary, width: '30px', textAlign: 'right' }}>
                     {rel.trust}
                   </span>
                 </div>
@@ -177,7 +177,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
             发送外交消息
           </div>
           <div style={{ marginBottom: '10px' }}>
-            <label style={{ fontSize: '12px', color: '#96918a', display: 'block', marginBottom: '4px' }}>
+            <label style={{ fontSize: '12px', color: UI_COLORS.textSecondary, display: 'block', marginBottom: '4px' }}>
               目标势力
             </label>
             <select
@@ -202,7 +202,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
             </select>
           </div>
           <div style={{ marginBottom: '10px' }}>
-            <label style={{ fontSize: '12px', color: '#96918a', display: 'block', marginBottom: '4px' }}>
+            <label style={{ fontSize: '12px', color: UI_COLORS.textSecondary, display: 'block', marginBottom: '4px' }}>
               消息内容
             </label>
             <textarea
@@ -266,7 +266,7 @@ function MessageItem({ msg, humanFaction }: { msg: DiplomacyMessage; humanFactio
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-        <span style={{ fontSize: '11px', color: '#96918a' }}>
+        <span style={{ fontSize: '11px', color: UI_COLORS.textSecondary }}>
           {isIncoming ? '← ' : ''}{FACTIONS[msg.from_faction] || msg.from_faction}
           {isOutgoing ? ' → ' : ' → '}{FACTIONS[msg.to_faction] || msg.to_faction}
         </span>

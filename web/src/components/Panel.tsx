@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import type { GameEvent, GameState, General, ReasoningEntry } from '../types'
-import { FACTION_COLORS, FACTIONS, STAT_COLORS } from '../theme'
+import type { GameEvent, GameState, General, ReasoningEntry, TurnLog } from '../types'
+import { FACTION_COLORS, FACTIONS, PANEL_W, STAT_COLORS, UI_COLORS } from '../theme'
+// [H2 2026-10-04] 事件正文是否自带回合号（避免同一条并列两个回合号）
+import { hasTurnInText } from '../utils/eventTurn'
 // [阶段B] 决策正文用霞鹜文楷（局部按需，见 utils/wenKai.ts）
 import { useWenKai, WENKAI_STACK } from '../utils/wenKai'
 // [阶段B] 势力单字徽标——色盲/灰度下的非颜色线索
@@ -34,6 +36,10 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
 ]
 
 export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, setSelectedFaction, onSelectCity }: PanelProps) {
+  // [M8 2026-10-04] tab 的 hover 反馈。必须在 state 为空的提前返回**之前**声明，
+  // 否则 hook 调用数量会随渲染变化，违反 React hook 规则。
+  const [hoverTab, setHoverTab] = useState<TabKey | null>(null)
+
   if (!state) return (
     <div style={styles.container}>
       <div style={styles.glassCard}>
@@ -50,10 +56,14 @@ export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, set
             key={t.key}
             style={{
               ...styles.tab,
-              backgroundColor: tab === t.key ? 'rgba(212, 168, 75, 0.15)' : 'transparent',
-              color: tab === t.key ? '#d4a84b' : '#96918a',
+              // [M8] 选中 > hover > 常态（tab 原本连 hover 都没有）
+              backgroundColor:
+                tab === t.key ? 'rgba(212, 168, 75, 0.15)' : hoverTab === t.key ? 'rgba(255, 255, 255, 0.06)' : 'transparent',
+              color: tab === t.key ? '#d4a84b' : hoverTab === t.key ? '#d8d2c6' : UI_COLORS.textSecondary,
               borderColor: tab === t.key ? 'rgba(212, 168, 75, 0.4)' : 'transparent',
             }}
+            onMouseEnter={() => setHoverTab(t.key)}
+            onMouseLeave={() => setHoverTab((cur) => (cur === t.key ? null : cur))}
             onClick={() => setTab(t.key)}
           >
             <i className={`fa-solid ${t.icon}`} style={{ fontSize: '12px', marginBottom: '2px' }}></i>
@@ -88,8 +98,19 @@ function FactionList({
     .map(([fid, s]) => ({ fid, ...s }))
     .sort((a, b) => b.cities - a.cities || a.name.localeCompare(b.name, 'zh-CN'))
 
+  // [M8 2026-10-04] hover 反馈：此前只有 cursor:pointer，鼠标悬停时毫无变化，
+  // 观众无法预判"这个能不能点 / 我指着哪一个"。
+  const [hovered, setHovered] = useState<string | null>(null)
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      {/* [M4 2026-10-04] 12 方在 ≤1600×900 下一屏放不下（实测需滚 112~412px）。
+          先显式告知总数，避免观众误以为"只有 8 方"；同时把卡片纵向间距压紧，
+          让 1600×900 / 1440×900 这两档能一屏看全。 */}
+      <div style={styles.listHead}>
+        <span>共 {rows.length} 方势力</span>
+        <span style={{ color: UI_COLORS.textMuted }}>· 点击高亮，向下滚动看全部</span>
+      </div>
       {rows.map((row) => {
         const color = FACTION_COLORS[row.fid] || '#888888'
         const isSelected = selectedFaction === row.fid
@@ -99,11 +120,18 @@ function FactionList({
             key={row.fid}
             style={{
               ...styles.card,
+              padding: '10px',
               borderLeft: `3px solid ${color}`,
-              backgroundColor: isSelected ? 'rgba(212, 168, 75, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+              backgroundColor: isSelected
+                ? 'rgba(212, 168, 75, 0.1)'
+                : hovered === row.fid
+                  ? 'rgba(255, 255, 255, 0.07)'
+                  : 'rgba(255, 255, 255, 0.03)',
               cursor: 'pointer',
               opacity: dead ? 0.55 : 1,
             }}
+            onMouseEnter={() => setHovered(row.fid)}
+            onMouseLeave={() => setHovered((cur) => (cur === row.fid ? null : cur))}
             onClick={() => setSelectedFaction(row.fid)}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -168,6 +196,8 @@ function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId:
   const cities = Object.values(state.cities)
   const byFaction: Record<string, typeof cities> = {}
   cities.forEach((c) => { (byFaction[c.faction] = byFaction[c.faction] || []).push(c) })
+  // [M8] 城市行的 hover 反馈
+  const [hoverCity, setHoverCity] = useState<string | null>(null)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <div style={{ fontSize: '13px', color: '#d4a84b' }}>
@@ -177,7 +207,7 @@ function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId:
         <div key={f} style={styles.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
             <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: FACTION_COLORS[f] || '#888' }} />
-            <span style={{ fontSize: '12px', color: '#96918a' }}>{FACTIONS[f] || f} · {byFaction[f].length} 城</span>
+            <span style={{ fontSize: '12px', color: UI_COLORS.textSecondary }}>{FACTIONS[f] || f} · {byFaction[f].length} 城</span>
           </div>
           {byFaction[f].map((c) => {
             const selected = cityId === c.id
@@ -193,10 +223,17 @@ function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId:
                 <div
                   data-panel-city-id={c.id}
                   onClick={() => onSelectCity(c.id)}
+                  onMouseEnter={() => setHoverCity(c.id)}
+                  onMouseLeave={() => setHoverCity((cur) => (cur === c.id ? null : cur))}
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '6px 8px', marginBottom: '4px', borderRadius: '6px', cursor: 'pointer',
-                    background: selected ? 'rgba(212, 168, 75, 0.14)' : 'rgba(255,255,255,0.03)',
+                    // [M8] 选中 > hover > 常态
+                    background: selected
+                      ? 'rgba(212, 168, 75, 0.14)'
+                      : hoverCity === c.id
+                        ? 'rgba(255, 255, 255, 0.07)'
+                        : 'rgba(255,255,255,0.03)',
                     border: selected ? '1px solid rgba(212, 168, 75, 0.45)' : '1px solid transparent',
                   }}
                 >
@@ -204,7 +241,7 @@ function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId:
                     {selected && <i className="fa-solid fa-location-crosshairs" style={{ marginRight: '5px', fontSize: '10px' }}></i>}
                     {c.name}
                   </span>
-                  <span style={{ fontSize: '11px', color: '#96918a' }}>兵 {c.garrison} · 金 {c.gold}</span>
+                  <span style={{ fontSize: '11px', color: UI_COLORS.textSecondary }}>兵 {c.garrison} · 金 {c.gold}</span>
                 </div>
               </Hint>
             )
@@ -233,7 +270,7 @@ const ELEMENT_COLORS: Record<string, string> = {
 /** 将道徽章：显示五行 + 悬停显示人物称号 */
 function ElementBadge({ general }: { general: General }) {
   if (!general.element_name) return null
-  const color = ELEMENT_COLORS[general.element || ''] || '#96918a'
+  const color = ELEMENT_COLORS[general.element || ''] || UI_COLORS.textSecondary
   return (
     <span
       title={general.title || undefined}
@@ -290,11 +327,11 @@ function GeneralList({ state }: { state: GameState }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontWeight: 600, fontSize: '13px', color }}>
               <FactionBadge faction={fid} size={16} />
               {FACTIONS[fid] || fid}
-              <span style={{ color: '#96918a', fontWeight: 400, fontSize: '11px' }}>({gens.length}人)</span>
+              <span style={{ color: UI_COLORS.textSecondary, fontWeight: 400, fontSize: '11px' }}>({gens.length}人)</span>
             </div>
             {shown.map((g) => (
               <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '12px' }}>
-                <i className="fa-solid fa-user" style={{ color: '#96918a', fontSize: '9px' }}></i>
+                <i className="fa-solid fa-user" style={{ color: UI_COLORS.textSecondary, fontSize: '9px' }}></i>
                 <span style={{ color: '#e8e0d0', minWidth: '50px' }}>{g.name}</span>
                 <ElementBadge general={g} />
                 <span style={{ color: STAT_COLORS.command }}>统{g.command}</span>
@@ -349,7 +386,7 @@ const CATEGORY_META: Record<EventCategory, { label: string; icon: string; color:
   battle: { label: '战事', icon: 'fa-khanda', color: '#c85046' },
   kingdom: { label: '建国 · 称王', icon: 'fa-crown', color: '#d4a84b' },
   diplomacy: { label: '外交', icon: 'fa-handshake', color: '#5ab464' },
-  other: { label: '其他', icon: 'fa-scroll', color: '#96918a' },
+  other: { label: '其他', icon: 'fa-scroll', color: UI_COLORS.textSecondary },
 }
 
 const getEventIcon = (text: string): string => {
@@ -370,8 +407,8 @@ const getEventColor = (text: string): string => {
   if (text.includes('围')) return '#c85046'
   if (text.includes('建')) return '#64a0d2'
   if (text.includes('外交') || text.includes('盟')) return '#5ab464'
-  if (text.includes('投降') || text.includes('溃')) return '#96918a'
-  return '#96918a'
+  if (text.includes('投降') || text.includes('溃')) return UI_COLORS.textSecondary
+  return UI_COLORS.textSecondary
 }
 
 function EventLog({ events }: { events: GameEvent[] }) {
@@ -400,7 +437,7 @@ function EventLog({ events }: { events: GameEvent[] }) {
       )}
 
       {groups.battle.length === 0 && groups.kingdom.length > 0 && (
-        <div style={{ fontSize: '11px', color: '#7d7a92', textAlign: 'center', padding: '6px 0' }}>
+        <div style={{ fontSize: '11px', color: UI_COLORS.textMuted, textAlign: 'center', padding: '6px 0' }}>
           暂无战斗事件（AI 还在内政发育）
         </div>
       )}
@@ -482,7 +519,10 @@ function CategorySection({
                 className={`fa-solid ${categorizeEvent(evt) === 'battle' ? icon : getEventIcon(evt.text)}`}
                 style={{ color: categorizeEvent(evt) === 'battle' ? color : getEventColor(evt.text), fontSize: '10px', width: '14px', textAlign: 'center' }}
               ></i>
-              <span style={{ color: '#5a5a72', fontSize: '11px' }}>第{evt.turn}回合</span>
+              {/* [H2 2026-10-04] 正文自带回合号时不再补前缀，避免同一条出现两个回合号 */}
+              {!hasTurnInText(evt.text) && (
+                <span style={{ color: UI_COLORS.textMuted, fontSize: '11px' }}>第{evt.turn}回合</span>
+              )}
             </div>
             <span style={{ color: '#e8e0d0', fontSize: '12px', lineHeight: '1.5', paddingLeft: '20px' }}>{evt.text}</span>
           </div>
@@ -512,7 +552,7 @@ function ReasoningPanel({ state }: { state: GameState }) {
         <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
           <i
             className={`fa-solid ${llmActive ? 'fa-brain' : 'fa-circle-question'}`}
-            style={{ fontSize: '28px', color: llmActive ? '#5ab464' : '#5a5a72', marginBottom: '10px' }}
+            style={{ fontSize: '28px', color: llmActive ? '#5ab464' : UI_COLORS.textMuted, marginBottom: '10px' }}
           ></i>
           <div style={styles.dim}>
             {llmActive
@@ -640,7 +680,7 @@ function DataPanel({ state }: { state: GameState }) {
 function RankList({ title, items, attr, color }: { title: string; items: General[]; attr: string; color: string }) {
   return (
     <div style={{ marginBottom: '10px' }}>
-      <div style={{ fontSize: '11px', color: '#96918a', marginBottom: '4px' }}>{title}</div>
+      <div style={{ fontSize: '11px', color: UI_COLORS.textSecondary, marginBottom: '4px' }}>{title}</div>
       {items.map((g, i) => (
         <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '12px' }}>
           <span style={{ color: '#e8e0d0' }}>{i + 1}. {g.name}</span>
@@ -654,10 +694,41 @@ function RankList({ title, items, attr, color }: { title: string; items: General
 function StatBox({ label, value }: { label: string; value: number }) {
   return (
     <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-      <div style={{ fontSize: '11px', color: '#96918a', marginBottom: '2px' }}>{label}</div>
+      <div style={{ fontSize: '11px', color: UI_COLORS.textSecondary, marginBottom: '2px' }}>{label}</div>
       <div style={{ fontSize: '15px', color: '#e8e0d0', fontWeight: 600 }}>{value.toLocaleString()}</div>
     </div>
   )
+}
+
+/**
+ * [L9 2026-10-04] 把连续的「无战事」回合折叠成一行。
+ *
+ * 实测开局阶段连着 10 个回合都是「0 战斗 0 行军」，平铺占满整屏，
+ * 把真正有内容的回合挤到看不见。折叠后 10 行 → 1 行。
+ * 注意入参是**已倒序**（最新在前）的日志，因此 from 是新回合、to 是旧回合。
+ */
+type TurnRow = { idle: false; tl: TurnLog } | { idle: true; from: number; to: number }
+
+function foldIdleTurns(logs: TurnLog[]): TurnRow[] {
+  const isIdle = (t: TurnLog) =>
+    t.battles_fought === 0 && t.armies_moved === 0 && (t.cities_captured?.length ?? 0) === 0
+  const rows: TurnRow[] = []
+  let idle: { from: number; to: number } | null = null
+  const flush = () => {
+    if (idle) rows.push({ idle: true, from: idle.from, to: idle.to })
+    idle = null
+  }
+  for (const t of logs) {
+    if (isIdle(t)) {
+      if (idle) idle.to = t.turn
+      else idle = { from: t.turn, to: t.turn }
+    } else {
+      flush()
+      rows.push({ idle: false, tl: t })
+    }
+  }
+  flush()
+  return rows
 }
 
 function EventsPanel({ state }: { state: GameState }) {
@@ -675,29 +746,41 @@ function EventsPanel({ state }: { state: GameState }) {
       )}
       {turnLogs.length === 0 && events.length > 0 && (
         <div style={{ ...styles.card, padding: '10px' }}>
-          <div style={{ fontSize: '12px', color: '#96918a', marginBottom: '6px' }}>开局事件</div>
+          <div style={{ fontSize: '12px', color: UI_COLORS.textSecondary, marginBottom: '6px' }}>开局事件</div>
           {events.slice().reverse().map((e, i) => (
             <div key={i} style={{ fontSize: '12px', color: '#e8e0d0', marginBottom: '4px' }}>
-              <span style={{ color: '#96918a', marginRight: '6px' }}>第{e.turn}回合</span>{e.text}
+              {/* [H2 2026-10-04] 同上：正文已含回合号则不再加前缀 */}
+              {!hasTurnInText(e.text) && (
+                <span style={{ color: UI_COLORS.textSecondary, marginRight: '6px' }}>第{e.turn}回合</span>
+              )}
+              {e.text}
             </div>
           ))}
         </div>
       )}
-      {turnLogs.slice().reverse().map((tl) => (
-        <div key={tl.turn} style={{ ...styles.card, padding: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontSize: '13px', color: '#e8e0d0', fontWeight: 600 }}>第 {tl.turn} 回合</span>
-            <span style={{ fontSize: '11px', color: '#96918a' }}>{state.year}年</span>
+      {foldIdleTurns(turnLogs.slice().reverse()).map((row, i) =>
+        row.idle ? (
+          <div key={`idle-${i}-${row.from}-${row.to}`} style={styles.idleRow}>
+            <i className="fa-solid fa-moon" style={{ marginRight: '5px', fontSize: '10px' }}></i>
+            {row.from === row.to ? `第 ${row.from} 回合` : `第 ${row.to}–${row.from} 回合`}
+            ：无战事
           </div>
-          <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-            <span style={{ color: '#c85046' }}><i className="fa-solid fa-khanda" style={{ marginRight: '3px' }}></i>{tl.battles_fought} 战斗</span>
-            <span style={{ color: '#5ab464' }}><i className="fa-solid fa-person-military-rifle" style={{ marginRight: '3px' }}></i>{tl.armies_moved} 行军</span>
-            {tl.cities_captured.length > 0 && (
-              <span style={{ color: '#d4a84b' }}><i className="fa-solid fa-chess-rook" style={{ marginRight: '3px' }}></i>{tl.cities_captured.length} 城陷</span>
-            )}
+        ) : (
+          <div key={row.tl.turn} style={{ ...styles.card, padding: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '13px', color: '#e8e0d0', fontWeight: 600 }}>第 {row.tl.turn} 回合</span>
+              <span style={{ fontSize: '11px', color: UI_COLORS.textSecondary }}>{state.year}年</span>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+              <span style={{ color: '#c85046' }}><i className="fa-solid fa-khanda" style={{ marginRight: '3px' }}></i>{row.tl.battles_fought} 战斗</span>
+              <span style={{ color: '#5ab464' }}><i className="fa-solid fa-person-military-rifle" style={{ marginRight: '3px' }}></i>{row.tl.armies_moved} 行军</span>
+              {row.tl.cities_captured.length > 0 && (
+                <span style={{ color: '#d4a84b' }}><i className="fa-solid fa-chess-rook" style={{ marginRight: '3px' }}></i>{row.tl.cities_captured.length} 城陷</span>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        ),
+      )}
     </div>
   )
 }
@@ -738,8 +821,28 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 400,
     whiteSpace: 'nowrap',
   },
+  /** [L9] 被折叠的「无战事」回合段（虚线框，与有内容的实卡片区分） */
+  idleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '6px 10px',
+    borderRadius: '8px',
+    background: 'rgba(255, 255, 255, 0.02)',
+    border: '1px dashed rgba(255, 255, 255, 0.1)',
+    color: UI_COLORS.textMuted,
+    fontSize: '11px',
+  },
+  /** [M4] 列表顶部计数条：12 方在小屏一屏放不下，先告知总数是几方 */
+  listHead: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '4px',
+    padding: '2px 2px 0',
+    fontSize: '11px',
+    color: UI_COLORS.textSecondary,
+  },
   container: {
-    width: '300px',
+    width: PANEL_W, // [M5] 与所有浮层的 right 偏移同一事实源
     height: '100%',
     backgroundColor: 'rgba(18, 18, 34, 0.85)',
     borderLeft: '1px solid rgba(255, 255, 255, 0.06)',
@@ -799,7 +902,7 @@ const styles: Record<string, React.CSSProperties> = {
   statItem: {
     display: 'flex',
     alignItems: 'center',
-    color: '#96918a',
+    color: UI_COLORS.textSecondary,
     fontSize: '12px',
   },
   detailGrid: {

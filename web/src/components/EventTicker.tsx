@@ -1,4 +1,7 @@
 import type { GameEvent } from '../types'
+// [H2 2026-10-04] 事件正文是否自带回合号
+import { hasTurnInText } from '../utils/eventTurn'
+import { GAP_PANEL, PANEL_W } from '../theme'
 // [阶段A] 接入已下载的 game-icons 素材（scroll-quill，CC BY 3.0）。
 // 用 CSS mask 着色，保留矢量 + 随字色变色。
 import scrollQuill from '../assets/icons/scroll-quill.svg'
@@ -39,7 +42,10 @@ export function EventTicker({ events }: EventTickerProps) {
         <div style={styles.scrollArea}>
           {recent.map((evt, idx) => (
             <span key={idx} style={styles.item}>
-              <span style={{ color: '#8a86a0', marginRight: '4px' }}>[第{evt.turn}回合]</span>
+              {/* [H2 2026-10-04] 正文自带回合号时不再补前缀（同 Panel.tsx） */}
+              {!hasTurnInText(evt.text) && (
+                <span style={{ color: '#8a86a0', marginRight: '4px' }}>[第{evt.turn}回合]</span>
+              )}
               {evt.text}
             </span>
           ))}
@@ -57,7 +63,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     bottom: '14px',
     left: '14px',
-    right: '330px',
+    right: PANEL_W + GAP_PANEL, // [M5] 由面板宽度推导（原魔数 330 → 与顶栏对齐）
     height: '36px',
     background: 'rgba(18, 18, 34, 0.82)',
     border: '1px solid rgba(255, 255, 255, 0.08)',

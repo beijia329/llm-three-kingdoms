@@ -166,6 +166,21 @@ export const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const
 export const RADIUS = { sm: 4, md: 6, lg: 10, pill: 999 } as const
 export const FONT_SIZE = { xs: 11, sm: 12, md: 13, lg: 15, xl: 20 } as const
 
+/**
+ * 右侧常驻面板宽度（px）。
+ *
+ * [M5 2026-10-04] 此前顶栏/事件流/「下一回合」按钮/自动推进条各自硬编码 right
+ * 偏移（324 / 330 / 318 / 470），四个值互不对齐（最大差 12px），且 Panel 宽度一改
+ * 就四处全错位。现在统一由本常量推导：
+ *   right = PANEL_W + GAP_PANEL（= 324）
+ * 自动推进条再叠一个按钮宽 + 间距。
+ */
+export const PANEL_W = 300
+/** 浮层与面板之间的统一间距 */
+export const GAP_PANEL = 24
+/** 「下一回合」按钮宽度（自动推进条定位依赖它） */
+export const NEXT_BTN_W = 140
+
 // 字体栈：标题走衬线（系统自带，零体积），正文走黑体。
 // 这是阶段A 的「零成本汉风层级」；阶段B 再换成思源宋体/霞鹜文楷。
 export const FONT_STACK = {
