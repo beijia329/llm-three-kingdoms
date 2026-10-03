@@ -408,7 +408,21 @@ class TestAftermath:
         assert result.captured_city is not None
 
     def test_aftermath_captured_generals(self):
-        """战斗后有被俘将领"""
+        """战斗后有被俘将领
+
+        ⚠️ 本用例是 `process_aftermath` 的**单元**测试：它把 `defender_generals`
+        直接喂给被调函数，**绕过了 `resolve_battle`**，所以**不能**用来证明
+        「俘虏链在生产环境是通的」——2026-10-03 实测：把 `resolve_battle` 里
+        `defender_generals=` 那个实参注释掉，本用例照样绿。
+
+        生产链路守卫在 `tests/integration/test_capture_chain.py`
+        （走 `resolve_battle` + `_apply_battle_result`，并做过改坏验证）。
+
+        断言说明：守方兵力归零 + 攻方尚有兵力 → `process_aftermath` **无条件**
+        俘获全部守将（`defender_total_soldiers <= 0 and attacker_total_soldiers > 0`
+        那条分支不掷骰），所以这里可以精确断言，不必写 `result is not None`
+        这种恒真的废话。
+        """
         resolver = BattleResolver(rng=GameRandom(seed=42))
         ctx = _make_siege_context(
             attacker_soldiers=5000, defender_soldiers=0,
@@ -420,9 +434,8 @@ class TestAftermath:
             defender_city_owner="shu",
             defender_generals=["guanyu", "zhangfei"],
         )
-        # 应该有概率俘虏将领
-        # 至少返回一个结果
-        assert result is not None
+        # 守方全灭 → 全部守将被俘（确定性，与 rng 无关）
+        assert result.captured_generals == ["guanyu", "zhangfei"]
 
 
 # ============================================================

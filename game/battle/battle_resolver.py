@@ -181,9 +181,15 @@ class BattleResolver:
             #
             #    实测（改坏验证，2026-10-03）：把本行注释掉后跑
             #    tests/unit + tests/integration → 631 passed, 1 skipped, **0 failed**。
-            #    即：本行目前**没有任何自动化测试保护**——摘掉它 CI 不会报警，
+            #    即：本行曾经**没有任何自动化测试保护**——摘掉它 CI 不会报警，
             #    俘虏 / 投降 / 降将转投三条链会静默失效。
-            #    补上生产链路回归测试之前，改动本文件请手动验证这条链。
+            #
+            #    ✅ 2026-10-03 已补上生产链路回归守卫：
+            #    `tests/integration/test_capture_chain.py`。该文件**不碰
+            #    process_aftermath**，只走 `resolve_battle` + `_apply_battle_result`
+            #    两个生产调用点，断言 captured_generals 与 process_capture 调用。
+            #    并已做**改坏验证**：把本行注释掉后该文件 2 个用例全部变红
+            #    （captured_generals == []），还原后复绿。篡改本行会被它挡住。
             defender_generals=list(context.defender_general_ids),
         )
         result.battle_log = battle_log
