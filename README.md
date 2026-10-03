@@ -1,5 +1,9 @@
 # 乱斗三国 · LLM 大乱斗
 
+[![CI](https://github.com/beijia329/llm-three-kingdoms/actions/workflows/ci.yml/badge.svg)](https://github.com/beijia329/llm-three-kingdoms/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+
 > 184 年黄巾之乱，十二路诸侯逐鹿中原——让大语言模型各领一方，谁才是真正的「天命之子」？
 
 一个 **LLM 驱动的多智能体策略对战平台**。把大模型评测从传统的「PVE 刷分」搬进「PVP 竞技」：让不同的大模型扮演三国诸侯，在同一套规则下真刀真枪打一局，看谁更会**推理、规划、合纵连横**。
@@ -12,7 +16,7 @@
 
 大多数 LLM 评测给出的是一个分数。这个项目想给出的是**一局棋**。
 
-每个势力由一个大模型驱动。它每回合必须先写出**决策理由**，再下达命令；这些理由、外交密信、背盟与结盟的瞬间，全部在围观台上实时可见。你能看到曹操权衡「先取弱城滚雪球还是先稳后方」、刘备以汉室宗亲身份四处结好、黄巾以宗教号召力爆兵——**大模型的主观智能第一次以「棋手」而不是「答题者」的形态出现**。
+每个势力由一个大模型驱动。它每回合必须先写出**决策理由**，再下达命令；这些理由、外交密信、背盟与结盟的瞬间，全部在围观台上实时可见。你能看到曹操权衡「先取弱城滚雪球还是先稳后方」、刘备以汉室宗亲身份四处结好、黄巾以宗教号召力爆兵——**大模型以「棋手」而非「答题者」的形态出现**。
 
 因此本项目有两个同等重要的目标：
 
@@ -36,6 +40,7 @@
 | 👑 **建国机制** | 控 3 城称王、5 城称帝 |
 | 🎥 **Web 围观台** | React + PixiJS，实时看 LLM 勾心斗角（决策理由 / 外交 / 事件流） |
 | 🔁 **确定性** | 同 seed 可复现；并发决策也不破坏结果一致性（有测试逐回合证明） |
+| 🧩 **可插拔子系统** | 三个扩展点（回合相位钩子 / 命令注册表 / 事件总线），加玩法不改引擎——[写一个 Mod](./docs/design/modding-guide.md) |
 
 ---
 
@@ -107,7 +112,7 @@ python run_web.py --seed 42 --max-turns 48    # 现在真的生效（v4.0 修复
 
 ## 🎭 设计立场：LLM 与角色的关系
 
-这是本项目最常被问到的问题，也是 v4.0 明确下来的设计选择：
+这是本项目的核心设计选择（v4.0 明确收口）：
 
 > **LLM 需要读取角色设定后执行吗？这样会不会限制它的智能？**
 
@@ -160,10 +165,42 @@ python run_web.py --seed 42 --max-turns 48    # 现在真的生效（v4.0 修复
 
 ---
 
+## 🧩 可插拔：加玩法不改引擎
+
+加一个新玩法，不该意味着去改 `process_turn`。本项目为此留了三个扩展点：
+
+| 扩展点 | 用途 | 关键文件 |
+|---|---|---|
+| **回合相位钩子** | 挂「每回合自动结算」的被动机制 | `game/turn_phase.py` |
+| **命令注册表** | 加一条玩家/LLM 可下发的主动命令 | `game/command_registry.py` |
+| **事件总线** | 事后广播已发生的事，供 UI/日志订阅 | `game/event_bus.py` |
+
+五个相位（`TURN_START` / `AFTER_PRODUCTION` / `AFTER_MOVEMENT` / `AFTER_RESOLUTION` / `TURN_END`）覆盖了回合内所有「新机制可能想挂的位置」。钩子按 `(priority, 注册序)` 双键排序执行，不依赖容器迭代序；钩子抛异常会被记录进 `result["hook_errors"]` 并继续执行——一个 mod 的 bug 不该让整局崩，但必须可观测。
+
+这不是预留的架子，引擎自己在用：`influence_spread`（影响力扩散）与 `nature_strain`（人设代价）两个既有机制已从内联逻辑迁移为钩子，语义与位置不变。
+
+完整签名、纪律与一个可运行的示例 mod 见 **[写一个 Mod](./docs/design/modding-guide.md)**；
+示例源码在 `examples/mods/harvest_festival.py`，验收脚本 `examples/run_mod_demo.py`。
+
+> 诚实说明：引擎侧的**命令分发**已是单一扩展点，但一条新命令仍需同步
+> `llm_player.COMMAND_CLASSES`、`output_parser.VALID_COMMAND_TYPES`、
+> `game_manager._deserialize_command`、前端 `commands.ts` 四处清单。
+> 收口进度见 modding-guide 的「已知待办」一节。
+
+---
+
 ## 🧪 测试与实验
 
 ```bash
-python -m pytest tests/ -q          # 604 tests（系统 Python 3.12）
+python -m pytest tests/ -q          # 单元 + 集成 + 平衡实验
+```
+
+全量用例由 CI 在每次推送与 PR 时执行（见顶部 CI 徽章）。
+这里刻意不写死用例数量——写死的数字必然随迭代失真，本项目已有过
+「旧结论被当现状」的教训（见 `docs/pitfalls.md`）。要拿当前真实数量：
+
+```bash
+python -m pytest tests/ --collect-only -q | tail -1
 ```
 
 **平衡实验**（`tests/balance/`，约 400 局 headless 对照模拟，全部可复现）：
@@ -173,6 +210,8 @@ PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp11_siege_anatomy.py --games 
 PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp12_unification_check.py --games 5 --turns 48
 PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp13_parallel_determinism.py --turns 12
 PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp14_general_system_audit.py --games 3 --turns 48
+PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp17_siege_flag_leak.py --games 5 --turns 48
+PYTHONHASHSEED=0 ./venv/bin/python tests/balance/exp18_siege_morale_reachability.py --games 5 --turns 48
 ```
 
 实验遵循三条纪律：**一变量一改**、**每次至少 5 局**、**必须设对照组**。
@@ -193,6 +232,7 @@ renderer/   Pygame 渲染（降级/调试通道）
 web/        React + PixiJS Web 前端（一等公民渲染通道）
 api/        FastAPI + WebSocket 桥接（并发决策在此）
 data/       地图 / 城市 / 将领 / 省界数据
+examples/   示例 mod（扩展点用法示范，可直接运行）
 tests/      单元 + 集成 + 平衡实验 + LLM runner
 docs/       设计文档 / ADR / QA 报告 / 审计报告
 ```
@@ -203,6 +243,7 @@ docs/       设计文档 / ADR / QA 报告 / 审计报告
 
 - [更新日志](./CHANGELOG.md)
 - 设计文档：`docs/design/`
+- 写一个 Mod（扩展点指南）：[`docs/design/modding-guide.md`](./docs/design/modding-guide.md)
 - 架构决策记录：`docs/adr/`
 - 文档与玩法审计：`docs/audit/2026-10-docs-and-gameplay-audit.md`
 - 历史审计报告（回合/年份、武将数据、节奏平衡）：`docs/archive/design/v31-*.md`
