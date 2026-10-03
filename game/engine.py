@@ -848,7 +848,14 @@ class GameEngine:
             if self.hex_map is not None:
                 # 使用地块产出计算
                 territory = self._city_system.get_city_territory(city, self.hex_map)
-                tiles = [self.hex_map.get_tile(c) for c in territory]
+                # 🔴 确定性：territory 是 set，迭代序随 PYTHONHASHSEED 变化；
+                # 而下面 ResourceSystem 用 `sum(t.gold_yield ...)` 等浮点求和，
+                # 浮点加法不满足结合律，求和顺序不同可能产生 1-ULP 差异 →
+                # int() 截断后产出差 1，进而使整局分叉。按 (q, r) 排序锁定顺序（ADR-0002）。
+                tiles = [
+                    self.hex_map.get_tile(c)
+                    for c in sorted(territory, key=lambda h: (h.q, h.r))
+                ]
                 tiles = [t for t in tiles if t is not None]
                 resource_result = self._resource_system.calculate_resources(
                     city, tiles=tiles, season=getattr(self, 'season', 'spring'),
