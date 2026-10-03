@@ -1,4 +1,9 @@
 import { FACTION_COLORS, FACTION_GLOW } from '../../theme'
+// [阶段A 2026-10-03] 接入 game-icons 素材（CC BY 3.0）：
+// 行军→马首、进攻/围城→交叉刀剑、撤退→盾牌。原来军队只是一个旋转方块，看不出状态。
+import horseIcon from '../../assets/icons/horse-head.svg'
+import swordsIcon from '../../assets/icons/crossed-swords.svg'
+import shieldIcon from '../../assets/icons/shield.svg'
 
 interface ArmyMarkerProps {
   army: {
@@ -13,16 +18,34 @@ interface ArmyMarkerProps {
   zoom: number
 }
 
+function maskStyle(url: string, color: string, size: number) {
+  return {
+    width: `${size}px`,
+    height: `${size}px`,
+    backgroundColor: color,
+    maskImage: `url(${url})`,
+    WebkitMaskImage: `url(${url})`,
+    maskSize: 'contain',
+    WebkitMaskSize: 'contain',
+    maskRepeat: 'no-repeat' as const,
+    WebkitMaskRepeat: 'no-repeat' as const,
+    maskPosition: 'center',
+    WebkitMaskPosition: 'center',
+    display: 'block',
+  }
+}
+
 export function ArmyMarker({ army, x, y, zoom }: ArmyMarkerProps) {
   if (army.soldiers <= 0) return null
 
   const color = FACTION_COLORS[army.faction] || '#888'
   const glow = FACTION_GLOW[army.faction] || 'rgba(128,128,128,0.5)'
   const isRetreat = army.status === 'retreating'
+  const isAttack = /attack|siege|besie|assault/i.test(army.status)
+  const icon = isRetreat ? shieldIcon : isAttack ? swordsIcon : horseIcon
   // [LOD 2026-10-01] 屏幕尺寸随地图缩放（8~28px）
-  const markerScreen = Math.max(8, Math.min(28, 64 * zoom * 1.4))
+  const markerScreen = Math.max(12, Math.min(30, 64 * zoom * 1.4))
   const scale = markerScreen / (32 * Math.max(zoom, 0.02))
-  const size = 14
 
   const moraleRatio = Math.max(0, Math.min(1, army.morale / 100))
   const moraleColor = moraleRatio > 0.5 ? '#3cb464' : moraleRatio > 0.2 ? '#c8a032' : '#c85046'
@@ -42,24 +65,15 @@ export function ArmyMarker({ army, x, y, zoom }: ArmyMarkerProps) {
         alignItems: 'center',
       }}
     >
-      {/* 军队图标容器 */}
+      {/* 军队图标：状态决定剪影，势力色着色 */}
       <div
         style={{
           position: 'relative',
-          filter: `drop-shadow(0 0 4px ${glow})`,
+          filter: `drop-shadow(0 0 1px #2a2018) drop-shadow(0 1px 2px rgba(0,0,0,0.5)) drop-shadow(0 0 4px ${glow})`,
           animation: isRetreat ? 'retreat-shake 0.8s ease-in-out infinite' : 'none',
         }}
       >
-        <div
-          style={{
-            width: size * 1.15,
-            height: size * 1.15,
-            backgroundColor: isRetreat ? '#c85046' : color,
-            border: '1.5px solid #2a2018',
-            boxSizing: 'border-box',
-            transform: 'rotate(45deg)',
-          }}
-        />
+        <span aria-hidden style={maskStyle(icon, isRetreat ? '#c85046' : color, 18)} />
       </div>
 
       {/* 兵力数字 */}

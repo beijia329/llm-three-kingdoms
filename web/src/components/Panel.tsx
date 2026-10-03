@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { GameEvent, GameState, General, ReasoningEntry } from '../types'
-import { FACTION_COLORS, FACTIONS } from '../theme'
+import { FACTION_COLORS, FACTIONS, STAT_COLORS } from '../theme'
 import { commandIcon, commandLabel } from '../constants/commands'
 import { DiplomacyPanel } from './DiplomacyPanel'
 
@@ -185,7 +185,7 @@ function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId:
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <div style={{ ...styles.card, borderLeft: `3px solid ${color}` }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <h3 style={{ color, margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h3 className="font-serif" style={{ color, margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <i className="fa-solid fa-city"></i>
             {city.name}
           </h3>
@@ -238,11 +238,11 @@ function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId:
               <i className="fa-solid fa-user" style={{ color: '#96918a', fontSize: '10px' }}></i>
               <span style={{ color: '#e8e0d0', minWidth: '50px' }}>{g.name}</span>
               <ElementBadge general={g} />
-              <span style={{ color: '#c85046' }}>统{g.command}</span>
-              <span style={{ color: '#64a0d2' }}>政{g.politics}</span>
-              <span style={{ color: '#c85046' }}>武{g.bravery}</span>
-              <span style={{ color: '#d4a84b' }}>智{g.intelligence}</span>
-              <span style={{ color: '#5ab464' }}>忠{g.loyalty}</span>
+              <span style={{ color: STAT_COLORS.command }}>统{g.command}</span>
+              <span style={{ color: STAT_COLORS.politics }}>政{g.politics}</span>
+              <span style={{ color: STAT_COLORS.bravery }}>武{g.bravery}</span>
+              <span style={{ color: STAT_COLORS.intelligence }}>智{g.intelligence}</span>
+              <span style={{ color: STAT_COLORS.loyalty }}>忠{g.loyalty}</span>
             </div>
           ))}
         </div>
@@ -319,11 +319,11 @@ function GeneralList({ state }: { state: GameState }) {
                 <i className="fa-solid fa-user" style={{ color: '#96918a', fontSize: '9px' }}></i>
                 <span style={{ color: '#e8e0d0', minWidth: '50px' }}>{g.name}</span>
                 <ElementBadge general={g} />
-                <span style={{ color: '#c85046' }}>统{g.command}</span>
-                <span style={{ color: '#64a0d2' }}>政{g.politics}</span>
-                <span style={{ color: '#c85046' }}>武{g.bravery}</span>
-                <span style={{ color: '#d4a84b' }}>智{g.intelligence}</span>
-                <span style={{ color: '#5ab464' }}>忠{g.loyalty}</span>
+                <span style={{ color: STAT_COLORS.command }}>统{g.command}</span>
+                <span style={{ color: STAT_COLORS.politics }}>政{g.politics}</span>
+                <span style={{ color: STAT_COLORS.bravery }}>武{g.bravery}</span>
+                <span style={{ color: STAT_COLORS.intelligence }}>智{g.intelligence}</span>
+                <span style={{ color: STAT_COLORS.loyalty }}>忠{g.loyalty}</span>
               </div>
             ))}
             {gens.length > 5 && (
@@ -631,10 +631,10 @@ function DataPanel({ state }: { state: GameState }) {
         <div style={{ color: '#d4a84b', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>
           <i className="fa-solid fa-ranking-star" style={{ marginRight: '6px' }}></i>武将排行榜
         </div>
-        <RankList title="统帅 Top 5" items={topCommanders.slice(0, 5)} attr="command" color="#c85046" />
-        <RankList title="政治 Top 5" items={topPoliticians.slice(0, 5)} attr="politics" color="#64a0d2" />
-        <RankList title="勇武 Top 5" items={topBrave.slice(0, 5)} attr="bravery" color="#c85046" />
-        <RankList title="智力 Top 5" items={topIntel.slice(0, 5)} attr="intelligence" color="#d4a84b" />
+        <RankList title="统帅 Top 5" items={topCommanders.slice(0, 5)} attr="command" color={STAT_COLORS.command} />
+        <RankList title="政治 Top 5" items={topPoliticians.slice(0, 5)} attr="politics" color={STAT_COLORS.politics} />
+        <RankList title="勇武 Top 5" items={topBrave.slice(0, 5)} attr="bravery" color={STAT_COLORS.bravery} />
+        <RankList title="智力 Top 5" items={topIntel.slice(0, 5)} attr="intelligence" color={STAT_COLORS.intelligence} />
       </div>
 
       <div style={{ ...styles.card }}>
@@ -780,7 +780,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'background-color 0.2s ease',
   },
   dim: {
-    color: '#96918a',
+    color: '#a8a29a', // 阶段A：提亮（原 #96918a）
     fontSize: '13px',
   },
   statGrid: {
@@ -817,13 +817,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   foldCount: {
     marginLeft: '6px',
-    color: '#7d7a92',
+    color: '#8a86a0', // 阶段A：原 #7d7a92 偏暗
     fontSize: '10px',
     fontWeight: 400,
   },
   foldHint: {
     marginLeft: 'auto',
-    color: '#5a5a72',
+    color: '#8a86a0', // 阶段A：原 #5a5a72 对深底仅约 2.8:1，不可见
     fontSize: '10px',
     fontWeight: 400,
   },
@@ -846,7 +846,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cmdLabel: {
     display: 'block',
-    color: '#7d7a92',
+    color: '#8a86a0', // 阶段A：原 #7d7a92 偏暗
     fontSize: '10px',
     marginBottom: '5px',
   },

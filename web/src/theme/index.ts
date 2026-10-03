@@ -77,15 +77,63 @@ export const TERRAIN_COLORS: Record<string, { fill: number; border: number }> = 
   river:        { fill: 0x55aadd, border: 0x4499cc },
 }
 
+// === 古地图「羊皮纸」地形色（阶段A 新增）===
+// 修复：原来 parchmentTint() 对所有地形返回同一个色 0xd9c9a3，导致
+// 山地/森林/沙漠/雪地在图上完全同色。这里给每种地形一个同色系、
+// 但有区分度的羊皮纸色调——既保留「古地图」质感，又能看出地形差异。
+// 全部取同一明度带的大地/羊皮纸色，避免出现「卡通花斑」。
+export const TERRAIN_PARCHMENT: Record<string, number> = {
+  plain:        0xd9c9a3, // 基准羊皮纸
+  grassland:    0xd4c79c,
+  grass:        0xcabd8f, // 略偏草绿
+  forest:       0xbdb083, // 更深
+  dense_forest: 0xa89b6e, // 最深（林）
+  marsh:        0xc6bf95,
+  hill:         0xd6c6a0,
+  mountain:     0xc3b28e, // 山体偏灰褐
+  peak:         0xe2d8be, // 峰顶提亮（积雪感）
+  desert:       0xe8d79f, // 沙漠偏黄
+  tundra:       0xd8d2c0,
+  snow:         0xefece2, // 雪接近白
+  // 非水默认
+  _default:     0xd9c9a3,
+}
+
+// === 阶段A：间距 / 圆角 / 字号 刻度（Design Token）===
+// 目的：原来各组件硬编码 4/6/8/10/12/14 混用、圆角 4/6/8/10 混用，
+// 视觉上「拼凑感」明显。统一到一套刻度后，改一处即可全站生效。
+export const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const
+export const RADIUS = { sm: 4, md: 6, lg: 10, pill: 999 } as const
+export const FONT_SIZE = { xs: 11, sm: 12, md: 13, lg: 15, xl: 20 } as const
+
+// 字体栈：标题走衬线（系统自带，零体积），正文走黑体。
+// 这是阶段A 的「零成本汉风层级」；阶段B 再换成思源宋体/霞鹜文楷。
+export const FONT_STACK = {
+  sans: '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif',
+  serif: '"Songti SC", "STSong", "SimSun", "Noto Serif SC", serif',
+} as const
+
+// 属性配色语义（阶段A 修复：原来「统帅」和「勇武」都用 #c85046，同色异义）
+export const STAT_COLORS = {
+  command: '#e0705a',   // 统帅 — 朱
+  politics: '#64a0d2',  // 政治 — 蓝
+  bravery: '#d99a3c',   // 勇武 — 橙（与统帅区分开）
+  intelligence: '#d4a84b', // 智力 — 金
+  loyalty: '#5ab464',   // 忠诚 — 绿
+} as const
+
 // === UI 基础色 ===
+// 阶段A 对比度修复：原 textMuted #5a5a72 对深底仅约 2.8:1（远低于 WCAG AA 4.5:1），
+// 且被用在 10px 提示文字上几乎不可见。#8a86a0 实测约 5.3:1，达标。
+// textSecondary 也由 #96918a 提亮到 #a8a29a（约 7.3:1），小字号更稳。
 export const UI_COLORS = {
   bg: '#1a1a2e',
   bgElevated: '#22223e',
   panelBg: 'rgba(18, 18, 34, 0.88)',
   panelBorder: 'rgba(255, 255, 255, 0.08)',
   textPrimary: '#e8e0d0',
-  textSecondary: '#96918a',
-  textMuted: '#5a5a72',
+  textSecondary: '#a8a29a',
+  textMuted: '#8a86a0',
   gold: '#d4a84b',
   goldGlow: 'rgba(212, 168, 75, 0.4)',
   red: '#c85046',

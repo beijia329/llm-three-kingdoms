@@ -630,8 +630,14 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
   },
   modeHint: {
+    // [阶段A] 这行文字浮在地图上（背景可能是羊皮纸亮色），原来无底板 + #7d7a92
+    // 深色，落在亮色地图上几乎读不出。加深色半透明底板 + 提亮字色。
+    alignSelf: 'flex-start',
     fontSize: '10px',
-    color: '#7d7a92',
-    paddingLeft: '2px',
+    color: '#c9c4d4',
+    backgroundColor: 'rgba(18, 18, 34, 0.78)',
+    borderRadius: '6px',
+    padding: '3px 8px',
+    backdropFilter: 'blur(6px)',
   },
 }

@@ -34,7 +34,7 @@ export function TopBar({ state, connected }: TopBarProps) {
   return (
     <div style={styles.container}>
       <div style={styles.left}>
-        <span style={styles.title}>
+        <span style={styles.title} className="font-serif">
           <i className="fa-solid fa-dragon" style={{ marginRight: '8px' }}></i>
           第 {state.turn}{mode} 回合 | {state.year}年 {season}
         </span>
@@ -94,7 +94,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: '2px',
   },
   statItem: {
-    color: '#96918a',
+    color: '#a8a29a', // 阶段A：提亮，#96918a → 深底上更清晰
     fontSize: '11px',
     display: 'flex',
     alignItems: 'center',

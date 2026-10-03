@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>乱斗三国 - Web</title>
+    <!--
+      美术素材署名（许可要求，务必保留）：
+      - 图标 Icons made by Lorc, Delapouite, Skoll. Available on https://game-icons.net （CC BY 3.0）
+      - 六角地块 Kenney （CC0，无需署名，鸣谢）
+      依据 assets/art/ATTRIBUTION.md。建议后续加一个「关于/素材」入口做可见署名。
+    -->
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,6 +30,27 @@
       #root {
         width: 100vw;
         height: 100vh;
+      }
+      /* 阶段A：标题/回合数用系统衬线栈——零体积换出「汉风」层级。
+         阶段B 再替换为思源宋体（OFL）等 Web 字体。 */
+      .font-serif {
+        font-family: "Songti SC", "STSong", "SimSun", "Noto Serif SC", serif;
+      }
+      /* 阶段A：尊重系统「减少动态效果」偏好——关掉脉冲/抖动/旋转。
+         此前全项目无 prefers-reduced-motion 处理。 */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.001ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.001ms !important;
+        }
+      }
+      /* 阶段A：键盘可见焦点（此前无 :focus 样式，Tab 走查看不到焦点） */
+      :focus-visible {
+        outline: 2px solid #d4a84b;
+        outline-offset: 2px;
       }
     </style>
   </head>

@@ -1,4 +1,7 @@
 import type { GameEvent } from '../types'
+// [阶段A] 接入已下载的 game-icons 素材（scroll-quill，CC BY 3.0）。
+// 用 CSS mask 着色，保留矢量 + 随字色变色。
+import scrollQuill from '../assets/icons/scroll-quill.svg'
 
 interface EventTickerProps {
   events: GameEvent[]
@@ -10,16 +13,34 @@ export function EventTicker({ events }: EventTickerProps) {
   return (
     <div style={styles.container}>
       <div style={styles.inner}>
-        <i className="fa-solid fa-bullhorn" style={{ color: '#d4a84b', fontSize: '11px', marginRight: '8px', flexShrink: 0 }}></i>
+        <span
+          aria-hidden
+          style={{
+            width: '14px',
+            height: '14px',
+            flexShrink: 0,
+            marginRight: '8px',
+            backgroundColor: '#d4a84b',
+            maskImage: `url(${scrollQuill})`,
+            WebkitMaskImage: `url(${scrollQuill})`,
+            maskSize: 'contain',
+            WebkitMaskSize: 'contain',
+            maskRepeat: 'no-repeat',
+            WebkitMaskRepeat: 'no-repeat',
+            maskPosition: 'center',
+            WebkitMaskPosition: 'center',
+            display: 'inline-block',
+          }}
+        />
         <div style={styles.scrollArea}>
           {recent.map((evt, idx) => (
             <span key={idx} style={styles.item}>
-              <span style={{ color: '#5a5a72', marginRight: '4px' }}>[第{evt.turn}回合]</span>
+              <span style={{ color: '#8a86a0', marginRight: '4px' }}>[第{evt.turn}回合]</span>
               {evt.text}
             </span>
           ))}
           {recent.length === 0 && (
-            <span style={{ color: '#5a5a72', fontSize: '12px' }}>等待游戏开始...</span>
+            <span style={{ color: '#8a86a0', fontSize: '12px' }}>等待游戏开始...</span>
           )}
         </div>
       </div>

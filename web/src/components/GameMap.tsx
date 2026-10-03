@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js'
 import type { GameState, HexCoord } from '../types'
-import { FACTION_COLORS, hexToNumber } from '../theme'
+import { FACTION_COLORS, TERRAIN_PARCHMENT, hexToNumber } from '../theme'
 import { HEX_SIZE, axialToPixel, hexNeighbors, hexPoints } from '../utils/hex'
 import { CityMarker } from './map/CityMarker'
 import { ArmyMarker } from './map/ArmyMarker'
@@ -97,18 +97,34 @@ export function GameMap({ state, onSelectCity }: GameMapProps) {
     const camera = pixiCameraRef.current
     camera.removeChildren()
 
-    // [UX 修复 2026-10-01] 首次渲染自动取景整张地图（原默认 zoom 0.45 只看得到局部，
-    // 且缩放下限 0.3 锁死 → 永远看不到全图）。
+    // [阶段A 2026-10-03] 取景改「收缩到陆地包围盒」。
+    // 原按整张 200×120 网格 fit —— 实测该网格 71%（16970/24000）是深海，
+    // 结果陆地只占半个屏幕、四周大片空海（截图 01-overview 取证）。
+    // 现按有 province_id 的陆地格包围盒取景，陆地可铺满 70%+ 屏宽。
     if (!didFitRef.current) {
       const vw = containerRef.current?.clientWidth || 1300
       const vh = containerRef.current?.clientHeight || 900
-      const mw = state.hex_map?.width || 200
-      const mh = state.hex_map?.height || 120
-      const wW = HEX_SIZE * (Math.sqrt(3) * (mw - 1) + (Math.sqrt(3) / 2) * (mh - 1))
-      const wH = HEX_SIZE * (1.5 * (mh - 1))
-      const z = Math.max(0.06, Math.min(1.2, Math.min(vw / wW, vh / wH) * 0.96))
-      const cx = (vw - wW * z) / 2
-      const cy = (vh - wH * z) / 2
+      const allTiles = state.hex_map?.tiles || []
+      const landTiles = allTiles.filter((t) => t.province_id)
+      const src = landTiles.length > 0 ? landTiles : allTiles
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      if (src.length > 0) {
+        src.forEach((t) => {
+          const { x, y } = axialToPixel({ q: t.q, r: t.r }, HEX_SIZE)
+          if (x < minX) minX = x
+          if (x > maxX) maxX = x
+          if (y < minY) minY = y
+          if (y > maxY) maxY = y
+        })
+      }
+      if (!isFinite(minX)) { minX = 0; minY = 0; maxX = HEX_SIZE * 200; maxY = HEX_SIZE * 120 }
+      const pad = HEX_SIZE * 2.5
+      const bW = Math.max(1, maxX - minX + pad * 2)
+      const bH = Math.max(1, maxY - minY + pad * 2)
+      const z = Math.max(0.06, Math.min(1.2, Math.min(vw / bW, vh / bH) * 0.98))
+      // 相机：世界点 wx → 屏幕 wx*z + cx。让 (minX-pad) 落在左边距中心处。
+      const cx = (vw - bW * z) / 2 - (minX - pad) * z
+      const cy = (vh - bH * z) / 2 - (minY - pad) * z
       cameraRef.current = { x: cx, y: cy, zoom: z }
       camera.position.set(cx, cy)
       camera.scale.set(z)
@@ -512,9 +528,11 @@ const RIVERS: [number, number][][] = [
    [112.8, 23.1], [113.6, 22.7], [113.5, 22.1], [113.3, 21.5]],  // 末端南伸入南海
 ]
 
-/** 羊皮纸底：整片统一（参考三国志12 古地图——地形不做花斑，只靠墨线省界与势力色） */
-function parchmentTint(_terrain: string): number {
-  return 0xd9c9a3
+/** 羊皮纸底：按地形返回同色系、有区分度的古地图色调。
+ *  [阶段A 2026-10-03] 原实现对所有地形返回同一色 0xd9c9a3，导致山地/森林/沙漠/雪地
+ *  在图上完全同色。现查 TERRAIN_PARCHMENT 表——保留古地图质感，但能看出地形差异。 */
+function parchmentTint(terrain: string): number {
+  return TERRAIN_PARCHMENT[terrain] ?? TERRAIN_PARCHMENT._default
 }
 
 function getFactionAt(state: GameState, coord: HexCoord): string | null {
