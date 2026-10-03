@@ -1,0 +1,68 @@
+{
+ "rows": [
+  {
+   "seed": 1,
+   "turns": 96,
+   "game_over": true,
+   "winner": "yuanshu",
+   "battles": 33,
+   "surviving_factions": 12,
+   "hhi": 0.1176,
+   "top_share": 0.226,
+   "armies_left": 0,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 0,
+   "troops_in_cities": 74807,
+   "troops_trapped_pct": 0.0,
+   "leaked": []
+  },
+  {
+   "seed": 2,
+   "turns": 96,
+   "game_over": true,
+   "winner": "yuanshu",
+   "battles": 31,
+   "surviving_factions": 12,
+   "hhi": 0.1113,
+   "top_share": 0.194,
+   "armies_left": 0,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 0,
+   "troops_in_cities": 75355,
+   "troops_trapped_pct": 0.0,
+   "leaked": []
+  },
+  {
+   "seed": 3,
+   "turns": 96,
+   "game_over": true,
+   "winner": "yuanshu",
+   "battles": 38,
+   "surviving_factions": 12,
+   "hhi": 0.1217,
+   "top_share": 0.226,
+   "armies_left": 0,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 0,
+   "troops_in_cities": 74213,
+   "troops_trapped_pct": 0.0,
+   "leaked": []
+  },
+  {
+   "seed": 4,
+   "turns": 96,
+   "game_over": true,
+   "winner": "sunjian",
+   "battles": 38,
+   "surviving_factions": 12,
+   "hhi": 0.1089,
+   "top_share": 0.2,
+   "armies_left": 0,
+   "zombie_armies_max": 2,
+   "troops_in_armies": 0,
+   "troops_in_cities": 77653,
+   "troops_trapped_pct": 0.0,
+   "leaked": []
+  }
+ ]
+}
