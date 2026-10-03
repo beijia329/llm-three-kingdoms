@@ -89,14 +89,47 @@ class TestDevelopCity:
         assert result.success is True
         assert city.morale > 60
 
-    def test_develop_military_increases_wall_hp(self):
-        """发展军事提升城墙耐久"""
+    def test_develop_military_repairs_damaged_wall(self):
+        """发展军事修复受损城墙，且不再永久抬高城墙上限【v4.0 修正】"""
         cs = CitySystem()
         city = _make_city(level=2)
+        city.wall_hp = 600                      # 城墙受损
+        cap_before = city.wall_max_hp
 
-        wall_before = city.wall_hp
-        cs.develop(city, "military")
-        assert city.wall_hp > wall_before
+        result = cs.develop(city, "military")
+
+        assert result.success is True
+        assert city.wall_hp == 800              # 修复 MILITARY_WALL_REPAIR (200)
+        assert city.wall_max_hp == cap_before   # 🔴 上限不涨
+
+    def test_develop_military_does_not_inflate_wall_cap(self):
+        """反复发展军事不会让城墙上限无限膨胀【v4.0 新增】
+
+        原实现 city.wall_max_hp += 200 每次，实测许昌 40 回合 3200→7400(+131%)，
+        使城市变成理论上不可攻破的堡垒，是"围城打不下来"的直接原因之一。
+        """
+        cs = CitySystem()
+        city = _make_city(level=2, gold=100000)
+        cap = city.wall_max_hp
+
+        for _ in range(30):
+            cs.develop(city, "military")
+
+        assert city.wall_max_hp == cap          # 30 次后上限纹丝不动
+        assert city.wall_hp <= cap              # 且不会超过上限
+
+    def test_develop_military_trains_garrison_when_wall_full(self):
+        """城墙已满时，发展军事转为训练守军（保证操作不空耗）【v4.0 新增】"""
+        cs = CitySystem()
+        city = _make_city(level=2)
+        assert city.wall_hp == city.wall_max_hp     # 前提：城墙满
+        garrison_before = city.garrison
+
+        result = cs.develop(city, "military")
+
+        assert result.success is True
+        assert city.wall_max_hp == 1000             # 上限始终不变
+        assert city.garrison > garrison_before      # 转为训练守军
 
 
 class TestRecruit:

@@ -74,7 +74,14 @@ ECONOMY_GOLD_BONUS: int = 20
 """每次发展经济额外增加的基础金钱产出"""
 
 MILITARY_WALL_REPAIR: int = 200
-"""每次发展军事修复/增加的城墙耐久"""
+"""每次发展军事修复的城墙耐久（不抬高上限）"""
+
+MILITARY_TRAIN_GARRISON: int = 100
+"""城墙已满时，"发展军事"改为训练守军的人数
+
+为什么需要：把城墙上限的无限增长去掉后，若城墙已是满值，"发展军事"就变成
+零收益的浪费钱操作，AI 会持续踩坑。改为训练守军，使该操作在任何时候都有收益。
+"""
 
 CULTURE_MORALE_BONUS: int = 5
 """每次发展文化提升的民心"""
@@ -138,14 +145,26 @@ class CitySystem:
             effect_value = city.economic_bonus
 
         elif develop_type == "military":
-            # 修复并提升城墙耐久
-            wall_increase = MILITARY_WALL_REPAIR
-            city.wall_hp = min(
-                city.wall_hp + wall_increase,
-                city.wall_max_hp + wall_increase,
-            )
-            city.wall_max_hp += wall_increase
-            effect_value = wall_increase
+            # 修复城墙耐久。🔴 不再抬高 wall_max_hp 上限。
+            #
+            # 原实现：city.wall_max_hp += 200（每次），即"越修越硬、永不回落"。
+            # 实测后果（exp9 / design-strategist 复核）：许昌 40 回合 wall_max_hp
+            # 3200 → 7400（+131%），而单次攻城对该城墙的伤害量级只有数百，
+            # 反复发展军事的城市会变成理论上不可攻破的堡垒，
+            # 直接表现为"围城消耗战打不下来"。
+            # 城墙上限现由 data/cities.json 的 wall_max_hp 唯一决定（随城市等级）。
+            old_wall = city.wall_hp
+            city.wall_hp = min(city.wall_hp + MILITARY_WALL_REPAIR, city.wall_max_hp)
+            repaired = city.wall_hp - old_wall
+
+            if repaired > 0:
+                effect_value = repaired
+            else:
+                # 城墙已满 → 转为训练守军，保证该操作始终有收益
+                cap = city.level * GARRISON_CAP_PER_LEVEL
+                before = city.garrison
+                city.garrison = min(city.garrison + MILITARY_TRAIN_GARRISON, cap)
+                effect_value = city.garrison - before
 
         elif develop_type == "culture":
             # 提升民心

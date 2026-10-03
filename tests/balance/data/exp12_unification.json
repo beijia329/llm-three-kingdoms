@@ -1,0 +1,141 @@
+{
+ "rows": [
+  {
+   "seed": 1,
+   "turns": 48,
+   "game_over": true,
+   "winner": "caocao",
+   "battles": 39,
+   "surviving_factions": 12,
+   "hhi": 0.103,
+   "top_share": 0.161,
+   "armies_left": 1,
+   "zombie_armies_max": 1,
+   "troops_in_armies": 91,
+   "troops_in_cities": 76007,
+   "troops_trapped_pct": 0.1,
+   "leaked": [
+    {
+     "id": "army_48",
+     "faction": "yuanshu",
+     "soldiers": 91,
+     "status": "retreating",
+     "from": "xiapi",
+     "to": "jianye",
+     "progress": 1.0
+    }
+   ]
+  },
+  {
+   "seed": 2,
+   "turns": 48,
+   "game_over": true,
+   "winner": "yuanshu",
+   "battles": 51,
+   "surviving_factions": 12,
+   "hhi": 0.1072,
+   "top_share": 0.161,
+   "armies_left": 4,
+   "zombie_armies_max": 2,
+   "troops_in_armies": 3682,
+   "troops_in_cities": 73800,
+   "troops_trapped_pct": 4.8,
+   "leaked": [
+    {
+     "id": "army_61",
+     "faction": "yuanshu",
+     "soldiers": 104,
+     "status": "retreating",
+     "from": "he_fei",
+     "to": "chai_sang",
+     "progress": 1.0
+    },
+    {
+     "id": "army_64",
+     "faction": "sunjian",
+     "soldiers": 48,
+     "status": "retreating",
+     "from": "he_fei",
+     "to": "guangling",
+     "progress": 1.0
+    },
+    {
+     "id": "army_73",
+     "faction": "gongsunzan",
+     "soldiers": 1900,
+     "status": "marching",
+     "from": "julu",
+     "to": "chenliu",
+     "progress": 0.714
+    },
+    {
+     "id": "army_74",
+     "faction": "yuanshao",
+     "soldiers": 1630,
+     "status": "marching",
+     "from": "chenliu",
+     "to": "julu",
+     "progress": 0.143
+    }
+   ]
+  },
+  {
+   "seed": 3,
+   "turns": 48,
+   "game_over": true,
+   "winner": "yuanshu",
+   "battles": 41,
+   "surviving_factions": 12,
+   "hhi": 0.1259,
+   "top_share": 0.226,
+   "armies_left": 0,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 0,
+   "troops_in_cities": 75556,
+   "troops_trapped_pct": 0.0,
+   "leaked": []
+  },
+  {
+   "seed": 4,
+   "turns": 48,
+   "game_over": true,
+   "winner": "sunjian",
+   "battles": 37,
+   "surviving_factions": 12,
+   "hhi": 0.1022,
+   "top_share": 0.167,
+   "armies_left": 1,
+   "zombie_armies_max": 1,
+   "troops_in_armies": 57,
+   "troops_in_cities": 78135,
+   "troops_trapped_pct": 0.1,
+   "leaked": [
+    {
+     "id": "army_33",
+     "faction": "zhangjiao",
+     "soldiers": 57,
+     "status": "retreating",
+     "from": "beihai",
+     "to": "xiangping",
+     "progress": 1.0
+    }
+   ]
+  },
+  {
+   "seed": 5,
+   "turns": 48,
+   "game_over": true,
+   "winner": "sunjian",
+   "battles": 31,
+   "surviving_factions": 12,
+   "hhi": 0.103,
+   "top_share": 0.161,
+   "armies_left": 0,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 0,
+   "troops_in_cities": 76795,
+   "troops_trapped_pct": 0.0,
+   "leaked": []
+  }
+ ]
+}

@@ -90,7 +90,7 @@ class TestStreetDamage:
         assert damage == pytest.approx(520, abs=1)
 
     def test_defender_damage(self):
-        """防守方巷战伤害（有城墙加成）"""
+        """防守方伤害（城墙完好 → 享受城墙加成）"""
         resolver = BattleResolver(rng=GameRandom(seed=42))
         ctx = _make_siege_context(
             attacker_soldiers=5000, defender_soldiers=3000,
@@ -101,7 +101,26 @@ class TestStreetDamage:
         # base=3000*0.1=300, command=1+(60-50)/100=1.1,
         # morale=70/100=0.7, terrain=1.0+DEFENDER_WALL_BONUS(0.1)=1.1
         # = 300 * 1.1 * 0.7 * 1.1 = 254.1  [主系统修复 2026-10-01：守方加成 0.3→0.1]
+        assert ctx.battle_phase == BattlePhase.SIEGE
         assert damage == pytest.approx(254.1, abs=1)
+
+    def test_defender_damage_no_wall_bonus_in_street(self):
+        """防守方伤害（城墙已破进入巷战 → 无城墙加成）【v4.0 新增】
+
+        原实现无条件给守方 1.1 加成，等于"城墙已被打破、双方在街巷肉搏"时
+        守方还享受城墙保护 —— 语义矛盾，且让攻方在巷战里长期恒亏 10%。
+        """
+        resolver = BattleResolver(rng=GameRandom(seed=42))
+        ctx = _make_siege_context(
+            attacker_soldiers=5000, defender_soldiers=3000,
+            attacker_command=80, defender_command=60,
+            attacker_morale=80, defender_morale=70,
+        )
+        ctx.battle_phase = BattlePhase.STREET
+        damage = resolver.calculate_defender_damage(ctx)
+        # terrain=1.0（巷战无城墙加成）
+        # = 300 * 1.1 * 0.7 * 1.0 = 231
+        assert damage == pytest.approx(231, abs=1)
 
     def test_low_morale_reduces_damage(self):
         """低士气降低伤害"""

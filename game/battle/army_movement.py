@@ -158,7 +158,15 @@ class ArmyMovementSystem:
             result.soldiers_lost_to_rout = soldiers_lost
 
         # 5. 到达判定
-        if army.status == ArmyStatus.MARCHING:
+        # 🔴 撤退中的军队同样需要到达判定（2026-10-03 v4.0）：
+        #    原实现只对 MARCHING 分支做到达处理，导致战败撤退的军队走完路径后
+        #    既不触发 _handle_arrival（无法入城归建）、也不会被清理，
+        #    永远停在 RETREATING 状态成为"野外僵尸军队"——不参战、不消失，
+        #    只能靠每回合断粮（士气 -10 → 溃散 -10% 兵力）慢慢掉光兵。
+        #    实证：5 局 48 回合共 155 场战斗，其中 35 场 RETREAT(22.6%) +
+        #    8 场 DEFENDER_WIN 的攻方残部全部进入该状态，兵力凭空蒸发，
+        #    直接造成"12 方谁也打不完"的僵局。
+        if army.status in (ArmyStatus.MARCHING, ArmyStatus.RETREATING):
             if hex_map is not None and army.path_hexes:
                 if army.path_index >= len(army.path_hexes) - 1:
                     army.progress = 1.0
@@ -313,8 +321,13 @@ class ArmyMovementSystem:
 
         根据目标城市归属决定：
         - 友方城市：入城增援，兵力并入守军，将领返回城市
-        - 敌方/中立城市：开始围城，标记城市被围状态
+        - 敌方/中立城市：开始围城，标记城市被围状态（撤退中的军队除外）
         - 同城：驻守
+
+        撤退中的军队（status == RETREATING）特殊处理：
+        - 到达友方城市 → 并入守军、军队解散（残部归建，兵力不蒸发）
+        - 到达敌方/中立城市 → 不停留、不进入围城状态，返回 arrived=False，
+          等待 engine 把它的目标改回自家城市
 
         Args:
             army: 军队对象
@@ -324,6 +337,8 @@ class ArmyMovementSystem:
         Returns:
             包含 arrived、type、status_changed、disbanded 的字典
         """
+        retreating = army.status == ArmyStatus.RETREATING
+
         if army.from_city == army.to_city:
             army.status = ArmyStatus.GARRISONED
             return {"arrived": True, "type": "garrison", "status_changed": True, "disbanded": False}
@@ -340,10 +355,20 @@ class ArmyMovementSystem:
                     generals[army.general_id].location = target_city.id
                 return {"arrived": True, "type": "reinforce", "status_changed": True, "disbanded": True}
 
-            # 敌方/中立城市：标记围城状态
+            # 敌方/中立城市
+            if retreating:
+                # 撤退途中途经敌城：不围城、不标记，保持撤退
+                return {"arrived": False, "type": "retreat_pass",
+                        "status_changed": False, "disbanded": False}
+
             target_city.is_besieged = True
             if army.id not in target_city.besieging_armies:
                 target_city.besieging_armies.append(army.id)
+
+        if retreating:
+            # 撤退且终点不是友方城市：不转为围城（否则残部又去送死）
+            return {"arrived": False, "type": "retreat_no_target",
+                    "status_changed": False, "disbanded": False}
 
         army.status = ArmyStatus.BESIEGING
         return {"arrived": True, "type": "besiege", "status_changed": True, "disbanded": False}

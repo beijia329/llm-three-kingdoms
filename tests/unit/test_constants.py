@@ -27,7 +27,22 @@ class TestGameConstants:
         """测试基本游戏规则"""
         assert MAX_TURNS == 192
         assert NUM_FACTIONS == 12
-        assert TOTAL_CITIES == 22
+        assert TOTAL_CITIES == 31
+
+    def test_total_cities_matches_data(self):
+        """TOTAL_CITIES 必须与 data/cities.json 实际城池数一致【v4.0 新增】
+
+        原常量写 22、实际数据已是 31 座，长期漂移无人发现（审计报告 B-6）。
+        本断言把两者绑死：数据再扩张而未同步常量时，测试立刻失败提醒。
+        """
+        import json
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[2]
+        data = json.loads((root / "data" / "cities.json").read_text(encoding="utf-8"))
+        items = data if isinstance(data, list) else (data.get("cities") or list(data.values()))
+        items = [x for x in items if isinstance(x, dict) and "name" in x]
+        assert len(items) == TOTAL_CITIES
 
     def test_factions(self):
         """测试势力定义"""

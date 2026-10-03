@@ -336,14 +336,19 @@ class BattleResolver:
         )
 
     def calculate_defender_damage(self, context: BattleContext) -> int:
-        """计算防守方巷战伤害（有城墙加成）
+        """计算防守方巷战伤害（城墙完好时才有城墙加成）
 
         公式：
             base = defender_soldiers × BASE_DAMAGE_RATE
             command_bonus = 1 + (avg_command - 50) / 100
             morale_bonus = (avg_morale + morale_bonus) / 100
-            terrain_bonus = 1.3 (守方城墙加成)
+            terrain_bonus = 1.1 (城墙完好) / 1.0 (城墙已破，巷战)
             damage = base × command_bonus × morale_bonus × terrain_bonus
+
+        🔴 城墙加成只在城墙仍完好时生效。原实现无条件给 1.1，等于"城墙已被
+        打破、双方在街巷里肉搏"时守方还享受城墙保护，这在语义上矛盾，
+        也让攻方在巷战里长期吃亏（防方伤害恒高 10%）。
+        城墙一破就应转为势均力敌的巷战，守方的优势只来自兵力和统帅。
 
         Args:
             context: 战斗上下文
@@ -351,12 +356,25 @@ class BattleResolver:
         Returns:
             对攻击方造成的伤害
         """
+        # 城墙耐久 > 0 表示城墙仍未被打破，守方享受城墙加成；
+        # 巷战阶段（STREET）城墙必然已被打穿（或因城墙此前已破而直接进巷战）
+        # → 无城墙加成。
+        # 兼容：单测/直接调用本方法时未经过 resolve_battle，_wall_hp 为空字典，
+        # 此时回退读 context.wall_hp，避免误判为"城墙已破"。
+        current_wall = self._wall_hp.get(context.battle_id)
+        if current_wall is None:
+            current_wall = context.wall_hp or 0
+        wall_intact = (
+            context.battle_phase != BattlePhase.STREET and current_wall > 0
+        )
+        terrain_bonus = 1.0 + DEFENDER_WALL_BONUS if wall_intact else 1.0
+
         return self._calculate_damage(
             soldiers=context.defender_total_soldiers,
             avg_command=context.defender_avg_command,
             avg_morale=context.defender_avg_morale + context.defender_morale_bonus,
             avg_bravery=context.defender_avg_bravery,
-            terrain_bonus=1.0 + DEFENDER_WALL_BONUS,  # 1.3
+            terrain_bonus=terrain_bonus,
         )
 
     def _calculate_damage(

@@ -61,7 +61,7 @@ from game.models import (
     TurnLog,
 )
 from game.random import GameRandom
-from game.systems.city_system import CitySystem
+from game.systems.city_system import CitySystem, GARRISON_CAP_PER_LEVEL
 from game.systems.diplomacy_system import DiplomacySystem
 from game.systems.diplomacy_relation import DiplomacyRelationSystem
 from game.systems.general_system import GeneralSystem
@@ -846,6 +846,9 @@ class GameEngine:
             if army_id in self.armies:
                 del self.armies[army_id]
 
+        # 2.5 收容"走投无路"的撤退军队（v4.0）
+        self._sweep_stranded_armies()
+
         # 3. 将领忠诚度衰减
         for general in self.generals.values():
             self._general_system.process_turn_decay(general)
@@ -988,9 +991,8 @@ class GameEngine:
                     loss_ratio = result.attacker_casualties / initial_total
                     army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
                     if army.soldiers > 0:
-                        army.status = ArmyStatus.RETREATING
-                        # 撤回出发城市
-                        army.from_city, army.to_city = army.to_city, army.from_city
+                        # v4.0：掉头回城（含重算回程路径），不再是"只对调 from/to"
+                        self._redirect_army_home(army)
 
         elif result.result in (BattleResultType.DRAW, BattleResultType.RETREAT):
             # 平局/撤退
@@ -1001,7 +1003,9 @@ class GameEngine:
                     loss_ratio = result.attacker_casualties / initial_total
                     army.soldiers = max(0, int(army.soldiers * (1 - loss_ratio)))
                     if army.soldiers > 0:
-                        army.status = ArmyStatus.RETREATING
+                        # v4.0：原实现只把状态置为 RETREATING，既不换向也不重算路径，
+                        #       军队会沿去程路径继续走到敌方城下，然后永久卡死。
+                        self._redirect_army_home(army)
 
         # 清理该城市的围城状态
         if defender_city is not None:
@@ -1016,6 +1020,143 @@ class GameEngine:
                     gen, captor_faction=ctx.attacker_faction, turn=self.turn,
                 )
 
+    def _redirect_army_home(self, army: Army) -> None:
+        """让战败/撤退的军队掉头撤回出发城市（v4.0 新机制）
+
+        🔴 为什么必须有这个函数：
+        原实现在战斗失败时只做 `army.from_city, army.to_city = army.to_city, army.from_city`
+        （DRAW/RETREAT 分支甚至连对调都没有），而 **path_hexes 仍是去程路径**：
+          1. 军队"撤退"时继续沿去程路径朝敌方城市推进；
+          2. 走完路径后因 `_process_hex_movement` 的到达判定只对 MARCHING 生效，
+             永远不触发 `_handle_arrival` → 既不能入城归建、也不会被清理；
+          3. 于是变成"野外僵尸军队"：不参战、不消失，每回合只能靠断粮
+             （士气 -10 → 溃散 -10% 兵力）慢慢掉兵，直至 soldiers=0 凭空蒸发。
+        实测（exp11，5 局 48 回合）：155 场战斗中 35 场 RETREAT + 8 场守方胜，
+        这些攻方残部全部进入僵尸状态，兵力白白蒸发 → 攻守双方实力同时被消耗，
+        这就是"12 方谁也打不完"的直接原因之一。
+
+        本函数做三件事：
+          1. 语义换向：to_city ← 自家出发城；
+          2. **以当前位置为起点重算回程路径**（这是原实现缺失的关键一步）；
+          3. 若回程无路可走（孤岛/城市已易主），残部直接归建，绝不留成僵尸。
+
+        Args:
+            army: 需要撤回的军队（会被就地修改）
+        """
+        home_city = self.cities.get(army.from_city)
+        if home_city is None or home_city.faction != army.faction:
+            # 出发城已丢失：退回目标城（若仍是己方），否则保持撤退由断粮自然消耗
+            alt = self.cities.get(army.to_city)
+            if alt is not None and alt.faction == army.faction:
+                home_city = alt
+            else:
+                army.status = ArmyStatus.RETREATING
+                return
+
+        # 语义互换：from = 当前所在（原目标城），to = 自家城
+        army.from_city, army.to_city = army.to_city, home_city.id
+
+        if self.hex_map is not None:
+            start = army.current_hex or home_city.position
+            new_path = self.hex_map.find_path(start, home_city.position)
+            if new_path:
+                army.path_hexes = new_path
+                army.path_index = 0
+                army.current_hex = new_path[0]
+                army.total_distance = max(1, len(new_path) - 1)
+                army.progress = 0.0
+            else:
+                # 无可行回程路径：残部直接归建，避免野外蒸发
+                self._disband_army_into_city(army, home_city)
+                return
+
+        army.status = ArmyStatus.RETREATING
+
+    def _sweep_stranded_armies(self) -> None:
+        """收容已抵达路径终点却无处可去的撤退军队（v4.0）
+
+        🔴 为什么需要：撤退军的目标城可能在撤退途中被敌方占领
+        （`_redirect_army_home` 重算路径时 home_city 还属于自己），
+        等它走到终点，`_handle_arrival` 发现"撤退 + 非友方城"只能不处理，
+        军队便永久停在 progress=1.0 —— 又是一支野外僵尸。
+
+        实测（exp12，5 局 48 回合）：仅靠 `_redirect_army_home` 仍有 6 支军队滞留，
+        其中 4 支是 progress=1.0 的 RETREATING 军队，正是本方法要收容的对象。
+
+        策略：抵达终点且目标已非己方城 → 残部直接归建最近的己方城市
+        （走不动就不走了，但兵力绝不凭空蒸发）；若该势力已无城 → 军队就地解散。
+        """
+        for army in list(self.armies.values()):
+            if army.status != ArmyStatus.RETREATING:
+                continue
+
+            # 是否已抵达路径终点
+            arrived = army.progress >= 1.0 or (
+                bool(army.path_hexes)
+                and army.path_index >= len(army.path_hexes) - 1
+            )
+            if not arrived:
+                continue
+
+            target = self.cities.get(army.to_city)
+            if target is not None and target.faction == army.faction:
+                # 仍是己方城：交给 _handle_arrival 走正常入城流程
+                continue
+
+            own_cities = [c for c in self.cities.values() if c.faction == army.faction]
+            if not own_cities:
+                # 势力已无城可回 → 残部就地解散（将领下野）
+                gen = self.generals.get(army.general_id)
+                if gen is not None:
+                    gen.is_captured = False
+                army.soldiers = 0
+                self.armies.pop(army.id, None)
+                continue
+
+            self._disband_army_into_city(army, self._nearest_city(army, own_cities))
+
+    def _nearest_city(self, army: Army, candidates: List[City]) -> City:
+        """按六角格直线距离找最近的候选城市
+
+        刻意不寻路：本方法在每回合的军队巡检里调用，若逐城跑 A* 会带来
+        不必要的开销，而"最近的己方城"用直线距离足够（只用于残部归建）。
+
+        Args:
+            army: 军队（用其当前所在格为起点）
+            candidates: 候选城市列表（应为非空）
+
+        Returns:
+            距离最近的城市
+        """
+        start = army.current_hex
+        if start is None:
+            return candidates[0]
+
+        def hex_distance(city: City) -> int:
+            dq = abs(start.q - city.position.q)
+            dr = abs(start.r - city.position.r)
+            ds = abs((-start.q - start.r) - (-city.position.q - city.position.r))
+            return max(dq, dr, ds)
+
+        return min(candidates, key=hex_distance)
+
+    def _disband_army_into_city(self, army: Army, city: City) -> None:
+        """把军队残部并入城市守军并解散该军队（将领回城）
+
+        用于撤退军队无法走回城市时的兜底，保证兵力不凭空消失。
+
+        Args:
+            army: 要解散的军队
+            city: 接收残部的己方城市
+        """
+        cap = city.level * GARRISON_CAP_PER_LEVEL
+        city.garrison = min(city.garrison + army.soldiers, cap)
+        gen = self.generals.get(army.general_id)
+        if gen is not None:
+            gen.location = city.id
+        army.soldiers = 0
+        self.armies.pop(army.id, None)
+
     def _cleanup_dead_armies(self) -> None:
         """清理已消灭的军队"""
         dead_army_ids = [
@@ -1024,10 +1165,24 @@ class GameEngine:
         ]
         for aid in dead_army_ids:
             army = self.armies[aid]
-            # 将领返回原城市
+            # 将领返回己方城市。
+            # 🔴 原实现直接 `gen.location = army.from_city`，但撤退时 from_city
+            # 已被互换为**敌方城市**，会把将领"送进"敌人城里（下回合该城若被
+            # 己方攻击，这名将领就会被当作守方将领处理）。改为优先落到己方城。
             gen = self.generals.get(army.general_id)
             if gen:
-                gen.location = army.from_city
+                for cid in (army.from_city, army.to_city):
+                    c = self.cities.get(cid)
+                    if c is not None and c.faction == army.faction:
+                        gen.location = c.id
+                        break
+                else:
+                    fallback = next(
+                        (c.id for c in self.cities.values() if c.faction == army.faction),
+                        None,
+                    )
+                    if fallback is not None:
+                        gen.location = fallback
             del self.armies[aid]
 
     # ============================================================

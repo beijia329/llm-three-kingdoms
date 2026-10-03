@@ -1,0 +1,103 @@
+{
+ "rows": [
+  {
+   "seed": 1,
+   "turns": 48,
+   "game_over": true,
+   "winner": "caocao",
+   "battles": 39,
+   "surviving_factions": 12,
+   "hhi": 0.103,
+   "top_share": 0.161,
+   "armies_left": 0,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 0,
+   "troops_in_cities": 76007,
+   "troops_trapped_pct": 0.0,
+   "leaked": []
+  },
+  {
+   "seed": 2,
+   "turns": 48,
+   "game_over": true,
+   "winner": "yuanshu",
+   "battles": 55,
+   "surviving_factions": 12,
+   "hhi": 0.1113,
+   "top_share": 0.161,
+   "armies_left": 2,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 4300,
+   "troops_in_cities": 71900,
+   "troops_trapped_pct": 5.6,
+   "leaked": [
+    {
+     "id": "army_78",
+     "faction": "yuanshao",
+     "soldiers": 1500,
+     "status": "marching",
+     "from": "jinyang",
+     "to": "chenliu",
+     "progress": 0.222
+    },
+    {
+     "id": "army_79",
+     "faction": "gongsunzan",
+     "soldiers": 2800,
+     "status": "marching",
+     "from": "julu",
+     "to": "chenliu",
+     "progress": 0.286
+    }
+   ]
+  },
+  {
+   "seed": 3,
+   "turns": 48,
+   "game_over": true,
+   "winner": "yuanshu",
+   "battles": 41,
+   "surviving_factions": 12,
+   "hhi": 0.1259,
+   "top_share": 0.226,
+   "armies_left": 0,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 0,
+   "troops_in_cities": 75556,
+   "troops_trapped_pct": 0.0,
+   "leaked": []
+  },
+  {
+   "seed": 4,
+   "turns": 48,
+   "game_over": true,
+   "winner": "sunjian",
+   "battles": 37,
+   "surviving_factions": 12,
+   "hhi": 0.1022,
+   "top_share": 0.167,
+   "armies_left": 0,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 0,
+   "troops_in_cities": 78135,
+   "troops_trapped_pct": 0.0,
+   "leaked": []
+  },
+  {
+   "seed": 5,
+   "turns": 48,
+   "game_over": true,
+   "winner": "sunjian",
+   "battles": 31,
+   "surviving_factions": 12,
+   "hhi": 0.103,
+   "top_share": 0.161,
+   "armies_left": 0,
+   "zombie_armies_max": 0,
+   "troops_in_armies": 0,
+   "troops_in_cities": 76795,
+   "troops_trapped_pct": 0.0,
+   "leaked": []
+  }
+ ]
+}
