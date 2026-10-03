@@ -53,12 +53,42 @@ def load_game_data(data_dir: str = DATA_DIR) -> Dict[str, Any]:
         logger.warning("州数据文件不存在: %s", provinces_path)
 
     # 构建地图拓扑
-    map_topology: Dict[str, List[str]] = {}
+    #
+    # 🔴 v4.1：这里做**对称化**，把 cities.json 里的单向邻接补成双向。
+    #
+    # 起因（主理人数据审计，2026-10-03）：实扫发现 cities.json 的 neighbors 有
+    # **25 处单向关系**（如「邺城→洛阳」成立但「洛阳→邺城」不成立）。
+    # 危害不在引擎（MapSystem.add_city 会为寻路补全双向），而在**玩家侧**：
+    # `players/cli_player.py:148` 用 `city.neighbors` 判断"是否边境城"、
+    # `:296` 用它枚举可攻目标 —— 这两处**直接读 City.neighbors，不经过 MapSystem**。
+    # 单向邻接会让 AI 漏看邻国：既可能漏守边境，也可能漏掉可攻击目标。
+    #
+    # 修在数据加载层而不是逐条改 cities.json，理由有二：
+    #   1. 一处收口 —— 所有消费方（引擎/玩家/前端）拿到的是同一份对称拓扑；
+    #   2. `cities.json` 是手工维护的历史数据（含 neutral 城与省界），
+    #      逐条修容易再引入新的不对称，且无法防住将来新增城市时的同样问题。
+    # 数据侧仍建议后续补全（规范化），但不应成为正确性的前提。
+    _raw_neighbors: Dict[str, List[str]] = {}
     for city in cities:
-        neighbors = city.get("neighbors", [])
         city_id = city.get("id", "")
         if city_id:
-            map_topology[city_id] = list(neighbors)
+            _raw_neighbors[city_id] = list(city.get("neighbors") or [])
+
+    map_topology: Dict[str, List[str]] = {cid: set() for cid in _raw_neighbors}
+    for city_id, neighbors in _raw_neighbors.items():
+        for nb in neighbors:
+            if nb not in _raw_neighbors:
+                # 悬空引用（指向不存在的城）保留原样，交由调用方感知
+                map_topology[city_id].add(nb)
+                continue
+            map_topology[city_id].add(nb)
+            map_topology[nb].add(city_id)  # ← 反向补齐
+
+    map_topology = {
+        cid: sorted(nbs) for cid, nbs in map_topology.items()
+    }
+    # sorted() 保证确定性：引擎有「同 seed 可复现」的硬要求，
+    # 集合迭代顺序不稳定会让同一份数据在不同进程产生不同邻接顺序。
 
     return {
         "cities": cities,
