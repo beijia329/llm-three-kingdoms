@@ -209,16 +209,58 @@
 
 ## [3.0.0] — 2026-10-01
 
-- LLM 大乱斗定位确立；地图美术重做；领地系统打通（多源 BFS 全量重划）
-- 前端补 LLM 模式入口（模式选择 / 参战势力 / 重开一局 / 降级提示）
+**主题：「LLM 大乱斗」定位确立 + 地图美术重做 + 领地彻底打通**
 
-## [2.2.0] — 2026-09-28
+- 定位确立：从"多模型对战"收窄为 LLM 大乱斗——12 方势力各由模型驱动，观众围观博弈过程
+- 地图美术重做：古地图风（羊皮纸陆地 + 墨线省界 + 半透明势力色 + 深色海）；补黄河、长江、珠江真实走向
+- 领地系统打通：统一为「以有主城为源点的多源 BFS 全量重划」，开局 / 占领 / 占中立城走同一条路径
+- 31 城坐标按真实经纬度重设，修 7 城错位
+- 前端补 LLM 模式入口；完善开源仓库（README 重写 / LICENSE / CI / issue 模板）
 
-- 战斗系统与外交系统成形；六角格地图与省界渲染
+## [2.3.0] — 2026-06-24
 
-## [2.0.0] — 2026-09-20
+**主题：程序化地图生成 + 古地图渲染 + v2.3 收口**
 
-- 首个可运行版本：回合制引擎、城市/资源/将领系统
+- MapGenerator：15 种地形 + 气候带 + 大陆塑形；bbox 预计算把生成从 28s 压到 1.4s
+- 地图扩展 180×128 覆盖全中国；中国 GeoJSON 掩码 + 古代州郡 + Total War 风渲染
+- 势力配色按 184 年初始关系（盟友暖色 / 敌人冷色）；城市坐标抽离为 `city_positions.json`（989 B，替代 968 KB 内嵌）
+- 收口：修 GUI 崩溃 / 依赖缺口 / API key 改名 / 文档全扫 / 补 ADR-0001~0004
+
+## [2.2.0] — 2026-06-24
+
+**主题：正式更名「乱斗三国」+ 外交系统核心 + 发布包自动化**
+
+- 游戏正式定名「乱斗三国」
+- 外交系统核心：ProposeAlliance / DeclareWar 命令落地（29 项测试）
+- 州郡体系接入；Web 三大面板（外交 / 数据 / 事件）
+- 发布包自动化（build_release.sh）+ macOS 自安装 App
+
+## [2.1.0] — 2026-06-24
+
+**主题：Web 前端诞生 + 一轮全面审计**
+
+- Web 前端（FastAPI + React + PixiJS）首次落地
+- Pygame 前端文明式重做；12 势力全 LLM 模式
+- 全面审计修复（7 个严重 bug + `--max-turns` 默认 24→192）
+- 视锥剔除（绘制量降 62%）；395 项测试
+
+## [2.0.0] — 2026-06-23
+
+**主题：换成真实中国地图，十二路诸侯登场**
+
+- 六角格地图体系（HexCoord / Tile / A* / 15 地形）
+- 真实中国地图（省界矢量底图 + 经纬度校准）；12 势力 184 年剧本
+- 季节时间线（每回合 = 1 季度）；影响力扩散；建国系统（3 城称王 / 5 城称帝）
+- 性格系统；相机 + 势力边界 + 47 将
+
+## [1.0.0] — 2026-06-23
+
+**主题：第一个可运行版本——七个阶段全部完成**
+
+- 引擎内核：确定性 RNG / Pydantic 数据模型 / 事件总线 / BFS 寻路 / 资源与城市系统 / 将领与外交 / 军队行军 / 战斗系统
+- LLM 接入（DeepSeek 玩家跑通）；Pygame GUI；集成测试收尾
+
+> 说明：1.x / 2.x 条目为补齐历史时按提交历史补录，日期以 commit 时间为准（原记录的 09-20 / 09-28 与提交时间不符，已修正）。
 
 ---
 
@@ -226,3 +268,9 @@
 [4.1.1]: https://github.com/beijia329/llm-three-kingdoms/releases/tag/v4.1.1
 [4.1.0]: https://github.com/beijia329/llm-three-kingdoms/releases/tag/v4.1.0
 [4.0.0]: https://github.com/beijia329/llm-three-kingdoms/releases/tag/v4.0.0
+[3.0.0]: https://github.com/beijia329/llm-three-kingdoms/releases/tag/v3.0.0
+[2.3.0]: https://github.com/beijia329/llm-three-kingdoms/releases/tag/v2.3.0
+[2.2.0]: https://github.com/beijia329/llm-three-kingdoms/releases/tag/v2.2.0
+[2.1.0]: https://github.com/beijia329/llm-three-kingdoms/releases/tag/v2.1.0
+[2.0.0]: https://github.com/beijia329/llm-three-kingdoms/releases/tag/v2.0.0
+[1.0.0]: https://github.com/beijia329/llm-three-kingdoms/releases/tag/v1.0.0
