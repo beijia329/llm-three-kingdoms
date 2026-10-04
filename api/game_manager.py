@@ -91,18 +91,31 @@ class GameConfig:
     """游戏配置"""
 
     seed: int = 42
-    max_turns: int = 48
-    """默认对局回合数（v4.1 决策：192 → 48）
+    max_turns: int = 192
+    """默认对局回合数（v4.3.0 方案 A′：无限模式 + 僵局熔断）
 
-    48 回合 = 184–195 年。依据：实测 192 回合中第 49 回合起零战斗，
-    turn 48/96/144/192 的 12 方城分布逐字节相同 → 后 144 回合完全空转，
-    默认降到 48 可省 ~75% 时间与成本且画面内容零损失。
+    v4.3.0 起默认 `game_mode="infinite"`：只要棋局在推进（每回合有战斗）就一直
+    打到统一；一旦连续 `stalemate_turns` 回合零战斗即收束为「领先胜出」。
+    本值在无限模式下是**软上限/兜底**（防极端死循环），在 standard 模式下是
+    硬性时限。语义分级见 docs/design/2026-10-04-胜负条件与对局长度.md §2。
 
     🔴 这是「默认对局长度」，**不是硬上限**。硬上限仍是
-    `game.constants.MAX_TURNS = 192`；调用方可显式传 max_turns=192（或更大，
-    如 infinite 模式）跑长线观察档 —— 默认值与上限是两件事，勿混。
+    `game.constants.MAX_TURNS = 192`；48 仍可作显式「短场/压测档」
+    （`run_web.py --max-turns 48`、`GAME_MAX_TURNS=48`），其结束文案同样是
+    「领先」而非「统一」。
     """
-    game_mode: str = "standard"
+    game_mode: str = "infinite"
+    """默认游戏模式（v4.3.0：standard → infinite，方案 A′）
+
+    infinite：无固定回合闸；有战事则打到统一，零战事连续 N 回合收束为「领先胜出」。
+    设为 "standard" 即退回旧「到达 max_turns 结束」语义（回滚开关）。
+    """
+    stalemate_turns: int = 6
+    """僵局熔断阈值（v4.3.0）：连续 N 回合 `battles_fought == 0` → 收束为「领先胜出」
+
+    默认 6（见 game.constants.STALEMATE_TURNS）。仅 infinite 模式生效。
+    上线后若观察空转/节奏异常，**只调本阈值即可**，无需回滚代码。
+    """
     human_faction: Optional[str] = None
     # ---- LLM 玩家相关（决策理由暴露使用）----
     use_llm: bool = False
@@ -203,11 +216,15 @@ class GameManager:
             siege_persistent=self.config.siege_persistent,
         )
         self.engine.max_turns = self.config.max_turns
+        # v4.3.0：僵局熔断阈值由配置透传（默认 6）。
+        self.engine.stalemate_turns = self.config.stalemate_turns
 
         if self.config.game_mode == "infinite":
             from game.game_mode import GameMode
             self.engine.game_mode = GameMode.INFINITE
-            self.engine.max_turns = 9999
+            # 🔴 v4.3.0：不再把 max_turns 顶到 9999。方案 A′ 下 max_turns 在无限
+            #    模式下是**软上限/兜底**（达到仍未统一且无僵局 → timeout 收束），
+            #    顶到 9999 会让兜底失效。前端「∞」显示改由 game_mode 判定（见 get_state）。
 
         data = load_game_data()
         if not data.get("cities"):
@@ -475,6 +492,11 @@ class GameManager:
             )
         else:
             data["season"] = ""
+        # v4.3.0：下发游戏模式与僵局阈值——前端据此显示「∞」（infinite）并渲染
+        # 结果页的「连续 N 回合无战事」副标题。此前靠 max_turns>9000 推断 ∞，
+        # 方案 A′ 下 infinite 的 max_turns 是软上限（192），故必须显式下发 game_mode。
+        data["game_mode"] = self.config.game_mode
+        data["stalemate_turns"] = self.config.stalemate_turns
         data["events"] = list(self._events[-20:])
         # 最近战斗报告（近 MAX_RECENT_BATTLES 场；前端 BattleOverlay 据此画进攻箭头）
         data["recent_battles"] = list(self._recent_battles)
@@ -786,11 +808,19 @@ class GameManager:
         turn_result = self.engine.process_turn()
 
         if self.engine.game_over:
+            # v4.3.0：文案按 end_reason 分派（与前端 GameOverOverlay 同一套 canonical 文案）。
+            # 🔴 「一统天下」只在真·统一时出现；timeout / stalemate 一律「领先胜出」。
+            reason = getattr(self.engine, "end_reason", None)
             if self.engine.winner:
                 w = FACTIONS.get(self.engine.winner, self.engine.winner)
-                self._add_event(f"🏆 {w} 一统天下！", "victory")
+                if reason == "unification":
+                    self._add_event(f"🏆 {w} 一统天下！", "victory")
+                elif reason == "stalemate":
+                    self._add_event(f"⚖️ 僵局收束，{w} 领先胜出！", "victory")
+                else:  # timeout（含旧档 end_reason=None 的兜底）
+                    self._add_event(f"⏳ 时限已到，{w} 领先胜出！", "victory")
             else:
-                self._add_event("游戏结束：平局", "victory")
+                self._add_event("天下未定 · 并列", "victory")
             # v4.0.1：对局结束 → 计入跨局模型战绩（幂等，只记一次）
             self._record_match_result()
 

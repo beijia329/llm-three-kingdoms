@@ -54,8 +54,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-turns",
         type=int,
-        default=48,
-        help="最大回合数（默认 48；192 为硬上限，见 game/constants.MAX_TURNS）",
+        default=192,
+        help="最大回合数（默认 192；无限模式下为软上限/兜底，见 game/constants.MAX_TURNS）",
     )
     parser.add_argument("--start-year", type=int, default=184, help="起始年份（默认184年黄巾起义）")
     parser.add_argument("--faction", type=str, default="", help="人类玩家势力（human-vs-ai模式）")
@@ -241,7 +241,8 @@ def run_infinite_mode(
 
     engine = GameEngine(seed=seed)
     engine.game_mode = GameMode.INFINITE
-    engine.max_turns = 9999
+    # v4.3.0（方案 A′）：无限模式下 max_turns 是软上限/兜底，不再顶到 9999
+    # （顶到 9999 会让兜底失效）。渲染层「∞」由 game_mode 判定（见 game_renderer）。
     engine.start_year = start_year
 
     data = load_game_data()

@@ -178,6 +178,16 @@ export interface GameState {
   season: string
   game_over: boolean
   winner: string | null
+  /**
+   * v4.3.0（方案 A′）三层结束语义：None=未结束｜unification=真·统一｜
+   * timeout=时限结束｜stalemate=僵局收束。与 winner 组合唯一确定结算文案；
+   * 🔴 非 unification 一律显示「领先胜出」，绝不出现「统一」字样。
+   */
+  end_reason?: 'unification' | 'timeout' | 'stalemate' | null
+  /** v4.3.0：游戏模式（standard | infinite）。infinite 时顶栏显示「∞」。 */
+  game_mode?: string
+  /** v4.3.0：僵局熔断阈值（连续 N 回合无战事 → 领先胜出）。结算副标题用。 */
+  stalemate_turns?: number
   cities: Record<string, City>
   armies: Record<string, Army>
   generals: Record<string, General>

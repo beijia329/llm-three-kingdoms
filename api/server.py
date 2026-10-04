@@ -131,6 +131,8 @@ def default_config_from_env() -> GameConfig:
         seed=_env_int("GAME_SEED", GameConfig.seed),
         max_turns=_env_int("GAME_MAX_TURNS", GameConfig.max_turns),
         game_mode=mode,
+        # v4.3.0：僵局熔断阈值可经环境变量覆盖（默认 6，见 game.constants.STALEMATE_TURNS）
+        stalemate_turns=_env_int("GAME_STALEMATE_TURNS", GameConfig.stalemate_turns),
     )
 
 
@@ -457,6 +459,7 @@ async def game_websocket(websocket: WebSocket) -> None:
                     seed=msg.get("seed", env_cfg.seed),
                     max_turns=msg.get("max_turns", env_cfg.max_turns),
                     game_mode=msg.get("game_mode") or env_cfg.game_mode,
+                    stalemate_turns=msg.get("stalemate_turns", env_cfg.stalemate_turns),
                     human_faction=msg.get("human_faction"),
                     use_llm=bool(msg.get("use_llm", False)),
                     model=msg.get("model") or GameConfig.model,

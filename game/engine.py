@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from game.constants import (
     MAX_TURNS,
+    STALEMATE_TURNS,
     NUM_FACTIONS,
     FACTIONS,
     ARMY_FOOD_COST_PER_SOLDIER,
@@ -213,6 +214,15 @@ class GameEngine:
         self.game_over: bool = False
         self.winner: Optional[str] = None
 
+        # v4.3.0（方案 A′）：三层结束语义——None=未结束｜"unification"｜"timeout"｜"stalemate"。
+        # 与 winner 组合才能唯一确定 UI 文案（见 game_manager 事件 / GameOverOverlay）。
+        self.end_reason: Optional[str] = None
+        # 僵局熔断计数器：连续 `battles_fought == 0` 的回合数，process_turn 末尾维护。
+        # 🔴 刻意**不进快照**（GameState）：可由 TurnLog 尾部重算，入档纯属冗余。
+        self._consecutive_zero_battle_turns: int = 0
+        # 僵局熔断阈值（连续 N 回合零战斗 → 「领先胜出」）。默认 6，可经 GameConfig 覆盖。
+        self.stalemate_turns: int = STALEMATE_TURNS
+
         # 模式与时间
         from game.game_mode import GameMode
         from game.season import Season
@@ -266,6 +276,10 @@ class GameEngine:
             data: 包含 cities, generals, map_topology 的字典
                   格式参考 data/*.json
         """
+        # v4.3.0：重开一局时复位对局级结束语义与僵局计数器（引擎实例会被复用于 reset）。
+        self.end_reason = None
+        self._consecutive_zero_battle_turns = 0
+
         # 1. 加载城市
         for city_data in data.get("cities", []):
             city = City(**city_data)
@@ -1345,9 +1359,14 @@ class GameEngine:
         self._run_phase_hooks(TurnPhase.AFTER_RESOLUTION, result)
 
         # 6. 胜利判定
+        # v4.3.0（方案 A′）：僵局熔断计数——复用 result["battles_fought"]（零新增采集）。
+        # 连续零战斗回合数达阈值 → _check_victory 在无限模式下收束为「领先胜出」。
+        self._update_stalemate_counter(result["battles_fought"])
+
         self._check_victory()
         result["game_over"] = self.game_over
         result["winner"] = self.winner
+        result["end_reason"] = self.end_reason
 
         # 7. 建国检测
         if self._kingdom_system is not None:
@@ -1739,61 +1758,116 @@ class GameEngine:
     # 胜利判定
     # ============================================================
 
+    def _update_stalemate_counter(self, battles_fought: int) -> None:
+        """维护僵局熔断计数器（v4.3.0 方案 A′）。
+
+        本回合有战斗 → 清零（棋局在推进）；零战斗 → 累加。达 `stalemate_turns`
+        后由 `_check_victory`（无限模式）收束为「领先胜出」。
+
+        复用 `result["battles_fought"]`（引擎内免费产出、已进 TurnLog/WS 事件），
+        **零新增数据采集**。抽为独立方法以便单测（含改坏验证）。
+
+        🔴 计数器**不进快照**（可由 TurnLog 尾部重算），故本方法无序列化副作用。
+        """
+        if battles_fought == 0:
+            self._consecutive_zero_battle_turns += 1
+        else:
+            self._consecutive_zero_battle_turns = 0
+
+    def _leading_faction(self, city_counts: Dict[str, int]) -> Optional[str]:
+        """从城市统计中确定「领先势力」（确定性决胜）。
+
+        逻辑与旧 `_check_victory` 的并列决胜**逐字一致**，抽出以让 unification
+        之外的两种结局（timeout / stalemate）复用同一契约（ADR-0002 /
+        `test_cross_process_determinism`）。**不得引入集合/字典迭代序**。
+
+        决胜链：
+          ① 城市数最多 → 唯一即返回；
+          ② 并列 → 守军总数 ③ 人口总数 ④ 总 gold 降序；
+          ⑤ 势力名字典序兜底（保证任意输入都有唯一结果）。
+
+        Returns:
+            领先势力 id；无有效势力（全中立）时返回 None。
+        """
+        active_counts = {f: c for f, c in city_counts.items() if f != "neutral" and c > 0}
+        if not active_counts:
+            return None
+        max_count = max(active_counts.values())
+        winners = [f for f, c in active_counts.items() if c == max_count]
+        if len(winners) == 1:
+            return winners[0]
+
+        # 并列最多城 → 次级指标决胜，保证唯一胜者（确定性）
+        def tiebreak(f: str) -> Tuple[int, int, int]:
+            fac_cities = [c for c in self.cities.values() if c.faction == f]
+            garri = sum(c.garrison for c in fac_cities)
+            pop = sum(c.population for c in fac_cities)
+            gold = sum(c.gold for c in fac_cities)
+            return (garri, pop, gold)
+
+        return sorted(
+            sorted(winners, key=lambda f: f),            # ④ faction 字典序（稳定兜底）
+            key=lambda f: tiebreak(f), reverse=True      # ① 守军 ② 人口 ③ 总gold 降序
+        )[0]
+
     def _check_victory(self) -> None:
-        """检查游戏是否结束
+        """检查游戏是否结束（v4.3.0 三层结束语义，方案 A′）。
 
-        标准模式：
-        - 192回合到达 → 城市最多者胜
-        - 某势力无城市 → 该势力出局（其他继续）
-        - 只剩一个势力 → 该势力胜
+        三种结局（写入 `self.end_reason`，与 `self.winner` 组合确定 UI 文案）：
 
-        无限模式：
-        - 只剩一个势力 → 统一全国胜利
-        - 无回合上限，不因 turn 结束
+        - ``unification``（真胜利）：非中立城只剩一个主人 → 「一统天下」。
+        - ``stalemate``（僵局收束）：无限模式下连续 ``stalemate_turns`` 回合零战斗
+          → 领先者「领先胜出」。
+        - ``timeout``（时限结束）：standard 模式到达 ``max_turns``；无限模式下到达
+          ``max_turns`` 软上限兜底 → 领先者「领先胜出」。
+
+        🔴 统一判据**只读 `city.faction`，绝不读 `city.is_besieged`**：被围但未陷落的
+        城仍计作守方城市。有城即算该势力存活（不等在途残军）。中立城不计入统一条件
+        （选项 α：统一 = 全部「有主城」归一，不要求征服中立城）。
         """
         if self.game_over:
             return
 
-        # 统计各势力城市数
+        # 统计各势力城市数（含 neutral）
         city_counts: Dict[str, int] = {}
         for city in self.cities.values():
             city_counts[city.faction] = city_counts.get(city.faction, 0) + 1
 
-        # 检查是否只剩一个势力（其他全灭）
-        active_factions = [f for f, c in city_counts.items() if c > 0 and f != "neutral"]
-        if len(active_factions) == 1:
+        # ① 统一（真胜利）：非中立城只剩一个主人（== 全部有主城归一）
+        owners = [f for f, c in city_counts.items() if c > 0 and f != "neutral"]
+        if len(owners) == 1:
             self.game_over = True
-            self.winner = active_factions[0]
+            self.winner = owners[0]
+            self.end_reason = "unification"
+            return
+        if len(owners) == 0:
+            # 极端：全部城市变中立（正常不会发生）→ 无人获胜
+            self.game_over = True
+            self.winner = None
+            self.end_reason = "timeout"
             return
 
-        # 无限模式：只通过统一全国结束
         from game.game_mode import GameMode
+
+        # ② 无限模式：有战事就打到统一，不因 turn 结束；仅僵局熔断 / 软上限兜底
         if self.game_mode == GameMode.INFINITE:
+            if self._consecutive_zero_battle_turns >= self.stalemate_turns:
+                self.game_over = True
+                self.winner = self._leading_faction(city_counts)
+                self.end_reason = "stalemate"
+                return
+            # 软上限兜底（防极端死循环）：达到 max_turns 仍未统一且无僵局 → timeout
+            if self.turn >= self.max_turns:
+                self.game_over = True
+                self.winner = self._leading_faction(city_counts)
+                self.end_reason = "timeout"
             return
 
-        # 检查是否到达最大回合（排除中立城）
+        # ③ 标准模式：到达上限 → 领先结束（绝不叫「统一」）
         if self.turn >= self.max_turns:
             self.game_over = True
-            active_counts = {f: c for f, c in city_counts.items() if f != "neutral"}
-            if not active_counts:
-                self.winner = None
-                return
-            max_count = max(active_counts.values())
-            winners = [f for f, c in active_counts.items() if c == max_count]
-            if len(winners) == 1:
-                self.winner = winners[0]
-            else:
-                # 并列最多城 → 次级指标决胜，保证唯一胜者（确定性）
-                def tiebreak(f):
-                    fac_cities = [c for c in self.cities.values() if c.faction == f]
-                    garri = sum(c.garrison for c in fac_cities)
-                    pop = sum(c.population for c in fac_cities)
-                    gold = sum(c.gold for c in fac_cities)
-                    return (garri, pop, gold, f)
-                self.winner = sorted(
-                    sorted(winners, key=lambda f: f),            # ④ faction 字典序（稳定兜底）
-                    key=lambda f: tiebreak(f)[:3], reverse=True  # ① 守军 ② 人口 ③ 总gold 降序
-                )[0]
+            self.winner = self._leading_faction(city_counts)
+            self.end_reason = "timeout"
 
     # ============================================================
     # 观察数据生成
@@ -1947,6 +2021,7 @@ class GameEngine:
             seed=self.seed,
             game_over=self.game_over,
             winner=self.winner,
+            end_reason=self.end_reason,
             cities=self.cities,
             armies=self.armies,
             generals=self.generals,

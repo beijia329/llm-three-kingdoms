@@ -622,6 +622,14 @@ class GameState(BaseModel):
     seed: int = Field(description="随机种子")
     game_over: bool = Field(default=False, description="游戏是否结束")
     winner: Optional[str] = Field(None, description="获胜方")
+    end_reason: Optional[str] = Field(
+        default=None,
+        description=(
+            "结局语义（v4.3.0 三层结束，方案 A′）："
+            "None=未结束｜unification=真·统一｜timeout=时限结束｜stalemate=僵局收束。"
+            "与 winner 组合唯一确定 UI 文案；非 unification 一律显示「领先胜出」。"
+        ),
+    )
 
     cities: Dict[str, City] = Field(description="所有城市")
     armies: Dict[str, Army] = Field(description="所有军队")
