@@ -142,7 +142,7 @@ export interface HexTile {
 export interface FactionRelation {
   faction_a: string
   faction_b: string
-  status: 'war' | 'neutral' | 'alliance' | 'truce'
+  status: 'war' | 'neutral' | 'alliance' | 'truce' | 'proposed'
   trust: number
   truce_end_turn?: number
   alliance_end_turn?: number

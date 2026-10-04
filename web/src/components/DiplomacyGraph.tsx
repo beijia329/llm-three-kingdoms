@@ -14,7 +14,7 @@ import { FACTION_COLORS, FACTION_GLYPH, FACTIONS, contrastText, UI_COLORS } from
  * 🔴 三个实测坑（都已处理，勿踩回去）：
  *   a. `neutral` 会作为**关系的一方**出现（打中立城时生成，实测 6 回合后节点数 13 = 12+neutral）。
  *      它不是势力（没有君主/LLM/领地），画成第 13 个节点是错的 → 这里按 id 排除。
- *   b. `neutral` **既是势力 id 又是状态值**（status ∈ {war,neutral,alliance,truce}）。两个命名空间
+ *   b. `neutral` **既是势力 id 又是状态值**（status ∈ {war,neutral,alliance,truce,proposed}）。两个命名空间
  *      撞名，本文件用 `NON_FACTION_ID`（id）与 `status`（状态）分开命名，禁止混用。
  *   c. **开局是 66 对全 neutral、trust 全 50**（实测 turn 1）。若无条件画 66 条灰线，
  *      用户第一眼看到一坨一模一样的线，比列表还难读 → 中立关系默认不画（只画 战/盟/和）。
@@ -26,6 +26,7 @@ export const REL_STATUS_COLOR: Record<string, string> = {
   neutral: UI_COLORS.textSecondary,
   alliance: '#5ab464',
   truce: '#d4a84b',
+  proposed: '#6ba3d6',
 }
 
 /** 单字标签（矩阵/列表里用） */
@@ -34,6 +35,7 @@ export const REL_STATUS_LABEL: Record<string, string> = {
   neutral: '中',
   alliance: '盟',
   truce: '和',
+  proposed: '议',
 }
 
 /** 全称（图例/提示里用） */
@@ -42,6 +44,7 @@ export const REL_STATUS_NAME: Record<string, string> = {
   neutral: '中立',
   alliance: '同盟',
   truce: '停战',
+  proposed: '结盟提议',
 }
 
 /** `neutral` 是"中立城"的伪势力 id，不是势力（见文件头 a/b 条） */
@@ -130,7 +133,7 @@ function GlyphBadge({ faction, size = 18, dim = false }: { faction: string; size
 export function RelationLegend() {
   return (
     <div style={{ display: 'flex', gap: 10, fontSize: 11, color: UI_COLORS.textSecondary, flexWrap: 'wrap' }}>
-      {(['war', 'alliance', 'truce'] as const).map((s) => (
+      {(['war', 'alliance', 'proposed', 'truce'] as const).map((s) => (
         <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 9, height: 9, borderRadius: 2, background: REL_STATUS_COLOR[s], display: 'inline-block' }} />
           {REL_STATUS_LABEL[s]}

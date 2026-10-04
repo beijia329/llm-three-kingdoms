@@ -88,6 +88,7 @@ PARAM_MAPPING = {
     "rumor": {"city": "city", "target_general": "target_general", "spy_general": "spy_general"},
     "propose_alliance": {"to": "to"},
     "declare_war": {"to": "to", "reason": "reason"},
+    "truce": {"to": "to"},
 }
 
 

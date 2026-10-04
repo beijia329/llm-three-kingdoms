@@ -209,8 +209,9 @@ class PromptBuilder:
 
     ### 外交（重要！）
     - 每回合可给1个势力发 message 命令进行外交沟通
-    - 可以使用 propose_alliance 命令与目标势力正式结盟（持续12回合）
+    - 可以使用 propose_alliance 命令向目标势力提出结盟（对方下回合按信任度回应；信任度不足 45 会被直接拒绝）
     - 可以使用 declare_war 命令向目标势力宣战
+    - 处于交战时，可以使用 truce 命令向对方求和（停战若干回合后自动恢复交战）
     - 其他势力发来的消息会显示在你的观察中
     - 你可以：结盟共抗强敌、离间敌方关系、欺诈背盟
     - 多线作战必败，必须通过外交分化敌人
@@ -263,11 +264,15 @@ class PromptBuilder:
 
 7. propose_alliance - 提出同盟
    参数：to (目标势力: {factions_str})
-   效果：与目标势力结为同盟（持续12回合），同盟期间不能互相攻击
+   效果：向目标势力提出结盟（信任度需达 45 才能提出）。对方下回合按信任度决定是否接受；接受则结为同盟（持续12回合），拒绝则作废并降低信任度
 
 8. declare_war - 宣战
    参数：to (目标势力: {factions_str}), reason (宣战理由，可选)
    效果：向目标势力宣战，关系变为敌对
+
+9. truce - 求和/停战
+   参数：to (目标势力: {factions_str})
+   效果：向交战中的目标势力提出停战，停战若干回合后自动恢复交战
 
 9. rumor - 散布流言
    参数：city (目标城市), target_general (目标将领，可选)
@@ -371,6 +376,7 @@ class PromptBuilder:
                     "neutral": "中",
                     "alliance": "盟",
                     "truce": "和",
+                    "proposed": "议",
                 }.get(rel.status.value, rel.status.value)
                 lines.append(
                     f"- {rel.faction_a}↔{rel.faction_b}: {status_label} (信任{rel.trust})"

@@ -38,6 +38,7 @@ export const COMMAND_TYPE_LABELS: Record<string, string> = {
   rumor: '散布谣言',
   propose_alliance: '结盟',
   declare_war: '宣战',
+  truce: '停战',
 }
 
 /** 命令类型 → 图标（Font Awesome class 后缀） */
@@ -64,6 +65,7 @@ const COMMAND_TYPE_ICONS: Record<string, string> = {
   rumor: 'fa-comment-dots',
   propose_alliance: 'fa-handshake',
   declare_war: 'fa-bolt',
+  truce: 'fa-flag',
 }
 
 /**
