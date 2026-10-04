@@ -100,7 +100,7 @@
 
 **A-4 死 import**
 
-- `MORALE_COMBAT_BONUS_RATE`（`game/battle/battle_resolver.py:47`）：被 import，但函数体用的是内联 `avg_morale/100.0`，常量从未引用。= 死 import。
+- `MORALE_COMBAT_BONUS_RATE`（`game/battle/battle_resolver.py:47`）：被 import，但函数体用的是内联 `avg_morale/100.0`，常量从未引用。= 死 import。**已修复（第三批：删除死 import 与 `constants.py` 中的常量定义）。**
 - `TurnResult`（`main.py:26`）：见 A-1-1。
 
 ---
@@ -364,7 +364,7 @@
 | `KNOWN_COMMAND_CLASS_NAMES` | `web/src/constants/commands.ts:89` | 0 | 无（无 web 测试） | 无 |
 | `computeChinaMask` | `GameMap.tsx:536` | 0 | 无 | 无（76 行） |
 | `TurnResult` import | `main.py:26` | 0 使用 | — | 无 |
-| `MORALE_COMBAT_BONUS_RATE` import | `battle_resolver.py:47` | 0 使用 | — | 无 |
+| `MORALE_COMBAT_BONUS_RATE` import | `battle_resolver.py:47` | 0 使用 | — | **已删除（第三批）** |
 
 ### 3.2 WIRE（保留，但应接线——否则是「算了没用」）
 

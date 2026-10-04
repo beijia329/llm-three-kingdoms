@@ -509,29 +509,3 @@ def get_general_title(general_id: str) -> str:
     return profile.get("title", "") if profile else ""
 
 
-# ============================================================
-# 倾向计算
-# ============================================================
-
-def get_aggression_weight(faction: str, general_personality: str = "balanced") -> float:
-    """计算进攻倾向权重
-
-    Args:
-        faction: 势力键
-        general_personality: 将领性格
-
-    Returns:
-        0.0-1.0 的进攻权重
-    """
-    base = FACTION_PERSONALITY.get(faction, {}).get("aggression", 0.5)
-    # 性格修正
-    modifiers = {
-        "aggressive": 0.2,
-        "cautious": -0.2,
-        "ambitious": 0.1,
-        "diplomatic": -0.15,
-        "loyal": 0.0,
-        "balanced": 0.0,
-    }
-    mod = modifiers.get(general_personality, 0.0)
-    return max(0.0, min(1.0, base + mod))

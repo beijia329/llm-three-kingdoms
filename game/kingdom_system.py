@@ -106,9 +106,6 @@ class KingdomSystem:
                 "production": KINGDOM_PRODUCTION_BONUS,
                 "morale": KINGDOM_MORALE_BONUS,
             },
-            "debuffs": {
-                "diplomacy_penalty": KINGDOM_DIPLO_PENALTY,
-            },
         }
 
         return self._kingdoms[faction]

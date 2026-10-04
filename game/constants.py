@@ -263,8 +263,6 @@ BASE_DAMAGE_RATE: float = 0.1
 DEFENDER_WALL_BONUS: float = 0.1
 """守城方获得+10%防御加成"""
 
-MORALE_COMBAT_BONUS_RATE: float = 0.01
-"""每点士气增加1%战斗力"""
 
 # --- 士气参数 ---
 MORALE_LOSS_PER_10_PERCENT_CASUALTY: int = 5
@@ -273,37 +271,13 @@ MORALE_LOSS_PER_10_PERCENT_CASUALTY: int = 5
 MORALE_GAIN_PER_10_PERCENT_KILL: int = 3
 """每击杀敌方10%兵力，士气+3"""
 
-MORALE_LOSS_GENERAL_DEATH: int = 15
-"""将领阵亡，士气-15"""
-
 MORALE_LOSS_NO_FOOD: int = 10
 """断粮每回合士气-10"""
-
-MORALE_BOOST_OUTNUMBERED: int = 10
-"""以少胜多士气+10"""
 
 MORALE_LOSS_BESIEGED: int = 3
 """城市被围每回合士气-3"""
 
-MORALE_LOSS_SURROUNDED: int = 8
-"""被包围士气-8"""
-
 # --- 士气效果阈值 ---
-MORALE_ELITE_THRESHOLD: int = 90
-"""士气>=90：死战不退"""
-
-MORALE_HIGH_THRESHOLD: int = 70
-"""士气>=70：正常"""
-
-MORALE_NORMAL_THRESHOLD: int = 50
-"""士气>=50：正常"""
-
-MORALE_LOW_THRESHOLD: int = 30
-"""士气>=30：有概率逃跑"""
-
-MORALE_CRITICAL_THRESHOLD: int = 20
-"""士气>=20：高概率溃散"""
-
 MORALE_BREAK_THRESHOLD: int = 20
 """士气低于此值开始溃散"""
 
