@@ -176,8 +176,7 @@ class GameManager:
         # ---- hex_map 缓存（前端性能优化，2026-10-03）----
         # hex_map 有 24000 格、序列化后约 2.58 MB，占 /api/state 体积近 100%；
         # 而它的「地形/州郡/坐标」建图后**恒定不变**，只有势力占领（faction）
-        # 与归属城（owner_city_id）会随回合变化（实测：仅城市易手时变，
-        # 影响力扩散不写 faction，见 game/influence_system.py 模块说明）。故：
+        # 与归属城（owner_city_id）会随回合变化（实测：仅城市易手时变）。故：
         #   - _hex_cache_version：只对会变的字段算指纹，未变则不入包；
         #   - _hex_cache_payload：指纹未变时复用已建好的 tiles，省掉重建 24000 dict；
         #   - _hex_prev_state/version：保留上一版格子状态，供**增量下发**——

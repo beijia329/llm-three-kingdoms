@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 # ============================================================
 # 实测教训：即使固定引擎 seed 与各势力派生 seed，同一 seed 在不同进程仍会
 # 得到不同结果（exp6 两次复跑：271 次 vs 245 次出征）。根因是**引擎内部存在
-# 依赖 set/dict 迭代顺序的逻辑**（如`GameEngine._spread_influence` 用
+# 依赖 set/dict 迭代顺序的逻辑**（如已删除的 `GameEngine._spread_influence` 曾用
 # `assigned: set` + 对 `self.cities.values()` 的遍历顺序决定影响力扩散方向），
 # 而 Python 的 `str`/`tuple` 哈希默认按进程随机化（PYTHONHASHSEED=random）→
 # set 迭代顺序逐进程变化 → 随机数消耗序列变化 → 结果漂移。

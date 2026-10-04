@@ -60,9 +60,9 @@ def register_phase_hook(
   （含 `phase` / `hook` / `error`）**并继续执行后续钩子**。
   一个 mod 的 bug 不该让整局崩，但**必须可观测**。无错误时 `result` 里不出现
   `hook_errors` 键（零行为变更）。
-- **引擎自己在用**：`influence_spread` 与 `nature_strain` 两个内置机制已从
-  `process_turn` 内联逻辑迁移为钩子（`game/engine.py:1673-1701`），
-  语义与位置不变。这不是"预留的架子"，是在跑的生产路径。
+- **引擎自己在用**：`nature_strain`（人设代价）与 `city_morale`（民心自然变化）
+  两个内置机制都以钩子形式在跑（`game/engine.py:2063-2115`）。
+  这不是"预留的架子"，是在跑的生产路径。
 
 辅助函数：`list_phase_hooks(phase) -> list[str]`、`clear_phase_hooks()`（仅供测试清理）。
 
@@ -176,7 +176,7 @@ register_command("festival", FestivalCommand, _execute_festival)
 | 项 | 状态 | 说明 |
 |---|---|---|
 | 引擎命令分发收口 | ✅ 完成 | `execute_command` 不再枚举命令 |
-| 相位钩子 + 引擎自用 | ✅ 完成 | 2 个内置机制已迁移 |
+| 相位钩子 + 引擎自用 | ✅ 完成 | 2 个内置机制在跑 |
 | EventBus 去死代码 | ✅ 完成 | 删掉 5 个无产生点事件类 |
 | `llm_player.COMMAND_CLASSES` 由注册表派生 | ⚠️ 待办 | 现需手工同步 |
 | `output_parser.VALID_COMMAND_TYPES` 由注册表派生 | ⚠️ 待办 | 现需手工同步 |
