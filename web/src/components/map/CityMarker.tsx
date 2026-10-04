@@ -81,7 +81,7 @@ export function CityMarker({ city, x, y, zoom, onClick, selected }: CityMarkerPr
 
   const maxG = city.level * 1000
   const ratio = Math.min(1, city.garrison / maxG)
-  const hpColor = ratio > 0.5 ? '#3cb464' : ratio > 0.2 ? '#c8a032' : '#c85046'
+  const hpColor = ratio > 0.5 ? '#3cb464' : ratio > 0.2 ? '#c8a032' : 'var(--red)'
 
   return (
     <div
@@ -116,9 +116,9 @@ export function CityMarker({ city, x, y, zoom, onClick, selected }: CityMarkerPr
             width: '46px',
             height: '46px',
             transform: 'translate(-50%, -50%)',
-            border: '2px solid #d4a84b',
+            border: '2px solid var(--gold)',
             borderRadius: '50%',
-            boxShadow: '0 0 14px rgba(212, 168, 75, 0.85), inset 0 0 8px rgba(212, 168, 75, 0.4)',
+            boxShadow: '0 0 14px rgba(200, 168, 90, 0.85), inset 0 0 8px rgba(200, 168, 90, 0.4)',
             animation: 'city-select-pulse 1.6s ease-in-out infinite',
             pointerEvents: 'none',
           }}
@@ -172,7 +172,7 @@ export function CityMarker({ city, x, y, zoom, onClick, selected }: CityMarkerPr
               right: '-6px',
               padding: '1px',
               filter: 'drop-shadow(0 0 1px #2a2018)',
-              ...maskStyle(crownIcon, '#d4a84b', 11),
+              ...maskStyle(crownIcon, 'var(--gold)', 11),
             }}
           />
         )}
@@ -187,7 +187,7 @@ export function CityMarker({ city, x, y, zoom, onClick, selected }: CityMarkerPr
               width: '13px',
               height: '13px',
               borderRadius: '50%',
-              backgroundColor: '#c85046',
+              backgroundColor: 'var(--red)',
               border: '1.5px solid #2a2018',
               display: 'flex',
               alignItems: 'center',

@@ -21,7 +21,7 @@ export function GameOverOverlay({ state, onDismiss }: GameOverOverlayProps) {
 
   const winnerId = state.winner
   const winnerName = winnerId ? (FACTIONS[winnerId] || winnerId) : null
-  const winnerColor = winnerId ? (FACTION_COLORS[winnerId] || '#d4a84b') : '#d4a84b'
+  const winnerColor = winnerId ? (FACTION_COLORS[winnerId] || 'var(--gold)') : 'var(--gold)'
   const winnerCities = winnerId ? (state.faction_stats[winnerId]?.cities ?? 0) : 0
 
   // 最终排名：存活势力按城池数降序（已出局势力排在后）
@@ -29,17 +29,30 @@ export function GameOverOverlay({ state, onDismiss }: GameOverOverlayProps) {
     .map(([fid, s]) => ({ fid, ...s }))
     .sort((a, b) => b.cities - a.cities || a.name.localeCompare(b.name, 'zh-CN'))
 
-  const reason = state.turn >= state.max_turns ? '回合耗尽' : '一统天下'
+  // v4.3.0（方案 A′）三层结束语义：文案按 end_reason 分支。
+  // 🔴 「一统天下」只在真·统一（unification）时出现；timeout / stalemate 一律「领先胜出」。
+  // 旧档（end_reason 缺省）回退推断：turn>=max_turns → timeout，否则 unification（向后兼容）。
+  const endReason = state.end_reason ?? (state.turn >= state.max_turns ? 'timeout' : 'unification')
+  const isUnification = endReason === 'unification'
+  const icon = !winnerId ? '🤝' : isUnification ? '🏆' : endReason === 'stalemate' ? '⚖️' : '⏳'
+  const headline = winnerName
+    ? (isUnification ? `${winnerName} 一统天下` : `${winnerName} 领先胜出`)
+    : '天下未定 · 并列'
+  const subReason = isUnification
+    ? `第 ${state.turn} 回合 · 廓清寰宇`
+    : endReason === 'stalemate'
+      ? `连续 ${state.stalemate_turns ?? 6} 回合无战事 · 僵局收束，天下未定`
+      : `第 ${state.turn} / ${state.max_turns} 回合 · 时限已到，天下未定`
 
   return (
     <div style={styles.backdrop}>
       <div style={styles.card}>
-        <div style={{ fontSize: '44px', lineHeight: 1 }}>{winnerId ? '🏆' : '🤝'}</div>
+        <div style={{ fontSize: '44px', lineHeight: 1 }}>{icon}</div>
         <div style={{ ...styles.headline, color: winnerColor }}>
-          {winnerName ? `${winnerName} 一统天下` : '天下未定 · 平局'}
+          {headline}
         </div>
         <div style={styles.sub}>
-          第 {state.turn} / {state.max_turns} 回合 · {reason}
+          {subReason}
           {winnerId && ` · 坐拥 ${winnerCities} 城`}
         </div>
 
@@ -53,11 +66,11 @@ export function GameOverOverlay({ state, onDismiss }: GameOverOverlayProps) {
                   background: FACTION_COLORS[row.fid] || '#888', flexShrink: 0,
                 }}
               />
-              <span style={{ color: row.is_alive === false ? '#6b6b80' : '#e8e0d0', flex: 1, textAlign: 'left' }}>
+              <span style={{ color: row.is_alive === false ? '#6b6b80' : 'var(--text)', flex: 1, textAlign: 'left' }}>
                 {row.name}
                 {row.is_alive === false && <span style={styles.deadTag}>已出局</span>}
               </span>
-              <span style={{ color: '#a8a29a' }}>{row.cities} 城</span>
+              <span style={{ color: 'var(--text-2)' }}>{row.cities} 城</span>
             </div>
           ))}
         </div>
@@ -85,15 +98,14 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(10, 10, 22, 0.72)',
-    backdropFilter: 'blur(6px)',
+    background: 'rgba(10, 20, 26, 0.72)',
   },
   card: {
-    width: '380px',
-    padding: '28px 26px',
-    borderRadius: '16px',
-    background: 'rgba(24, 24, 40, 0.96)',
-    border: '1px solid rgba(212, 168, 75, 0.4)',
+    width: '460px',
+    padding: '30px 28px',
+    borderRadius: '6px',
+    background: 'rgba(20, 32, 40, 0.96)',
+    border: '1px solid rgba(200, 168, 90, 0.4)',
     boxShadow: '0 24px 80px rgba(0, 0, 0, 0.6)',
     display: 'flex',
     flexDirection: 'column',
@@ -101,13 +113,14 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
   },
   headline: {
-    fontSize: '24px',
+    fontSize: '28px',
     fontWeight: 700,
     marginTop: '12px',
+    fontFamily: 'var(--font-serif)',
   },
   sub: {
     fontSize: '12px',
-    color: '#a8a29a',
+    color: 'var(--text-2)',
     marginTop: '6px',
   },
   rankList: {
@@ -128,24 +141,24 @@ const styles: Record<string, React.CSSProperties> = {
   },
   rankNo: {
     width: '16px',
-    color: '#d4a84b',
+    color: 'var(--gold)',
     fontWeight: 600,
     fontSize: '12px',
   },
   deadTag: {
     marginLeft: '6px',
     fontSize: '10px',
-    color: '#c85046',
-    border: '1px solid rgba(200,80,70,0.5)',
+    color: 'var(--red)',
+    border: '1px solid rgba(157,41,51,0.5)',
     borderRadius: '4px',
     padding: '0 4px',
   },
   btn: {
     padding: '9px 16px',
-    borderRadius: '8px',
-    border: '1px solid rgba(212, 168, 75, 0.5)',
-    background: 'rgba(212, 168, 75, 0.15)',
-    color: '#d4a84b',
+    borderRadius: '6px',
+    border: '1px solid rgba(200, 168, 90, 0.5)',
+    background: 'rgba(200, 168, 90, 0.15)',
+    color: 'var(--gold)',
     fontSize: '13px',
     fontWeight: 600,
     cursor: 'pointer',
@@ -154,6 +167,6 @@ const styles: Record<string, React.CSSProperties> = {
   btnGhost: {
     border: '1px solid rgba(255,255,255,0.15)',
     background: 'transparent',
-    color: '#a8a29a',
+    color: 'var(--text-2)',
   },
 }

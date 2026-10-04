@@ -97,12 +97,12 @@ const styles: Record<string, CSSProperties> = {
     padding: '14px 16px', boxSizing: 'border-box',
   },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' },
-  title: { color: '#d4a84b', fontSize: '17px', fontWeight: 700, display: 'flex', alignItems: 'center' },
-  close: { background: 'transparent', border: 'none', color: '#a8a29a', cursor: 'pointer', fontSize: '14px', padding: '2px 6px' },
+  title: { color: 'var(--gold)', fontSize: '17px', fontWeight: 700, display: 'flex', alignItems: 'center' },
+  close: { background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer', fontSize: '14px', padding: '2px 6px' },
   body: { display: 'flex', flexDirection: 'column', gap: '12px' },
   group: { display: 'flex', flexDirection: 'column', gap: '5px' },
   groupTitle: {
-    color: '#8a86a0', fontSize: '11px', letterSpacing: '1px',
+    color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '1px',
     borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: '4px', marginBottom: '2px',
   },
   row: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px' },
@@ -110,12 +110,12 @@ const styles: Record<string, CSSProperties> = {
   kbd: {
     display: 'inline-block', minWidth: '20px', textAlign: 'center',
     padding: '2px 7px', borderRadius: '5px',
-    background: 'rgba(212, 168, 75, 0.14)', border: '1px solid rgba(212, 168, 75, 0.4)',
+    background: 'rgba(200, 168, 90, 0.14)', border: '1px solid rgba(200, 168, 90, 0.4)',
     color: '#e8c877', fontSize: '11px', fontWeight: 600, fontFamily: 'inherit',
   },
   desc: { color: '#b8b3aa' },
   footer: {
     marginTop: '14px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.07)',
-    color: '#8a86a0', fontSize: '11px', lineHeight: 1.6,
+    color: 'var(--text-muted)', fontSize: '11px', lineHeight: 1.6,
   },
 }

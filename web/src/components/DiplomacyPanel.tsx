@@ -62,8 +62,8 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
               padding: '6px 0',
               borderRadius: '6px',
               border: 'none',
-              background: activeTab === t ? 'rgba(212,168,75,0.2)' : 'rgba(255,255,255,0.05)',
-              color: activeTab === t ? '#d4a84b' : UI_COLORS.textSecondary,
+              background: activeTab === t ? 'rgba(200,168,90,0.2)' : 'rgba(255,255,255,0.05)',
+              color: activeTab === t ? 'var(--gold)' : UI_COLORS.textSecondary,
               fontSize: '12px',
               cursor: 'pointer',
             }}
@@ -75,18 +75,18 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
 
       {activeTab === 'relations' && (
         <div>
-          <div style={{ fontSize: '13px', color: '#d4a84b', marginBottom: '10px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--gold)', marginBottom: '10px' }}>
             势力外交关系
           </div>
           {/* [阶段D 2026-10-03] 关系图：README 把「外交博弈」列为头部特性，但原界面只有列表
               和一个**无行列标**的 24 格色块 → 卖点在界面上看不见。这里补环形关系图。 */}
           <RelationGraph state={state} />
 
-          <div style={{ marginTop: 16, fontSize: '13px', color: '#d4a84b', marginBottom: '6px' }}>
+          <div style={{ marginTop: 16, fontSize: '13px', color: 'var(--gold)', marginBottom: '6px' }}>
             当前战况摘要
           </div>
           {myRelations.length === 0 && (
-            <div style={{ fontSize: 12, color: '#8a86a0', padding: '6px 0' }}>暂无交战的势力对</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 0' }}>暂无交战的势力对</div>
           )}
           {myRelations.map((rel, i) => {
             const other = rel.faction_a === humanFaction ? rel.faction_b : rel.faction_a
@@ -105,7 +105,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
                   padding: '8px 10px',
                   marginBottom: '6px',
                   background: 'rgba(255,255,255,0.03)',
-                  borderRadius: '8px',
+                  borderRadius: '6px',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -118,7 +118,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
                       display: 'inline-block',
                     }}
                   />
-                  <span style={{ fontSize: '12px', color: '#e8e0d0' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text)' }}>
                     {label}
                   </span>
                 </div>
@@ -127,7 +127,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
                     style={{
                       fontSize: '11px',
                       padding: '2px 8px',
-                      borderRadius: '10px',
+                      borderRadius: '6px',
                       background: statusColor[rel.status] + '22',
                       color: statusColor[rel.status],
                     }}
@@ -145,7 +145,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
           {/* 全矩阵：[阶段D 2026-10-03] 换成带**行列势力标**的 12×12 完整矩阵。
               原实现是 `relations.slice(0,24)` 的 6 列色块，**没有任何行/列标题** ——
               看到"战"字也不知道是哪一对，等于不可读；而且只覆盖 66 对里的前 24 对。 */}
-          <div style={{ marginTop: '16px', fontSize: '13px', color: '#d4a84b', marginBottom: '6px' }}>
+          <div style={{ marginTop: '16px', fontSize: '13px', color: 'var(--gold)', marginBottom: '6px' }}>
             关系矩阵（全 12 方 · 含中立）
           </div>
           <RelationMatrix state={state} />
@@ -157,7 +157,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
 
       {activeTab === 'messages' && (
         <div>
-          <div style={{ fontSize: '13px', color: '#d4a84b', marginBottom: '10px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--gold)', marginBottom: '10px' }}>
             外交消息
           </div>
           {messages.length === 0 && (
@@ -173,7 +173,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
 
       {activeTab === 'send' && humanFaction && (
         <div>
-          <div style={{ fontSize: '13px', color: '#d4a84b', marginBottom: '10px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--gold)', marginBottom: '10px' }}>
             发送外交消息
           </div>
           <div style={{ marginBottom: '10px' }}>
@@ -189,7 +189,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
                 borderRadius: '6px',
                 border: '1px solid rgba(255,255,255,0.1)',
                 background: 'rgba(0,0,0,0.3)',
-                color: '#e8e0d0',
+                color: 'var(--text)',
                 fontSize: '13px',
               }}
             >
@@ -215,7 +215,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
                 borderRadius: '6px',
                 border: '1px solid rgba(255,255,255,0.1)',
                 background: 'rgba(0,0,0,0.3)',
-                color: '#e8e0d0',
+                color: 'var(--text)',
                 fontSize: '13px',
                 resize: 'none',
               }}
@@ -230,8 +230,8 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
               padding: '10px',
               borderRadius: '6px',
               border: 'none',
-              background: targetFaction && msgContent.trim() ? '#d4a84b' : '#555',
-              color: '#1a1a2e',
+              background: targetFaction && msgContent.trim() ? 'var(--gold)' : '#555',
+              color: 'var(--bg)',
               fontSize: '13px',
               fontWeight: 600,
               cursor: targetFaction && msgContent.trim() ? 'pointer' : 'not-allowed',
@@ -260,9 +260,9 @@ function MessageItem({ msg, humanFaction }: { msg: DiplomacyMessage; humanFactio
       style={{
         padding: '10px',
         marginBottom: '8px',
-        borderRadius: '8px',
-        background: isIncoming ? 'rgba(90,180,100,0.08)' : isOutgoing ? 'rgba(212,168,75,0.08)' : 'rgba(255,255,255,0.03)',
-        borderLeft: `3px solid ${isIncoming ? '#5ab464' : isOutgoing ? '#d4a84b' : '#666'}`,
+        borderRadius: '6px',
+        background: isIncoming ? 'rgba(90,180,100,0.08)' : isOutgoing ? 'rgba(200,168,90,0.08)' : 'rgba(255,255,255,0.03)',
+        borderLeft: `3px solid ${isIncoming ? 'var(--green)' : isOutgoing ? 'var(--gold)' : '#666'}`,
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
@@ -272,7 +272,7 @@ function MessageItem({ msg, humanFaction }: { msg: DiplomacyMessage; humanFactio
         </span>
         <span style={{ fontSize: '10px', color: '#666' }}>第 {msg.turn} 回合</span>
       </div>
-      <div style={{ fontSize: '13px', color: '#e8e0d0', lineHeight: 1.5 }}>
+      <div style={{ fontSize: '13px', color: 'var(--text)', lineHeight: 1.5 }}>
         {msg.content}
       </div>
     </div>

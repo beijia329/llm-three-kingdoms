@@ -76,7 +76,7 @@ export function ArmyMarker({ army, x, y, zoom, selected, onClick, generalName, f
   const scale = markerScreen / (32 * Math.max(zoom, 0.02))
 
   const moraleRatio = Math.max(0, Math.min(1, army.morale / 100))
-  const moraleColor = moraleRatio > 0.5 ? '#3cb464' : moraleRatio > 0.2 ? '#c8a032' : '#c85046'
+  const moraleColor = moraleRatio > 0.5 ? '#3cb464' : moraleRatio > 0.2 ? '#c8a032' : 'var(--red)'
 
   return (
     <div
@@ -95,7 +95,7 @@ export function ArmyMarker({ army, x, y, zoom, selected, onClick, generalName, f
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        outline: selected ? '2px solid rgba(212,168,75,0.95)' : 'none',
+        outline: selected ? '2px solid rgba(200,168,90,0.95)' : 'none',
         outlineOffset: '3px',
         borderRadius: '6px',
       }}
@@ -108,14 +108,14 @@ export function ArmyMarker({ army, x, y, zoom, selected, onClick, generalName, f
           animation: isRetreat ? 'retreat-shake 0.8s ease-in-out infinite' : 'none',
         }}
       >
-        <span aria-hidden style={maskStyle(icon, isRetreat ? '#c85046' : color, 18)} />
+        <span aria-hidden style={maskStyle(icon, isRetreat ? 'var(--red)' : color, 18)} />
       </div>
 
       {/* 兵力数字 */}
       <div
         style={{
           marginTop: '1px',
-          color: '#e8e0d0',
+          color: 'var(--text)',
           fontSize: '10px',
           fontWeight: 700,
           textShadow: '0 1px 3px rgba(0,0,0,0.9)',

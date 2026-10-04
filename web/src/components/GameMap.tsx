@@ -607,8 +607,8 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
       {/* CSS 动画定义 */}
       <style>{`
         @keyframes city-pulse {
-          0%, 100% { filter: drop-shadow(0 0 4px rgba(200,80,70,0.6)); }
-          50% { filter: drop-shadow(0 0 12px rgba(200,80,70,0.9)); }
+          0%, 100% { filter: drop-shadow(0 0 4px rgba(157,41,51,0.6)); }
+          50% { filter: drop-shadow(0 0 12px rgba(157,41,51,0.9)); }
         }
         @keyframes siege-blink {
           0%, 100% { opacity: 1; transform: scale(1); }
@@ -629,17 +629,17 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
       {/* 加载/等待态（审计 §3-10：此前 hex_map 解析期间只有顶栏一行字，地图纯黑无反馈） */}
       {!state && (
         <div style={styles.loadingOverlay}>
-          <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '30px', color: '#d4a84b', marginBottom: '14px' }}></i>
-          <div style={{ color: '#e8e0d0', fontSize: '15px', fontWeight: 600 }}>正在连接后端并载入地图…</div>
-          <div style={{ color: '#a8a29a', fontSize: '12px', marginTop: '6px' }}>
+          <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '30px', color: 'var(--gold)', marginBottom: '14px' }}></i>
+          <div style={{ color: 'var(--text)', fontSize: '15px', fontWeight: 600 }}>正在连接后端并载入地图…</div>
+          <div style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: '6px' }}>
             首次载入需解析约 2.4 万格六角地图，请稍候
           </div>
         </div>
       )}
       {state && !pixiReady && (
         <div style={styles.loadingOverlay}>
-          <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '26px', color: '#d4a84b', marginBottom: '12px' }}></i>
-          <div style={{ color: '#e8e0d0', fontSize: '14px' }}>正在绘制地图…</div>
+          <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '26px', color: 'var(--gold)', marginBottom: '12px' }}></i>
+          <div style={{ color: 'var(--text)', fontSize: '14px' }}>正在绘制地图…</div>
         </div>
       )}
     </div>
@@ -654,8 +654,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(12, 12, 24, 0.72)',
-    backdropFilter: 'blur(2px)',
+    background: 'rgba(10, 20, 26, 0.72)',
     zIndex: 40,
     pointerEvents: 'auto',
     textAlign: 'center',

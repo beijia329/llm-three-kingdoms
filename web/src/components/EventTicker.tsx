@@ -27,7 +27,7 @@ export function EventTicker({ events }: EventTickerProps) {
             height: '14px',
             flexShrink: 0,
             marginRight: '8px',
-            backgroundColor: '#d4a84b',
+            backgroundColor: 'var(--gold)',
             maskImage: `url(${scrollQuill})`,
             WebkitMaskImage: `url(${scrollQuill})`,
             maskSize: 'contain',
@@ -44,13 +44,13 @@ export function EventTicker({ events }: EventTickerProps) {
             <span key={idx} style={styles.item}>
               {/* [H2 2026-10-04] 正文自带回合号时不再补前缀（同 Panel.tsx） */}
               {!hasTurnInText(evt.text) && (
-                <span style={{ color: '#8a86a0', marginRight: '4px' }}>[第{evt.turn}回合]</span>
+                <span style={{ color: 'var(--text-muted)', marginRight: '4px' }}>[第{evt.turn}回合]</span>
               )}
               {evt.text}
             </span>
           ))}
           {recent.length === 0 && (
-            <span style={{ color: '#8a86a0', fontSize: '12px' }}>等待游戏开始...</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>等待游戏开始...</span>
           )}
         </div>
       </div>
@@ -65,10 +65,9 @@ const styles: Record<string, React.CSSProperties> = {
     left: '14px',
     right: PANEL_W + GAP_PANEL, // [M5] 由面板宽度推导（原魔数 330 → 与顶栏对齐）
     height: '36px',
-    background: 'rgba(18, 18, 34, 0.82)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    borderRadius: '10px',
-    backdropFilter: 'blur(12px)',
+    background: 'rgba(20, 32, 40, 0.82)',
+    border: '1px solid var(--panel-border)',
+    borderRadius: '6px',
     zIndex: 10,
     boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
     display: 'flex',
@@ -89,7 +88,7 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap',
   },
   item: {
-    color: '#e8e0d0',
+    color: 'var(--text)',
     fontSize: '12px',
     whiteSpace: 'nowrap',
     flexShrink: 0,

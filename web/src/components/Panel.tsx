@@ -59,9 +59,9 @@ export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, set
               ...styles.tab,
               // [M8] 选中 > hover > 常态（tab 原本连 hover 都没有）
               backgroundColor:
-                tab === t.key ? 'rgba(212, 168, 75, 0.15)' : hoverTab === t.key ? 'rgba(255, 255, 255, 0.06)' : 'transparent',
-              color: tab === t.key ? '#d4a84b' : hoverTab === t.key ? '#d8d2c6' : UI_COLORS.textSecondary,
-              borderColor: tab === t.key ? 'rgba(212, 168, 75, 0.4)' : 'transparent',
+                tab === t.key ? 'rgba(200, 168, 90, 0.15)' : hoverTab === t.key ? 'rgba(255, 255, 255, 0.06)' : 'transparent',
+              color: tab === t.key ? 'var(--gold)' : hoverTab === t.key ? '#d8d2c6' : UI_COLORS.textSecondary,
+              borderColor: tab === t.key ? 'rgba(200, 168, 90, 0.4)' : 'transparent',
             }}
             onMouseEnter={() => setHoverTab(t.key)}
             onMouseLeave={() => setHoverTab((cur) => (cur === t.key ? null : cur))}
@@ -125,7 +125,7 @@ function FactionList({
               padding: '10px',
               borderLeft: `3px solid ${color}`,
               backgroundColor: isSelected
-                ? 'rgba(212, 168, 75, 0.1)'
+                ? 'rgba(200, 168, 90, 0.1)'
                 : hovered === row.fid
                   ? 'rgba(255, 255, 255, 0.07)'
                   : 'rgba(255, 255, 255, 0.03)',
@@ -137,7 +137,7 @@ function FactionList({
             onClick={() => setSelectedFaction(row.fid)}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isSelected ? '#e8e0d0' : '#b8b3aa', fontWeight: 600, fontSize: '14px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isSelected ? 'var(--text)' : '#b8b3aa', fontWeight: 600, fontSize: '14px' }}>
                 <FactionBadge faction={row.fid} size={18} />
                 {row.name}
                 {/* 「已出局」标识：后端一直返回 is_alive，此前前端零处引用 → 灭亡势力
@@ -157,25 +157,25 @@ function FactionList({
                   </span>
                 )}
               </span>
-              {row.cities >= 5 && <i className="fa-solid fa-crown" style={{ color: '#d4a84b', fontSize: '11px' }} title="称帝"></i>}
-              {row.cities >= 3 && row.cities < 5 && <i className="fa-solid fa-gem" style={{ color: '#64a0d2', fontSize: '11px' }} title="称王"></i>}
+              {row.cities >= 5 && <i className="fa-solid fa-crown" style={{ color: 'var(--gold)', fontSize: '11px' }} title="称帝"></i>}
+              {row.cities >= 3 && row.cities < 5 && <i className="fa-solid fa-gem" style={{ color: 'var(--blue)', fontSize: '11px' }} title="称王"></i>}
             </div>
             <div style={styles.statGrid}>
               <Hint content={{ title: '城池', lines: ['该势力当前控制的城池数'] }}>
                 <span style={styles.statItem}>
-                  <i className="fa-solid fa-chess-rook" style={{ color: '#d4a84b', fontSize: '10px', marginRight: '3px' }}></i>
+                  <i className="fa-solid fa-chess-rook" style={{ color: 'var(--gold)', fontSize: '10px', marginRight: '3px' }}></i>
                   {row.cities}城
                 </span>
               </Hint>
               <Hint content={{ title: '总守军', lines: ['各城守军兵力之和'] }}>
                 <span style={styles.statItem}>
-                  <i className="fa-solid fa-users" style={{ color: '#5ab464', fontSize: '10px', marginRight: '3px' }}></i>
+                  <i className="fa-solid fa-users" style={{ color: 'var(--green)', fontSize: '10px', marginRight: '3px' }}></i>
                   {row.garrison}
                 </span>
               </Hint>
               <Hint content={{ title: '金钱', lines: ['各城金库之和；征兵/发展/赏赐都要花钱'] }}>
                 <span style={styles.statItem}>
-                  <i className="fa-solid fa-coins" style={{ color: '#d4a84b', fontSize: '10px', marginRight: '3px' }}></i>
+                  <i className="fa-solid fa-coins" style={{ color: 'var(--gold)', fontSize: '10px', marginRight: '3px' }}></i>
                   {row.gold}
                 </span>
               </Hint>
@@ -202,8 +202,8 @@ function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId:
   const [hoverCity, setHoverCity] = useState<string | null>(null)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <div style={{ fontSize: '13px', color: '#d4a84b' }}>
-        城市列表（{cities.length}）<span style={{ color: '#8a86a0', fontSize: '11px' }}> · 点击在地图定位并查看详情</span>
+      <div style={{ fontSize: '13px', color: 'var(--gold)' }}>
+        城市列表（{cities.length}）<span style={{ color: 'var(--text-muted)', fontSize: '11px' }}> · 点击在地图定位并查看详情</span>
       </div>
       {Object.keys(FACTIONS).filter((f) => byFaction[f]?.length).map((f) => (
         <div key={f} style={styles.card}>
@@ -232,14 +232,14 @@ function CityDetail({ state, cityId, onSelectCity }: { state: GameState; cityId:
                     padding: '6px 8px', marginBottom: '4px', borderRadius: '6px', cursor: 'pointer',
                     // [M8] 选中 > hover > 常态
                     background: selected
-                      ? 'rgba(212, 168, 75, 0.14)'
+                      ? 'rgba(200, 168, 90, 0.14)'
                       : hoverCity === c.id
                         ? 'rgba(255, 255, 255, 0.07)'
                         : 'rgba(255,255,255,0.03)',
-                    border: selected ? '1px solid rgba(212, 168, 75, 0.45)' : '1px solid transparent',
+                    border: selected ? '1px solid rgba(200, 168, 90, 0.45)' : '1px solid transparent',
                   }}
                 >
-                  <span style={{ fontSize: '13px', color: selected ? '#e8c877' : '#e8e0d0' }}>
+                  <span style={{ fontSize: '13px', color: selected ? '#e8c877' : 'var(--text)' }}>
                     {selected && <i className="fa-solid fa-location-crosshairs" style={{ marginRight: '5px', fontSize: '10px' }}></i>}
                     {c.name}
                   </span>
@@ -334,7 +334,7 @@ function GeneralList({ state }: { state: GameState }) {
             {shown.map((g) => (
               <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '12px' }}>
                 <i className="fa-solid fa-user" style={{ color: UI_COLORS.textSecondary, fontSize: '9px' }}></i>
-                <span style={{ color: '#e8e0d0', minWidth: '50px' }}>{g.name}</span>
+                <span style={{ color: 'var(--text)', minWidth: '50px' }}>{g.name}</span>
                 <ElementBadge general={g} />
                 <span style={{ color: STAT_COLORS.command }}>统{g.command}</span>
                 <span style={{ color: STAT_COLORS.politics }}>政{g.politics}</span>
@@ -385,9 +385,9 @@ function categorizeEvent(evt: GameEvent): EventCategory {
 }
 
 const CATEGORY_META: Record<EventCategory, { label: string; icon: string; color: string }> = {
-  battle: { label: '战事', icon: 'fa-khanda', color: '#c85046' },
-  kingdom: { label: '建国 · 称王', icon: 'fa-crown', color: '#d4a84b' },
-  diplomacy: { label: '外交', icon: 'fa-handshake', color: '#5ab464' },
+  battle: { label: '战事', icon: 'fa-khanda', color: 'var(--red)' },
+  kingdom: { label: '建国 · 称王', icon: 'fa-crown', color: 'var(--gold)' },
+  diplomacy: { label: '外交', icon: 'fa-handshake', color: 'var(--green)' },
   other: { label: '其他', icon: 'fa-scroll', color: UI_COLORS.textSecondary },
 }
 
@@ -404,11 +404,11 @@ const getEventIcon = (text: string): string => {
 }
 
 const getEventColor = (text: string): string => {
-  if (text.includes('攻占') || text.includes('占领')) return '#d4a84b'
-  if (text.includes('战斗') || text.includes('攻')) return '#c85046'
-  if (text.includes('围')) return '#c85046'
-  if (text.includes('建')) return '#64a0d2'
-  if (text.includes('外交') || text.includes('盟')) return '#5ab464'
+  if (text.includes('攻占') || text.includes('占领')) return 'var(--gold)'
+  if (text.includes('战斗') || text.includes('攻')) return 'var(--red)'
+  if (text.includes('围')) return 'var(--red)'
+  if (text.includes('建')) return 'var(--blue)'
+  if (text.includes('外交') || text.includes('盟')) return 'var(--green)'
   if (text.includes('投降') || text.includes('溃')) return UI_COLORS.textSecondary
   return UI_COLORS.textSecondary
 }
@@ -526,7 +526,7 @@ function CategorySection({
                 <span style={{ color: UI_COLORS.textMuted, fontSize: '11px' }}>第{evt.turn}回合</span>
               )}
             </div>
-            <span style={{ color: '#e8e0d0', fontSize: '12px', lineHeight: '1.5', paddingLeft: '20px' }}>{evt.text}</span>
+            <span style={{ color: 'var(--text)', fontSize: '12px', lineHeight: '1.5', paddingLeft: '20px' }}>{evt.text}</span>
           </div>
         ))}
       </div>
@@ -591,7 +591,7 @@ function ReasoningPanel({ state }: { state: GameState }) {
         <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
           <i
             className={`fa-solid ${llmActive ? 'fa-brain' : 'fa-circle-question'}`}
-            style={{ fontSize: '28px', color: llmActive ? '#5ab464' : UI_COLORS.textMuted, marginBottom: '10px' }}
+            style={{ fontSize: '28px', color: llmActive ? 'var(--green)' : UI_COLORS.textMuted, marginBottom: '10px' }}
           ></i>
           <div style={styles.dim}>
             {llmActive
@@ -603,19 +603,19 @@ function ReasoningPanel({ state }: { state: GameState }) {
         </div>
         )}
         {!loading && !llmActive && (
-          <div style={{ ...styles.card, borderLeft: '3px solid #d4a84b' }}>
-            <div style={{ color: '#d4a84b', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
+          <div style={{ ...styles.card, borderLeft: '3px solid var(--gold)' }}>
+            <div style={{ color: 'var(--gold)', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
               <i className="fa-solid fa-lightbulb" style={{ marginRight: '5px' }}></i>
               怎么看大模型的"主观意图"
             </div>
             <div style={{ color: '#b8b3aa', fontSize: '12px', lineHeight: '1.7' }}>
-              1. 顶部切到 <span style={{ color: '#d4a84b' }}>LLM 围观</span>
+              1. 顶部切到 <span style={{ color: 'var(--gold)' }}>LLM 围观</span>
               <br />
-              2. 选 <span style={{ color: '#d4a84b' }}>3 个势力</span>（12 方会到分钟级）
+              2. 选 <span style={{ color: 'var(--gold)' }}>3 个势力</span>（12 方会到分钟级）
               <br />
-              3. 点 <span style={{ color: '#d4a84b' }}>重开一局</span>
+              3. 点 <span style={{ color: 'var(--gold)' }}>重开一局</span>
               <br />
-              4. 点 <span style={{ color: '#d4a84b' }}>下一回合</span>，等约 30 秒
+              4. 点 <span style={{ color: 'var(--gold)' }}>下一回合</span>，等约 30 秒
             </div>
           </div>
         )}
@@ -639,7 +639,7 @@ function ReasoningPanel({ state }: { state: GameState }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
       {turns.map((turn) => (
         <div key={turn} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ color: '#d4a84b', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ color: 'var(--gold)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
             <i className="fa-solid fa-calendar-day"></i>
             第 {turn} 回合
           </div>
@@ -649,7 +649,7 @@ function ReasoningPanel({ state }: { state: GameState }) {
               <div key={`${turn}-${e.faction}-${idx}`} style={{ ...styles.card, borderLeft: `3px solid ${color}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: color, display: 'inline-block', flexShrink: 0 }}></span>
-                  <span style={{ color: '#e8e0d0', fontWeight: 600, fontSize: '13px' }}>
+                  <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: '13px' }}>
                     {FACTIONS[e.faction] || e.faction}
                   </span>
                 </div>
@@ -768,7 +768,7 @@ function ModelRecordsPanel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
       <div>
-        <div style={{ ...styles.sectionHead, color: '#d4a84b' }}>
+        <div style={{ ...styles.sectionHead, color: 'var(--gold)' }}>
           <i className="fa-solid fa-trophy" style={{ marginRight: '5px' }}></i>
           模型战绩榜
           <span style={styles.foldCount}>{data.total_matches} 局累计</span>
@@ -777,17 +777,17 @@ function ModelRecordsPanel() {
           {data.leaderboard.map((row) => (
             <div
               key={row.model}
-              style={{ ...styles.card, borderLeft: '3px solid #d4a84b' }}
+              style={{ ...styles.card, borderLeft: '3px solid var(--gold)' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                <span style={{ color: '#e8e0d0', fontWeight: 600, fontSize: '13px' }}>
+                <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: '13px' }}>
                   {row.model || '(未记录模型)'}
                 </span>
-                <span style={{ color: '#5ab464', fontSize: '13px', fontWeight: 600 }}>
+                <span style={{ color: 'var(--green)', fontSize: '13px', fontWeight: 600 }}>
                   胜率 {Math.round(row.win_rate * 100)}%
                 </span>
               </div>
-              <div style={{ display: 'flex', gap: '14px', color: '#a8a29a', fontSize: '11px', marginTop: '4px' }}>
+              <div style={{ display: 'flex', gap: '14px', color: 'var(--text-2)', fontSize: '11px', marginTop: '4px' }}>
                 <span>参战 {row.matches} 局</span>
                 <span>胜 {row.wins}</span>
                 <span>平均排名 {row.avg_rank}</span>
@@ -799,7 +799,7 @@ function ModelRecordsPanel() {
       </div>
 
       <div>
-        <div style={{ ...styles.sectionHead, color: '#d4a84b' }}>
+        <div style={{ ...styles.sectionHead, color: 'var(--gold)' }}>
           <i className="fa-solid fa-clock-rotate-left" style={{ marginRight: '5px' }}></i>
           最近对局
         </div>
@@ -847,7 +847,7 @@ function DataPanel({ state }: { state: GameState }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div style={{ ...styles.card }}>
-        <div style={{ color: '#d4a84b', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>
+        <div style={{ color: 'var(--gold)', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>
           <i className="fa-solid fa-ranking-star" style={{ marginRight: '6px' }}></i>武将排行榜
         </div>
         <RankList title="统帅 Top 5" items={topCommanders.slice(0, 5)} attr="command" color={STAT_COLORS.command} />
@@ -857,7 +857,7 @@ function DataPanel({ state }: { state: GameState }) {
       </div>
 
       <div style={{ ...styles.card }}>
-        <div style={{ color: '#d4a84b', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>
+        <div style={{ color: 'var(--gold)', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>
           <i className="fa-solid fa-city" style={{ marginRight: '6px' }}></i>城池统计
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -877,7 +877,7 @@ function RankList({ title, items, attr, color }: { title: string; items: General
       <div style={{ fontSize: '11px', color: UI_COLORS.textSecondary, marginBottom: '4px' }}>{title}</div>
       {items.map((g, i) => (
         <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '12px' }}>
-          <span style={{ color: '#e8e0d0' }}>{i + 1}. {g.name}</span>
+          <span style={{ color: 'var(--text)' }}>{i + 1}. {g.name}</span>
           <span style={{ color }}>{(g as any)[attr]}</span>
         </div>
       ))}
@@ -889,7 +889,7 @@ function StatBox({ label, value }: { label: string; value: number }) {
   return (
     <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
       <div style={{ fontSize: '11px', color: UI_COLORS.textSecondary, marginBottom: '2px' }}>{label}</div>
-      <div style={{ fontSize: '15px', color: '#e8e0d0', fontWeight: 600 }}>{value.toLocaleString()}</div>
+      <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600 }}>{value.toLocaleString()}</div>
     </div>
   )
 }
@@ -932,7 +932,7 @@ function EventsPanel({ state }: { state: GameState }) {
   const events = state.events || []
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <div style={{ color: '#d4a84b', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
+      <div style={{ color: 'var(--gold)', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
         <i className="fa-solid fa-calendar-day" style={{ marginRight: '6px' }}></i>回合事件
       </div>
       {turnLogs.length === 0 && events.length === 0 && (
@@ -942,7 +942,7 @@ function EventsPanel({ state }: { state: GameState }) {
         <div style={{ ...styles.card, padding: '10px' }}>
           <div style={{ fontSize: '12px', color: UI_COLORS.textSecondary, marginBottom: '6px' }}>开局事件</div>
           {events.slice().reverse().map((e, i) => (
-            <div key={i} style={{ fontSize: '12px', color: '#e8e0d0', marginBottom: '4px' }}>
+            <div key={i} style={{ fontSize: '12px', color: 'var(--text)', marginBottom: '4px' }}>
               {/* [H2 2026-10-04] 同上：正文已含回合号则不再加前缀 */}
               {!hasTurnInText(e.text) && (
                 <span style={{ color: UI_COLORS.textSecondary, marginRight: '6px' }}>第{e.turn}回合</span>
@@ -962,14 +962,14 @@ function EventsPanel({ state }: { state: GameState }) {
         ) : (
           <div key={row.tl.turn} style={{ ...styles.card, padding: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ fontSize: '13px', color: '#e8e0d0', fontWeight: 600 }}>第 {row.tl.turn} 回合</span>
+              <span style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 600 }}>第 {row.tl.turn} 回合</span>
               <span style={{ fontSize: '11px', color: UI_COLORS.textSecondary }}>{state.year}年</span>
             </div>
             <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-              <span style={{ color: '#c85046' }}><i className="fa-solid fa-khanda" style={{ marginRight: '3px' }}></i>{row.tl.battles_fought} 战斗</span>
-              <span style={{ color: '#5ab464' }}><i className="fa-solid fa-person-military-rifle" style={{ marginRight: '3px' }}></i>{row.tl.armies_moved} 行军</span>
+              <span style={{ color: 'var(--red)' }}><i className="fa-solid fa-khanda" style={{ marginRight: '3px' }}></i>{row.tl.battles_fought} 战斗</span>
+              <span style={{ color: 'var(--green)' }}><i className="fa-solid fa-person-military-rifle" style={{ marginRight: '3px' }}></i>{row.tl.armies_moved} 行军</span>
               {row.tl.cities_captured.length > 0 && (
-                <span style={{ color: '#d4a84b' }}><i className="fa-solid fa-chess-rook" style={{ marginRight: '3px' }}></i>{row.tl.cities_captured.length} 城陷</span>
+                <span style={{ color: 'var(--gold)' }}><i className="fa-solid fa-chess-rook" style={{ marginRight: '3px' }}></i>{row.tl.cities_captured.length} 城陷</span>
               )}
             </div>
           </div>
@@ -985,7 +985,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '10px',
     fontWeight: 400,
     color: '#e0776d',
-    border: '1px solid rgba(200, 80, 70, 0.55)',
+    border: '1px solid rgba(157, 41, 51, 0.55)',
     borderRadius: '4px',
     padding: '0 4px',
     whiteSpace: 'nowrap',
@@ -998,7 +998,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'rgba(255,255,255,0.03)',
     border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: '6px',
-    color: '#8a86a0',
+    color: 'var(--text-muted)',
     fontSize: '11px',
     fontFamily: 'inherit',
     cursor: 'pointer',
@@ -1009,8 +1009,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     padding: '0 4px',
     border: '1px solid rgba(100, 160, 210, 0.5)',
-    borderRadius: '8px',
-    color: '#64a0d2',
+    borderRadius: '6px',
+    color: 'var(--blue)',
     fontSize: '9px',
     fontWeight: 400,
     whiteSpace: 'nowrap',
@@ -1020,7 +1020,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     padding: '6px 10px',
-    borderRadius: '8px',
+    borderRadius: '6px',
     background: 'rgba(255, 255, 255, 0.02)',
     border: '1px dashed rgba(255, 255, 255, 0.1)',
     color: UI_COLORS.textMuted,
@@ -1038,15 +1038,14 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     width: PANEL_W, // [M5] 与所有浮层的 right 偏移同一事实源
     height: '100%',
-    backgroundColor: 'rgba(18, 18, 34, 0.85)',
-    borderLeft: '1px solid rgba(255, 255, 255, 0.06)',
-    backdropFilter: 'blur(12px)',
+    backgroundColor: 'rgba(20, 32, 40, 0.85)',
+    borderLeft: '1px solid var(--panel-border)',
     display: 'flex',
     flexDirection: 'column',
   },
   tabs: {
     display: 'flex',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+    borderBottom: '1px solid var(--panel-border)',
     padding: '6px 6px 0',
     gap: '2px',
   },
@@ -1071,21 +1070,19 @@ const styles: Record<string, React.CSSProperties> = {
   },
   glassCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: '10px',
+    borderRadius: '6px',
     padding: '14px',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    backdropFilter: 'blur(4px)',
+    border: '1px solid var(--panel-border)',
   },
   card: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: '10px',
+    borderRadius: '6px',
     padding: '12px',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    backdropFilter: 'blur(4px)',
+    border: '1px solid var(--panel-border)',
     transition: 'background-color 0.2s ease',
   },
   dim: {
-    color: '#a8a29a', // 阶段A：提亮（原 #96918a）
+    color: 'var(--text-2)', // 阶段A：提亮（原 #96918a）
     fontSize: '13px',
   },
   statGrid: {
@@ -1104,12 +1101,12 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: 'auto 1fr',
     gap: '8px 12px',
     fontSize: '13px',
-    color: '#e8e0d0',
+    color: 'var(--text)',
     alignItems: 'center',
   },
   logCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: '8px',
+    borderRadius: '6px',
     padding: '8px 10px',
     border: '1px solid rgba(255, 255, 255, 0.04)',
   },
@@ -1119,16 +1116,18 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     fontWeight: 600,
     marginBottom: '6px',
+    // [D2] 标题回衬线栈（汉风层级；正文仍无衬线）
+    fontFamily: 'var(--font-serif)',
   },
   foldCount: {
     marginLeft: '6px',
-    color: '#8a86a0', // 阶段A：原 #7d7a92 偏暗
+    color: 'var(--text-muted)', // 阶段A：原 #7d7a92 偏暗
     fontSize: '10px',
     fontWeight: 400,
   },
   foldHint: {
     marginLeft: 'auto',
-    color: '#8a86a0', // 阶段A：原 #5a5a72 对深底仅约 2.8:1，不可见
+    color: 'var(--text-muted)', // 阶段A：原 #5a5a72 对深底仅约 2.8:1，不可见
     fontSize: '10px',
     fontWeight: 400,
   },
@@ -1138,8 +1137,8 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     padding: '7px 10px',
     background: 'rgba(255, 255, 255, 0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    borderRadius: '8px',
+    border: '1px solid var(--panel-border)',
+    borderRadius: '6px',
     fontSize: '12px',
     fontFamily: 'inherit',
     cursor: 'pointer',
@@ -1147,11 +1146,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cmdRow: {
     paddingTop: '8px',
-    borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+    borderTop: '1px solid var(--panel-border)',
   },
   cmdLabel: {
     display: 'block',
-    color: '#8a86a0', // 阶段A：原 #7d7a92 偏暗
+    color: 'var(--text-muted)', // 阶段A：原 #7d7a92 偏暗
     fontSize: '10px',
     marginBottom: '5px',
   },
@@ -1159,9 +1158,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     fontSize: '10px',
-    color: '#d4a84b',
-    backgroundColor: 'rgba(212, 168, 75, 0.12)',
-    border: '1px solid rgba(212, 168, 75, 0.3)',
+    color: 'var(--gold)',
+    backgroundColor: 'rgba(200, 168, 90, 0.12)',
+    border: '1px solid rgba(200, 168, 90, 0.3)',
     borderRadius: '4px',
     padding: '2px 7px',
   },

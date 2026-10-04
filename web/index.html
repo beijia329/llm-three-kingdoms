@@ -20,14 +20,28 @@
       本项目定位「本地单机浏览器展示」，离线/内网/代理掉线时必须可用。
     -->
     <style>
+      /* 方向甲 · 绢本墨色 —— 全局 CSS 变量（供内联样式 var(--x) 引用）。
+         见 docs/art/2026-10-04-UI古韵方向.md §3.3。 */
+      :root{
+        --bg:#16222B; --bg-elev:#1F2E38;
+        --panel-bg:rgba(20,32,40,0.90); --panel-border:rgba(200,168,90,0.18);
+        --text:#EDE6D6; --text-2:#B9AF9C; --text-muted:#9A9184;
+        --gold:#C8A85A; --gold-glow:rgba(200,168,90,0.30);
+        --stamp:#9D2933; --ochre:#9C5B2D; --ink:#2C2C2C; --paper:#EFE6D2;
+        --red:#9D2933; --green:#5B7A4E; --blue:#4A6FA5; --purple:#6B5A82;
+        --divider:#5A4A38;
+        --r-xs:2px; --r-sm:4px; --r-md:6px;
+        --shadow:0 2px 8px rgba(0,0,0,.35);
+        --font-serif:"Songti SC","STSong","SimSun","Noto Serif SC",serif;
+      }
       * {
         box-sizing: border-box;
       }
       body {
         margin: 0;
         padding: 0;
-        background: #1a1a2e;
-        color: #e8e0d0;
+        background: var(--bg);
+        color: var(--text);
         font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
         overflow: hidden;
       }
@@ -35,13 +49,11 @@
         width: 100vw;
         height: 100vh;
       }
-      /* 阶段A：标题/回合数用系统衬线栈——零体积换出「汉风」层级。
-         阶段B 再替换为思源宋体（OFL）等 Web 字体。 */
+      /* 阶段A：标题/回合数用系统衬线栈——零体积换出「汉风」层级。 */
       .font-serif {
-        font-family: "Songti SC", "STSong", "SimSun", "Noto Serif SC", serif;
+        font-family: var(--font-serif);
       }
-      /* 阶段A：尊重系统「减少动态效果」偏好——关掉脉冲/抖动/旋转。
-         此前全项目无 prefers-reduced-motion 处理。 */
+      /* 阶段A：尊重系统「减少动态效果」偏好——关掉脉冲/抖动/旋转。 */
       @media (prefers-reduced-motion: reduce) {
         *,
         *::before,
@@ -51,9 +63,9 @@
           transition-duration: 0.001ms !important;
         }
       }
-      /* 阶段A：键盘可见焦点（此前无 :focus 样式，Tab 走查看不到焦点） */
+      /* 阶段A：键盘可见焦点（此前无 :focus 样式，Tab 走查看不到焦点）。 */
       :focus-visible {
-        outline: 2px solid #d4a84b;
+        outline: 2px solid var(--gold);
         outline-offset: 2px;
       }
     </style>

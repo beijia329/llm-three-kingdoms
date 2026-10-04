@@ -114,7 +114,7 @@ export function contrastText(hex: string): string {
   const g = lin(((n >> 8) & 0xff) / 255)
   const b = lin((n & 0xff) / 255)
   const L = 0.2126 * r + 0.7152 * g + 0.0722 * b
-  return L > 0.45 ? '#1a1a2e' : '#ffffff'
+  return L > 0.45 ? '#16222B' : '#ffffff'
 }
 
 // === 地形色板（陆=大地色系，海=亮蓝，雾=深灰） ===
@@ -162,8 +162,11 @@ export const TERRAIN_PARCHMENT: Record<string, number> = {
 // === 阶段A：间距 / 圆角 / 字号 刻度（Design Token）===
 // 目的：原来各组件硬编码 4/6/8/10/12/14 混用、圆角 4/6/8/10 混用，
 // 视觉上「拼凑感」明显。统一到一套刻度后，改一处即可全站生效。
+//
+// [D2 2026-10-04] 圆角上限收到 6（去卡通）：sm 4→2、md 6→4、lg 10→6；
+// pill 弃用胶囊（999→0）。全站 borderRadius 只允许 0/2/4/6（999 仅头像等特殊）。
 export const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const
-export const RADIUS = { sm: 4, md: 6, lg: 10, pill: 999 } as const
+export const RADIUS = { sm: 2, md: 4, lg: 6, pill: 0 } as const
 export const FONT_SIZE = { xs: 11, sm: 12, md: 13, lg: 15, xl: 20 } as const
 
 /**
@@ -189,38 +192,45 @@ export const FONT_STACK = {
 } as const
 
 // 属性配色语义（阶段A 修复：原来「统帅」和「勇武」都用 #c85046，同色异义）
+// [D2 2026-10-04] 换中国传统色（方向甲·绢本墨色），去 Material 三件套。
 export const STAT_COLORS = {
-  command: '#e0705a',   // 统帅 — 朱
-  politics: '#64a0d2',  // 政治 — 蓝
-  bravery: '#d99a3c',   // 勇武 — 橙（与统帅区分开）
-  intelligence: '#d4a84b', // 智力 — 金
-  loyalty: '#5ab464',   // 忠诚 — 绿
+  command: '#9D2933',   // 统帅 — 朱砂
+  politics: '#4A6FA5',  // 政治 — 天青
+  bravery: '#9C5B2D',   // 勇武 — 赭石（与统帅区分开）
+  intelligence: '#C8A85A', // 智力 — 古金
+  loyalty: '#5B7A4E',   // 忠诚 — 竹青
 } as const
 
-// === UI 基础色 ===
-// 阶段A 对比度修复：原 textMuted #5a5a72 对深底仅约 2.8:1（远低于 WCAG AA 4.5:1），
-// 且被用在 10px 提示文字上几乎不可见。#8a86a0 实测约 5.3:1，达标。
-// textSecondary 也由 #96918a 提亮到 #a8a29a（约 7.3:1），小字号更稳。
+// === UI 基础色（方向甲 · 绢本墨色）===
+// [D2 2026-10-04] 全表换血：把「蓝紫黑 + 电竞金 + 毛玻璃 + 大圆角」换成
+// 「墨青绢本 + 朱砂赭金」。对比度按新底 #16222B 重算（见 docs/art/2026-10-04-UI古韵方向.md §3.1）。
+// 🔴 旧「电竞金」硬编码已全站清零，一律走本表 / --gold。
 export const UI_COLORS = {
-  bg: '#1a1a2e',
-  bgElevated: '#22223e',
-  panelBg: 'rgba(18, 18, 34, 0.88)',
-  panelBorder: 'rgba(255, 255, 255, 0.08)',
-  textPrimary: '#e8e0d0',
-  textSecondary: '#a8a29a',
-  textMuted: '#8a86a0',
-  gold: '#d4a84b',
-  goldGlow: 'rgba(212, 168, 75, 0.4)',
-  red: '#c85046',
-  green: '#5ab464',
-  blue: '#64a0d2',
-  purple: '#9370DB',
+  bg: '#16222B',                       // 墨青
+  bgElevated: '#1F2E38',               // 黛青（提亮）
+  panelBg: 'rgba(20, 32, 40, 0.90)',   // 绢底（叠 textures/绢纹）
+  panelBorder: 'rgba(200, 168, 90, 0.18)', // 淡金褐描边（替代现代细白框）
+  textPrimary: '#EDE6D6',              // 缟（米白）
+  textSecondary: '#B9AF9C',
+  textMuted: '#9A9184',
+  gold: '#C8A85A',                     // 秋香 / 赭金（替代旧电竞金，降饱和偏土黄）
+  goldGlow: 'rgba(200, 168, 90, 0.30)', // 辉光强度减半（去霓虹）
+  red: '#9D2933',                      // 朱砂
+  green: '#5B7A4E',                    // 竹青
+  blue: '#4A6FA5',                     // 天青
+  purple: '#6B5A82',                   // 藕紫
+  // 新增（§3.1）
+  ink: '#2C2C2C',                      // 墨色描边 / 浅底文字 / 地图标注
+  paper: '#EFE6D2',                    // 绢本（浅色块 / 印章底 / 进度槽）
+  accentStamp: '#9D2933',              // 印章 / 最强动作 / 交战标记
+  ochre: '#9C5B2D',                    // 木牌 / 次级标签
+  divider: '#5A4A38',                  // 双线分隔主线
 }
 
-// === 阴影与光效 ===
+// === 阴影与光效（去霓虹辉光 / 去毛玻璃）===
 export const SHADOWS = {
-  card: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.06)',
-  glow: (color: string) => `0 0 12px ${color}, 0 0 4px ${color}`,
+  card: '0 2px 8px rgba(0, 0, 0, 0.35)',   // 低扩散投影（替代大扩散 + 霓虹）
+  glow: (color: string) => `0 0 8px ${color}`, // 选中态专用，强度减半
   drop: '0 4px 16px rgba(0, 0, 0, 0.5)',
   inset: 'inset 0 1px 0 rgba(255,255,255,0.08)',
 }

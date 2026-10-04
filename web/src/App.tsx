@@ -154,12 +154,12 @@ function App() {
           >
             <i
               className={`fa-solid ${thinking ? 'fa-spinner fa-spin' : 'fa-forward-step'}`}
-              style={{ color: '#d4a84b', fontSize: '16px' }}
+              style={{ color: 'var(--gold)', fontSize: '16px' }}
             ></i>
-            <div style={{ color: '#d4a84b', fontSize: '14px', fontWeight: 600 }}>
+            <div style={{ color: 'var(--gold)', fontSize: '14px', fontWeight: 600 }}>
               {thinking ? '思考中...' : '下一回合'}
             </div>
-            <div style={{ color: '#a8a29a', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ color: 'var(--text-2)', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
               {nextTurnBlockedReason ? (
                 // 不可用时，这行小字改为显示原因（原来恒为「空格 / A」，
                 // 与按钮实际是否可用无关，本身也是一种"假控件"）
@@ -267,7 +267,7 @@ function ArmyCard({ state, armyId, onClose }: { state: NonNullable<ReturnType<ty
   return (
     <div style={{ ...styles.armyCard, borderLeft: `3px solid ${color}` }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-        <span style={{ color: '#e8e0d0', fontWeight: 600, fontSize: '13px' }}>
+        <span style={{ color: 'var(--text)', fontWeight: 600, fontSize: '13px' }}>
           <i className="fa-solid fa-person-military-rifle" style={{ marginRight: '5px', color }}></i>
           {gen?.name || '未知将领'} 的部队
         </span>
@@ -275,7 +275,7 @@ function ArmyCard({ state, armyId, onClose }: { state: NonNullable<ReturnType<ty
           <i className="fa-solid fa-xmark"></i>
         </button>
       </div>
-      <div style={{ fontSize: '12px', color: '#a8a29a', lineHeight: 1.7 }}>
+      <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.7 }}>
         <div>势力：{FACTIONS[a.faction] || a.faction}</div>
         <div>兵力：{a.soldiers.toLocaleString()} · 士气：{a.morale}</div>
         <div>状态：{statusLabels[a.status] || a.status || '—'}</div>
@@ -296,7 +296,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     width: '100vw',
     height: '100vh',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: 'var(--bg)',
     fontFamily: '"Noto Sans SC", "PingFang SC", sans-serif',
   },
   main: {
@@ -318,9 +318,9 @@ const styles: Record<string, React.CSSProperties> = {
     right: PANEL_W + GAP_PANEL,
     width: NEXT_BTN_W,
     height: '46px',
-    background: 'rgba(18, 18, 34, 0.82)',
-    border: '1px solid rgba(212, 168, 75, 0.5)',
-    borderRadius: '10px',
+    background: 'rgba(20, 32, 40, 0.82)',
+    border: '1px solid rgba(200, 168, 90, 0.5)',
+    borderRadius: '6px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -328,7 +328,6 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '2px',
     zIndex: 10,
     boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
-    backdropFilter: 'blur(12px)',
   },
   autoIndicator: {
     position: 'absolute',
@@ -336,14 +335,13 @@ const styles: Record<string, React.CSSProperties> = {
     // [M5] 紧邻「下一回合」按钮左侧：面板 + 间距 + 按钮宽 + 12 间距
     right: PANEL_W + GAP_PANEL + NEXT_BTN_W + 12,
     padding: '10px 16px',
-    background: 'rgba(18, 18, 34, 0.82)',
+    background: 'rgba(20, 32, 40, 0.82)',
     border: '1px solid rgba(90, 180, 100, 0.4)',
-    borderRadius: '10px',
-    color: '#5ab464',
+    borderRadius: '6px',
+    color: 'var(--green)',
     fontSize: '13px',
     zIndex: 10,
     boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
-    backdropFilter: 'blur(12px)',
     display: 'flex',
     alignItems: 'center',
   },
@@ -354,23 +352,22 @@ const styles: Record<string, React.CSSProperties> = {
     right: PANEL_W + GAP_PANEL,
     width: NEXT_BTN_W,
     padding: '7px 10px',
-    background: 'rgba(200, 80, 70, 0.92)',
-    border: '1px solid rgba(200, 80, 70, 0.6)',
-    borderRadius: '8px',
+    background: 'rgba(157, 41, 51, 0.92)',
+    border: '1px solid rgba(157, 41, 51, 0.6)',
+    borderRadius: '6px',
     color: '#f0d5d0',
     fontSize: '11px',
     lineHeight: 1.45,
     zIndex: 11,
     boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-    backdropFilter: 'blur(12px)',
   },
   /** 自动推进的「停止」按钮（此前只能按 A 键，界面无入口） */
   stopBtn: {
     marginLeft: '10px',
     padding: '4px 10px',
     borderRadius: '6px',
-    border: '1px solid rgba(200, 80, 70, 0.55)',
-    background: 'rgba(200, 80, 70, 0.16)',
+    border: '1px solid rgba(157, 41, 51, 0.55)',
+    background: 'rgba(157, 41, 51, 0.16)',
     color: '#e0776d',
     fontSize: '12px',
     fontWeight: 600,
@@ -385,9 +382,9 @@ const styles: Record<string, React.CSSProperties> = {
     top: '74px',
     right: '12px',
     padding: '6px 10px',
-    background: 'rgba(18, 18, 34, 0.82)',
+    background: 'rgba(20, 32, 40, 0.82)',
     border: '1px solid rgba(255, 255, 255, 0.12)',
-    borderRadius: '8px',
+    borderRadius: '6px',
     color: '#b8b3aa',
     fontSize: '12px',
     fontFamily: 'inherit',
@@ -396,11 +393,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-    backdropFilter: 'blur(12px)',
   },
   helpKbd: {
     marginLeft: '8px', padding: '0 6px', borderRadius: '4px',
-    background: 'rgba(212, 168, 75, 0.16)', border: '1px solid rgba(212, 168, 75, 0.4)',
+    background: 'rgba(200, 168, 90, 0.16)', border: '1px solid rgba(200, 168, 90, 0.4)',
     color: '#e8c877', fontSize: '10px', fontWeight: 600,
   },
   /** 军队详情卡（点地图军队后浮现） */
@@ -410,17 +406,16 @@ const styles: Record<string, React.CSSProperties> = {
     right: '12px',
     width: '240px',
     padding: '12px',
-    background: 'rgba(18, 18, 34, 0.92)',
+    background: 'rgba(20, 32, 40, 0.92)',
     border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '10px',
+    borderRadius: '6px',
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
-    backdropFilter: 'blur(12px)',
     zIndex: 30,
   },
   armyClose: {
     background: 'transparent',
     border: 'none',
-    color: '#a8a29a',
+    color: 'var(--text-2)',
     cursor: 'pointer',
     fontSize: '13px',
     padding: '2px 4px',

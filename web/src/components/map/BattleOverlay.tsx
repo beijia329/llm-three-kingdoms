@@ -30,9 +30,9 @@ interface BattleOverlayProps {
 }
 
 const RESULT_META: Record<string, { label: string; color: string; icon: string; dash: string }> = {
-  attacker_win: { label: '占领', color: '#d4a84b', icon: 'fa-flag', dash: 'solid' },
-  defender_win: { label: '守住', color: '#5ab464', icon: 'fa-shield-halved', dash: 'solid' },
-  retreat: { label: '溃退', color: '#b06a5a', icon: 'fa-person-running', dash: 'dashed' },
+  attacker_win: { label: '占领', color: UI_COLORS.gold, icon: 'fa-flag', dash: 'solid' },
+  defender_win: { label: '守住', color: UI_COLORS.green, icon: 'fa-shield-halved', dash: 'solid' },
+  retreat: { label: '溃退', color: '#B06A5A', icon: 'fa-person-running', dash: 'dashed' },
   draw: { label: '相持', color: UI_COLORS.textSecondary, icon: 'fa-equals', dash: 'dotted' },
 }
 
@@ -141,7 +141,7 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
       {battles.map((b, i) => {
         const active = i === activeIndex
         const meta = RESULT_META[b.result] || RESULT_META.draw
-        const attColor = FACTION_COLORS[b.attacker_faction] || '#d4a84b'
+        const attColor = FACTION_COLORS[b.attacker_faction] || UI_COLORS.gold
 
         // 出发城是复数：每个出发城各一条箭头汇聚到目标城
         const fromIds = Array.isArray(b.attacker_from_cities) ? b.attacker_from_cities : []
@@ -160,7 +160,7 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
             ? Math.max(0, Math.min(1, b.wall_hp_after / b.wall_hp_before))
             : null
         const wallColor =
-          wallRatio === null ? '#8a86a0' : wallRatio > 0.5 ? '#3cb464' : wallRatio > 0.2 ? '#c8a032' : '#c85046'
+          wallRatio === null ? UI_COLORS.textMuted : wallRatio > 0.5 ? '#3CB464' : wallRatio > 0.2 ? '#C8A032' : UI_COLORS.red
 
         // 没有目标城就退化为在出发城上画爆点；有目标城但没出发城（如反击）→ 目标城爆点
         const burstAt = target || origins[0]
@@ -330,7 +330,7 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                     alignItems: 'center',
                     gap: 6,
                     padding: '3px 8px',
-                    borderRadius: 7,
+                    borderRadius: 6,
                     background: 'rgba(14,14,26,0.92)',
                     border: `1px solid ${meta.color}`,
                     boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
@@ -343,7 +343,7 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                   {b.attacker_general_name && (
                     <span style={{ color: '#f6f2e8', fontSize: 12, fontWeight: 700 }}>{b.attacker_general_name}</span>
                   )}
-                  <span style={{ color: '#e8e0d0', fontSize: 13, fontWeight: 700 }}>⚔</span>
+                  <span style={{ color: UI_COLORS.textPrimary, fontSize: 13, fontWeight: 700 }}>⚔</span>
                   <RoleChip role="守" />
                   <FactionTag faction={b.defender_faction} />
                   {b.defender_general_name && (
@@ -353,7 +353,7 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                     <span style={{ color: '#f6f2e8', fontSize: 12, fontWeight: 700 }}>{defenderCityName}</span>
                   )}
                   {origins.length > 1 && (
-                    <span style={{ color: '#8a86a0', fontSize: 10 }}>×{origins.length}路</span>
+                    <span style={{ color: UI_COLORS.textMuted, fontSize: 10 }}>×{origins.length}路</span>
                   )}
                   <span
                     style={{
@@ -402,7 +402,7 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                       fontVariantNumeric: 'tabular-nums',
                     }}
                   >
-                    <i className="fa-solid fa-shield-halved" style={{ fontSize: 9, color: '#8a86a0' }}></i>
+                    <i className="fa-solid fa-shield-halved" style={{ fontSize: 9, color: UI_COLORS.textMuted }}></i>
                     <span>城防</span>
                     <div
                       style={{

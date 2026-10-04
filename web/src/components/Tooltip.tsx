@@ -83,11 +83,11 @@ export function TooltipProvider({ children }: { children: ReactNode }) {
               zIndex: 9999,
               maxWidth: '260px',
               padding: '7px 10px',
-              background: 'rgba(10, 10, 20, 0.97)',
-              border: '1px solid rgba(212, 168, 75, 0.45)',
-              borderRadius: '7px',
+              background: 'rgba(10, 20, 26, 0.97)',
+              border: '1px solid rgba(200, 168, 90, 0.45)',
+              borderRadius: '6px',
               boxShadow: '0 8px 24px rgba(0,0,0,0.55)',
-              color: '#e8e0d0',
+              color: 'var(--text)',
               fontSize: '11px',
               lineHeight: 1.6,
               pointerEvents: 'none',
@@ -95,7 +95,7 @@ export function TooltipProvider({ children }: { children: ReactNode }) {
             }}
           >
             {tip.title && (
-              <div style={{ color: '#d4a84b', fontWeight: 600, marginBottom: tip.lines.length ? '3px' : 0 }}>
+              <div style={{ color: 'var(--gold)', fontWeight: 600, marginBottom: tip.lines.length ? '3px' : 0 }}>
                 {tip.title}
               </div>
             )}

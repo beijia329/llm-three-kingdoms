@@ -22,10 +22,10 @@ import { FACTION_COLORS, FACTION_GLYPH, FACTIONS, contrastText, UI_COLORS } from
 
 /** 关系状态配色（与列表标签共用同一事实源，避免两处各写一份） */
 export const REL_STATUS_COLOR: Record<string, string> = {
-  war: '#c85046',
+  war: 'var(--red)',
   neutral: UI_COLORS.textSecondary,
-  alliance: '#5ab464',
-  truce: '#d4a84b',
+  alliance: 'var(--green)',
+  truce: 'var(--gold)',
   proposed: '#6ba3d6',
 }
 
@@ -176,7 +176,7 @@ export function RelationGraph({ state }: { state: GameState }) {
   }, [edges])
 
   if (nodes.length === 0) {
-    return <div style={{ fontSize: 12, color: '#8a86a0', padding: '12px 0' }}>暂无外交关系数据</div>
+    return <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '12px 0' }}>暂无外交关系数据</div>
   }
 
   return (
@@ -221,7 +221,7 @@ export function RelationGraph({ state }: { state: GameState }) {
               aria-label={`${factionName(f)}（点击只看它的关系）`}
             >
               <title>{factionName(f)}</title>
-              {active && <circle cx={p.x} cy={p.y} r={R_NODE + 4} fill="none" stroke="#d4a84b" strokeWidth={2} />}
+              {active && <circle cx={p.x} cy={p.y} r={R_NODE + 4} fill="none" stroke="var(--gold)" strokeWidth={2} />}
               <circle
                 cx={p.x}
                 cy={p.y}
@@ -249,18 +249,18 @@ export function RelationGraph({ state }: { state: GameState }) {
       </svg>
 
       {focus ? (
-        <div style={{ fontSize: 11, color: '#d4a84b', textAlign: 'center', marginTop: 2 }}>
+        <div style={{ fontSize: 11, color: 'var(--gold)', textAlign: 'center', marginTop: 2 }}>
           只看 <b>{factionName(focus)}</b>：{edges.filter((e) => e.a === focus || e.b === focus).length} 条关系
           <button
             type="button"
             onClick={() => setFocus(null)}
-            style={{ marginLeft: 8, background: 'none', border: 'none', color: '#8a86a0', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
+            style={{ marginLeft: 8, background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
           >
             取消
           </button>
         </div>
       ) : (
-        <div style={{ fontSize: 11, color: '#8a86a0', textAlign: 'center', marginTop: 2 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginTop: 2 }}>
           {edges.length === 0
             ? '开局：12 方互不相犯（66 对关系全部中立）'
             : `共 ${edges.length} 条非中立关系 · 点势力可只看它`}
@@ -292,7 +292,7 @@ export function RelationMatrix({ state }: { state: GameState }) {
   }, [state.faction_relations])
 
   if (nodes.length === 0) {
-    return <div style={{ fontSize: 12, color: '#8a86a0' }}>暂无关系数据</div>
+    return <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无关系数据</div>
   }
 
   return (

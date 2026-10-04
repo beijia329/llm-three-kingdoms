@@ -233,7 +233,7 @@ export function LlmSetupBar({
                 LLM 模式建议 {RECOMMENDED_FACTION_COUNT} 方（单回合约{' '}
                 {RECOMMENDED_FACTION_COUNT * SECONDS_PER_FACTION} 秒）；势力越多越慢
                 {selected.length > RECOMMENDED_FACTION_COUNT && (
-                  <span style={{ color: '#d4a84b' }}>
+                  <span style={{ color: 'var(--gold)' }}>
                     　当前 {selected.length} 方 ≈ {selected.length * SECONDS_PER_FACTION} 秒/回合
                   </span>
                 )}
@@ -249,7 +249,7 @@ export function LlmSetupBar({
                         ...styles.factionChip,
                         borderColor: on ? color : 'rgba(255,255,255,0.12)',
                         background: on ? `${color}33` : 'rgba(255,255,255,0.03)',
-                        color: on ? '#e8e0d0' : '#8d8a9c',
+                        color: on ? 'var(--text)' : '#8d8a9c',
                       }}
                       onClick={() => toggleFaction(fid)}
                     >
@@ -338,7 +338,7 @@ export function LlmSetupBar({
           style={{
             ...styles.statusPill,
             borderColor: llmActive ? 'rgba(90,180,100,0.5)' : 'rgba(255,255,255,0.12)',
-            color: llmActive ? '#5ab464' : '#8d8a9c',
+            color: llmActive ? 'var(--green)' : '#8d8a9c',
           }}
           title={
             llmActive
@@ -383,7 +383,7 @@ export function LlmSetupBar({
           ></i>
           <span style={{ flex: 1 }}>
             重开会按当前设置重新开局，
-            <strong style={{ color: '#e8e0d0' }}>当前对局进度将被清空且不可撤销</strong>
+            <strong style={{ color: 'var(--text)' }}>当前对局进度将被清空且不可撤销</strong>
             。确定？
           </span>
           <button style={styles.confirmBtn} onClick={doRestart}>
@@ -416,7 +416,7 @@ export function LlmSetupBar({
       )}
 
       <div style={styles.modeHint}>
-        当前选择：<span style={{ color: '#d4a84b' }}>{modeLabel}</span>
+        当前选择：<span style={{ color: 'var(--gold)' }}>{modeLabel}</span>
         {mode === 'llm' && (
           <>
             　{selected.length > 0 ? `${selected.length} 方参战` : '未选势力（= 全部 12 方，会非常慢）'}
@@ -445,10 +445,9 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '8px',
     padding: '7px 10px',
-    background: 'rgba(18, 18, 34, 0.86)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    borderRadius: '10px',
-    backdropFilter: 'blur(12px)',
+    background: 'rgba(20, 32, 40, 0.86)',
+    border: '1px solid var(--panel-border)',
+    borderRadius: '6px',
     boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
   },
   modeGroup: {
@@ -456,7 +455,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '2px',
     padding: '2px',
     background: 'rgba(255,255,255,0.04)',
-    borderRadius: '7px',
+    borderRadius: '6px',
   },
   modeBtn: {
     padding: '4px 9px',
@@ -471,8 +470,8 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 0.15s ease',
   },
   modeBtnActive: {
-    background: 'rgba(212, 168, 75, 0.18)',
-    color: '#d4a84b',
+    background: 'rgba(200, 168, 90, 0.18)',
+    color: 'var(--gold)',
     fontWeight: 600,
   },
   factionWrap: {
@@ -493,7 +492,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   factionCount: {
     marginLeft: '5px',
-    color: '#d4a84b',
+    color: 'var(--gold)',
     fontWeight: 600,
   },
   dropdown: {
@@ -502,9 +501,9 @@ const styles: Record<string, React.CSSProperties> = {
     left: '0',
     width: '340px',
     padding: '10px',
-    background: 'rgba(14, 14, 28, 0.97)',
-    border: '1px solid rgba(212, 168, 75, 0.3)',
-    borderRadius: '10px',
+    background: 'rgba(14, 26, 34, 0.97)',
+    border: '1px solid rgba(200, 168, 90, 0.3)',
+    borderRadius: '6px',
     boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
     zIndex: 20,
   },
@@ -540,20 +539,20 @@ const styles: Record<string, React.CSSProperties> = {
   modelAssign: {
     marginTop: '10px',
     paddingTop: '9px',
-    borderTop: '1px solid rgba(212, 168, 75, 0.22)',
+    borderTop: '1px solid rgba(200, 168, 90, 0.22)',
   },
   modelAssignHead: {
     display: 'flex',
     alignItems: 'center',
     fontSize: '10px',
-    color: '#d4a84b',
+    color: 'var(--gold)',
     marginBottom: '7px',
   },
   modelBadge: {
     marginLeft: '6px',
     padding: '0 5px',
-    border: '1px solid rgba(212, 168, 75, 0.5)',
-    borderRadius: '8px',
+    border: '1px solid rgba(200, 168, 90, 0.5)',
+    borderRadius: '6px',
     fontSize: '9px',
     color: '#e8d5a0',
   },
@@ -581,7 +580,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'rgba(255,255,255,0.06)',
     border: '1px solid rgba(255,255,255,0.14)',
     borderRadius: '5px',
-    color: '#e8e0d0',
+    color: 'var(--text)',
     fontSize: '10px',
     fontFamily: 'inherit',
     cursor: 'pointer',
@@ -596,12 +595,12 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '10px',
     marginTop: '9px',
     paddingTop: '8px',
-    borderTop: '1px solid rgba(255,255,255,0.06)',
+    borderTop: '1px solid var(--panel-border)',
   },
   linkBtn: {
     background: 'none',
     border: 'none',
-    color: '#64a0d2',
+    color: 'var(--blue)',
     fontSize: '10px',
     fontFamily: 'inherit',
     cursor: 'pointer',
@@ -612,7 +611,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     padding: '3px 8px',
     border: '1px solid',
-    borderRadius: '20px',
+    borderRadius: '6px',
     fontSize: '10px',
     whiteSpace: 'nowrap',
   },
@@ -620,9 +619,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     padding: '5px 11px',
-    background: 'rgba(212, 168, 75, 0.16)',
-    border: '1px solid rgba(212, 168, 75, 0.5)',
-    color: '#d4a84b',
+    background: 'rgba(200, 168, 90, 0.16)',
+    border: '1px solid rgba(200, 168, 90, 0.5)',
+    color: 'var(--gold)',
     fontSize: '11px',
     fontWeight: 600,
     fontFamily: 'inherit',
@@ -634,16 +633,15 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     padding: '7px 12px',
-    background: 'rgba(212, 168, 75, 0.14)',
-    border: '1px solid rgba(212, 168, 75, 0.45)',
-    borderRadius: '8px',
-    color: '#d4a84b',
+    background: 'rgba(200, 168, 90, 0.14)',
+    border: '1px solid rgba(200, 168, 90, 0.45)',
+    borderRadius: '6px',
+    color: 'var(--gold)',
     fontSize: '12px',
-    backdropFilter: 'blur(12px)',
     boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
   },
   thinkingSub: {
-    color: '#e8e0d0',
+    color: 'var(--text)',
     marginLeft: '4px',
     fontVariantNumeric: 'tabular-nums',
   },
@@ -653,19 +651,18 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '8px',
     padding: '7px 12px',
-    background: 'rgba(18, 18, 34, 0.92)',
-    border: '1px solid rgba(200, 80, 70, 0.5)',
-    borderRadius: '8px',
+    background: 'rgba(20, 32, 40, 0.92)',
+    border: '1px solid rgba(157, 41, 51, 0.5)',
+    borderRadius: '6px',
     color: UI_COLORS.textSecondary,
     fontSize: '12px',
-    backdropFilter: 'blur(12px)',
     boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
   },
   confirmBtn: {
     padding: '3px 10px',
     borderRadius: '6px',
-    border: '1px solid rgba(200, 80, 70, 0.55)',
-    background: 'rgba(200, 80, 70, 0.16)',
+    border: '1px solid rgba(157, 41, 51, 0.55)',
+    background: 'rgba(157, 41, 51, 0.16)',
     color: '#e0776d',
     fontSize: '12px',
     fontWeight: 600,
@@ -690,9 +687,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     padding: '6px 11px',
-    background: 'rgba(200, 80, 70, 0.18)',
-    border: '1px solid rgba(200, 80, 70, 0.55)',
-    borderRadius: '8px',
+    background: 'rgba(157, 41, 51, 0.18)',
+    border: '1px solid rgba(157, 41, 51, 0.55)',
+    borderRadius: '6px',
     color: '#e8735a',
     fontSize: '11px',
   },
@@ -700,14 +697,13 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'flex-start',
     padding: '8px 12px',
-    background: 'rgba(200, 80, 70, 0.16)',
-    border: '1px solid rgba(200, 80, 70, 0.5)',
-    borderLeft: '3px solid #c85046',
-    borderRadius: '8px',
-    color: '#e8e0d0',
+    background: 'rgba(157, 41, 51, 0.16)',
+    border: '1px solid rgba(157, 41, 51, 0.5)',
+    borderLeft: '3px solid var(--red)',
+    borderRadius: '6px',
+    color: 'var(--text)',
     fontSize: '11px',
     lineHeight: '1.5',
-    backdropFilter: 'blur(12px)',
     boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
   },
   degradeText: {
@@ -719,9 +715,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignSelf: 'flex-start',
     fontSize: '10px',
     color: '#c9c4d4',
-    backgroundColor: 'rgba(18, 18, 34, 0.78)',
+    backgroundColor: 'rgba(20, 32, 40, 0.78)',
     borderRadius: '6px',
     padding: '3px 8px',
-    backdropFilter: 'blur(6px)',
   },
 }

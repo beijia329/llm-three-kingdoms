@@ -11,7 +11,7 @@ export function TopBar({ state, connected }: TopBarProps) {
     return (
       <div style={styles.container}>
         <span style={styles.title}>
-          <i className="fa-solid fa-dragon" style={{ marginRight: '8px', color: '#d4a84b' }}></i>
+          <i className="fa-solid fa-dragon" style={{ marginRight: '8px', color: 'var(--gold)' }}></i>
           乱斗三国 - 加载中...
         </span>
       </div>
@@ -25,7 +25,10 @@ export function TopBar({ state, connected }: TopBarProps) {
     winter: '冬',
   }
   const season = seasonMap[state.season] || ''
-  const mode = state.max_turns > 9000 ? '∞' : `/${state.max_turns}`
+  // v4.3.0（方案 A′）：无限模式显示「∞」。infinite 的 max_turns 现在是软上限（192），
+  // 不能再靠 max_turns>9000 推断 —— 改读后端下发的 game_mode（旧档回退阈值推断）。
+  const infinite = state.game_mode === 'infinite' || state.max_turns > 9000
+  const mode = infinite ? '∞' : `/${state.max_turns}`
 
   const topFactions = Object.entries(state.faction_stats)
     .sort((a, b) => b[1].cities - a[1].cities)
@@ -48,7 +51,7 @@ export function TopBar({ state, connected }: TopBarProps) {
         </div>
       </div>
       <div style={styles.right}>
-        <span style={{ ...styles.indicator, color: connected ? '#5ab464' : '#c85046' }}>
+        <span style={{ ...styles.indicator, color: connected ? 'var(--green)' : 'var(--red)' }}>
           <i className="fa-solid fa-circle" style={{ fontSize: '8px', marginRight: '5px' }}></i>
           {connected ? '已连接' : '未连接'}
         </span>
@@ -64,10 +67,9 @@ const styles: Record<string, React.CSSProperties> = {
     left: '12px',
     right: PANEL_W + GAP_PANEL, // [M5] 由面板宽度推导（原魔数 324）
     height: '50px',
-    background: 'rgba(18, 18, 34, 0.82)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    borderRadius: '10px',
-    backdropFilter: 'blur(12px)',
+    background: 'rgba(20, 32, 40, 0.82)',
+    border: '1px solid var(--panel-border)',
+    borderRadius: '6px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -84,7 +86,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
   },
   title: {
-    color: '#d4a84b',
+    color: 'var(--gold)',
     fontSize: '15px',
     fontWeight: 600,
     display: 'flex',
@@ -102,7 +104,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
   },
   statItem: {
-    color: '#a8a29a', // 阶段A：提亮，#96918a → 深底上更清晰
+    color: 'var(--text-2)', // 阶段A：提亮，#96918a → 深底上更清晰
     fontSize: '11px',
     display: 'flex',
     alignItems: 'center',

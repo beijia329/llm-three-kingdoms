@@ -31,7 +31,7 @@ const DEVELOP_TYPES: { value: string; label: string; hint: string }[] = [
 ]
 
 function moraleColor(v: number): string {
-  return v > 70 ? '#5ab464' : v > 40 ? '#d4a84b' : '#c85046'
+  return v > 70 ? 'var(--green)' : v > 40 ? 'var(--gold)' : 'var(--red)'
 }
 
 export function CityCard({
@@ -137,7 +137,7 @@ export function CityCard({
           <span style={styles.factionName}>{factionName}</span>
           <span style={{ display: 'inline-flex', gap: '1px' }} title={`等级 ${city.level}`}>
             {Array.from({ length: city.level }).map((_, i) => (
-              <i key={i} className="fa-solid fa-star" style={{ color: '#d4a84b', fontSize: '9px' }}></i>
+              <i key={i} className="fa-solid fa-star" style={{ color: 'var(--gold)', fontSize: '9px' }}></i>
             ))}
           </span>
         </div>
@@ -156,30 +156,30 @@ export function CityCard({
       {/* 资源与防务（数字均可悬停查看说明） */}
       <div style={styles.grid}>
         <Hint content={info('守军', '城内可守之兵。出征会从此处扣除。')}><Label icon="fa-users" text="守军" /></Hint>
-        <span style={{ color: '#e8e0d0', fontWeight: 600 }}>{city.garrison.toLocaleString()}</span>
+        <span style={{ color: 'var(--text)', fontWeight: 600 }}>{city.garrison.toLocaleString()}</span>
 
         <Hint content={info('城墙', '城墙耐久。攻城先破墙，墙破则守军承压。')}><Label icon="fa-shield-halved" text="城墙" /></Hint>
-        <span style={{ color: '#e8e0d0' }}>
+        <span style={{ color: 'var(--text)' }}>
           {city.wall_hp.toLocaleString()} / {city.wall_max_hp.toLocaleString()}
           <span style={{ ...styles.bar, marginTop: '3px' }}>
-            <span style={{ ...styles.barFill, width: `${Math.round(wallRatio * 100)}%`, background: wallRatio > 0.5 ? '#5ab464' : '#c85046' }} />
+            <span style={{ ...styles.barFill, width: `${Math.round(wallRatio * 100)}%`, background: wallRatio > 0.5 ? 'var(--green)' : 'var(--red)' }} />
           </span>
         </span>
 
         <Hint content={info('金钱', '城内金库。征兵、发展、赏赐都要花钱。')}><Label icon="fa-coins" text="金钱" /></Hint>
-        <span style={{ color: '#d4a84b', fontWeight: 600 }}>{city.gold.toLocaleString()}</span>
+        <span style={{ color: 'var(--gold)', fontWeight: 600 }}>{city.gold.toLocaleString()}</span>
 
         <Hint content={info('粮草', '军粮储备。征兵消耗粮草，缺粮会打击士气。')}><Label icon="fa-bread-slice" text="粮草" /></Hint>
-        <span style={{ color: '#5ab464' }}>{city.food.toLocaleString()}</span>
+        <span style={{ color: 'var(--green)' }}>{city.food.toLocaleString()}</span>
 
         <Hint content={info('民心', '民心越高，产出与守城越稳；过低易生内乱。')}><Label icon="fa-heart" text="民心" /></Hint>
         <span style={{ color: moraleColor(city.morale), fontWeight: 600 }}>{city.morale}</span>
 
         <Hint content={info('人口', '城市人口规模，是兵源与经济的基础。')}><Label icon="fa-people-group" text="人口" /></Hint>
-        <span style={{ color: '#e8e0d0' }}>{city.population.toLocaleString()}</span>
+        <span style={{ color: 'var(--text)' }}>{city.population.toLocaleString()}</span>
 
         <Hint content={info('州郡', provinceModifier ? `所属州：${provinceModifier}` : '所属州。相邻同州城常有地缘牵动。')}><Label icon="fa-map" text="州郡" /></Hint>
-        <span style={{ color: '#e8e0d0' }}>
+        <span style={{ color: 'var(--text)' }}>
           {provinceName}
           {provinceModifier && (
             <span style={{ display: 'block', color: '#c9a96e', fontSize: '10px', lineHeight: 1.4 }}>{provinceModifier}</span>
@@ -189,7 +189,7 @@ export function CityCard({
         {typeof city.economic_bonus === 'number' && city.economic_bonus > 0 && (
           <>
             <Hint content={info('经济加成', '历次「经济发展」累积的产出加成。')}><Label icon="fa-arrow-trend-up" text="经济加成" /></Hint>
-            <span style={{ color: '#5ab464' }}>+{city.economic_bonus}%</span>
+            <span style={{ color: 'var(--green)' }}>+{city.economic_bonus}%</span>
           </>
         )}
       </div>
@@ -206,7 +206,7 @@ export function CityCard({
           {generals.filter((g) => g.location === city.id).map((g) => (
             <div key={g.id} style={styles.genRow}>
               <i className="fa-solid fa-user" style={{ color: UI_COLORS.textSecondary, fontSize: '9px' }}></i>
-              <span style={{ color: '#e8e0d0', minWidth: '46px' }}>{g.name}</span>
+              <span style={{ color: 'var(--text)', minWidth: '46px' }}>{g.name}</span>
               {g.element_name && (
                 <span style={{ color: ELEMENT_COLORS[g.element || ''] || UI_COLORS.textSecondary, border: `1px solid ${ELEMENT_COLORS[g.element || ''] || UI_COLORS.textSecondary}`, borderRadius: '3px', padding: '0 3px', fontSize: '9px' }}>{g.element_name}</span>
               )}
@@ -329,7 +329,7 @@ export function CityCard({
 
       {/* 命令回执（真实后端 description） */}
       {commandResult && (
-        <div style={{ ...styles.result, color: commandResult.success ? '#5ab464' : '#e0776d', borderColor: commandResult.success ? 'rgba(90,180,100,0.45)' : 'rgba(200,80,70,0.5)' }}>
+        <div style={{ ...styles.result, color: commandResult.success ? 'var(--green)' : '#e0776d', borderColor: commandResult.success ? 'rgba(90,180,100,0.45)' : 'rgba(157,41,51,0.5)' }}>
           <i className={`fa-solid ${commandResult.success ? 'fa-circle-check' : 'fa-circle-exclamation'}`} style={{ marginRight: '6px' }}></i>
           {commandResult.description}
         </div>
@@ -418,7 +418,6 @@ const styles: Record<string, CSSProperties> = {
     border: '8px solid transparent',
     borderImage: `url(${panelFrame}) 8 / 8px / 0 stretch`,
     boxShadow: '0 10px 36px rgba(0, 0, 0, 0.5)',
-    backdropFilter: 'blur(12px)',
     zIndex: 31,
     boxSizing: 'border-box',
   },
@@ -427,43 +426,43 @@ const styles: Record<string, CSSProperties> = {
     marginBottom: '8px', gap: '6px',
   },
   factionName: { color: UI_COLORS.textSecondary, fontSize: '11px', whiteSpace: 'nowrap' },
-  close: { background: 'transparent', border: 'none', color: '#a8a29a', cursor: 'pointer', fontSize: '13px', padding: '2px 4px', flexShrink: 0 },
+  close: { background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer', fontSize: '13px', padding: '2px 4px', flexShrink: 0 },
   besieged: {
-    margin: '0 0 8px', padding: '6px 9px', background: 'rgba(200, 80, 70, 0.15)',
-    borderRadius: '6px', color: '#c85046', fontSize: '11px',
+    margin: '0 0 8px', padding: '6px 9px', background: 'rgba(157, 41, 51, 0.15)',
+    borderRadius: '6px', color: 'var(--red)', fontSize: '11px',
   },
   grid: {
     display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '7px 12px',
     fontSize: '12px', alignItems: 'center', marginBottom: '10px',
   },
-  dim: { color: '#a8a29a', fontSize: '12px', display: 'inline-flex', alignItems: 'center' },
+  dim: { color: 'var(--text-2)', fontSize: '12px', display: 'inline-flex', alignItems: 'center' },
   bar: { display: 'block', width: '100%', height: '3px', background: '#282836', borderRadius: '2px', overflow: 'hidden' },
   barFill: { display: 'block', height: '100%', borderRadius: '2px', transition: 'width 0.3s ease' },
   sectionTitle: {
-    color: '#d4a84b', fontSize: '12px', fontWeight: 600, margin: '8px 0 6px',
+    color: 'var(--gold)', fontSize: '12px', fontWeight: 600, margin: '8px 0 6px',
     display: 'flex', alignItems: 'center', gap: '5px',
   },
-  count: { color: '#8a86a0', fontSize: '10px', fontWeight: 400 },
+  count: { color: 'var(--text-muted)', fontSize: '10px', fontWeight: 400 },
   genRow: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '2px 0' },
   warnNote: {
-    color: '#b8b3aa', fontSize: '10px', lineHeight: 1.6, background: 'rgba(212, 168, 75, 0.08)',
-    border: '1px solid rgba(212, 168, 75, 0.22)', borderRadius: '6px', padding: '6px 8px', marginBottom: '8px',
+    color: '#b8b3aa', fontSize: '10px', lineHeight: 1.6, background: 'rgba(200, 168, 90, 0.08)',
+    border: '1px solid rgba(200, 168, 90, 0.22)', borderRadius: '6px', padding: '6px 8px', marginBottom: '8px',
   },
   actionRow: { display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', flexWrap: 'wrap' },
-  actionLabel: { color: '#e8e0d0', fontSize: '12px', width: '52px', flexShrink: 0 },
+  actionLabel: { color: 'var(--text)', fontSize: '12px', width: '52px', flexShrink: 0 },
   input: {
     width: '72px', padding: '4px 6px', background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.14)', borderRadius: '5px', color: '#e8e0d0',
+    border: '1px solid rgba(255,255,255,0.14)', borderRadius: '5px', color: 'var(--text)',
     fontSize: '12px', fontFamily: 'inherit',
   },
   select: {
     flex: 1, minWidth: '86px', padding: '4px 6px', background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.14)', borderRadius: '5px', color: '#e8e0d0',
+    border: '1px solid rgba(255,255,255,0.14)', borderRadius: '5px', color: 'var(--text)',
     fontSize: '12px', fontFamily: 'inherit',
   },
   button: {
-    padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(212, 168, 75, 0.55)',
-    background: 'rgba(212, 168, 75, 0.16)', color: '#e8c877', fontSize: '12px',
+    padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(200, 168, 90, 0.55)',
+    background: 'rgba(200, 168, 90, 0.16)', color: '#e8c877', fontSize: '12px',
     fontWeight: 600, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center',
   },
   reasonNote: { color: '#c99a5a', fontSize: '10px', marginBottom: '6px' },
@@ -472,11 +471,11 @@ const styles: Record<string, CSSProperties> = {
     border: '1px solid', borderRadius: '6px', background: 'rgba(255,255,255,0.03)',
   },
   pending: {
-    marginTop: '6px', padding: '6px 9px', fontSize: '11px', color: '#d4a84b',
-    border: '1px solid rgba(212,168,75,0.35)', borderRadius: '6px', background: 'rgba(212,168,75,0.08)',
+    marginTop: '6px', padding: '6px 9px', fontSize: '11px', color: 'var(--gold)',
+    border: '1px solid rgba(200,168,90,0.35)', borderRadius: '6px', background: 'rgba(200,168,90,0.08)',
   },
   neighborChip: {
-    padding: '3px 9px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)',
+    padding: '3px 9px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)',
     border: '1px solid', color: '#c9c3b8', fontSize: '11px', fontFamily: 'inherit', cursor: 'pointer',
   },
 }

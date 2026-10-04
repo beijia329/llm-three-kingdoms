@@ -74,7 +74,7 @@ export function AttributionBar() {
         </div>
       )}
       <div style={styles.bar}>
-        <i className="fa-solid fa-scroll" style={{ color: '#8a86a0', fontSize: '9px', marginRight: '6px' }}></i>
+        <i className="fa-solid fa-scroll" style={{ color: 'var(--text-muted)', fontSize: '9px', marginRight: '6px' }}></i>
         <span style={styles.summary}>
           素材署名：game-icons.net（CC BY 3.0）· Font Awesome（CC BY 4.0）· Noto Sans SC（OFL）· Kenney（CC0）
         </span>
@@ -104,12 +104,12 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     padding: '0 12px',
-    backgroundColor: 'rgba(14, 14, 26, 0.96)',
-    borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(14, 26, 34, 0.96)',
+    borderTop: '1px solid var(--panel-border)',
   },
   summary: {
     flex: 1,
-    color: '#8a86a0',
+    color: 'var(--text-muted)',
     fontSize: '10px',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
@@ -119,7 +119,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
     background: 'none',
     border: 'none',
-    color: '#d4a84b',
+    color: 'var(--gold)',
     fontSize: '10px',
     fontFamily: 'inherit',
     cursor: 'pointer',
@@ -131,8 +131,8 @@ const styles: Record<string, React.CSSProperties> = {
     left: 0,
     right: 0,
     padding: '10px 14px',
-    backgroundColor: 'rgba(14, 14, 26, 0.98)',
-    borderTop: '1px solid rgba(212, 168, 75, 0.35)',
+    backgroundColor: 'rgba(14, 26, 34, 0.98)',
+    borderTop: '1px solid rgba(200, 168, 90, 0.35)',
     boxShadow: '0 -8px 24px rgba(0,0,0,0.45)',
   },
   row: {
@@ -143,23 +143,23 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '11px',
   },
   link: {
-    color: '#d4a84b',
+    color: 'var(--gold)',
     textDecoration: 'none',
     minWidth: '140px',
   },
   detail: {
-    color: '#a8a29a',
+    color: 'var(--text-2)',
     flex: 1,
   },
   license: {
-    color: '#8a86a0',
+    color: 'var(--text-muted)',
     whiteSpace: 'nowrap',
   },
   note: {
     marginTop: '6px',
     paddingTop: '6px',
-    borderTop: '1px solid rgba(255,255,255,0.06)',
-    color: '#8a86a0',
+    borderTop: '1px solid var(--panel-border)',
+    color: 'var(--text-muted)',
     fontSize: '10px',
   },
 }
