@@ -6,7 +6,7 @@
 判据一：**AI 必须守规矩**。一旦某方能靠规则漏洞获益，产品价值归零。
 判据二：状态和显示必须对得上。「显示成功但实际没生效」等于骗观众。
 
-本文件对 9 类命令**逐一**构造「非所有者身份调用」场景，断言 `success is False`。
+本文件对 10 类命令**逐一**构造「非所有者身份调用」场景，断言 `success is False`。
 这不是防御性冗余，而是本项目历史上真实出现过漏洞的地方：
 `explore` / `reward` / `attack`（调将分支）曾各漏一处归属校验，
 详见 `game/engine.py:_assert_owns` 的 docstring。
@@ -38,6 +38,7 @@
 | message | 发信方必须是真实势力 | 第二批 幽灵闸门 已修，本文件回归保护 |
 | propose_alliance | 结盟方必须是真实势力 | 第二批 幽灵闸门 已修，本文件回归保护 |
 | declare_war | 宣战方必须是真实势力 | 第二批 幽灵闸门 已修，本文件回归保护 |
+| truce | 停战方必须是真实势力，且仅交战态可求和 | 第三批 #3 新增，本文件回归保护 |
 
 后 4 项在 A1 时尚属未覆盖缺口，第二批已统一修复：
 - `rumor` 的间谍归属在 `_execute_rumor` 内校验（见 B3 注释）；
@@ -112,6 +113,20 @@
   幽灵闸门修复。
 - `test_message_ghost_sender_rejected`：幽灵势力能发信并刷信任 —— 第二批
   幽灵闸门修复。
+
+## truce（第三批 #3 新增，`game/engine.py:_execute_truce`）
+- 改坏幽灵闸门（`if cmd.faction not in FACTIONS:` → `if False:`）→ 1 failed → 还原 → 通过
+  （场景特意先把 `ghost↔liubei` 直接置为 WAR，让幽灵闸门成为唯一拦截点；
+   否则幽灵势力会被「非交战不得停战」那道闸顺手拦下，看起来绿但原因不对）
+- 改坏交战闸门（`if status != DiplomaticStatus.WAR:` → `if False:`）
+  → 1 failed → 还原 → 通过
+- 改坏自停战闸门（`if cmd.to == cmd.faction:` → `if False:`）
+  🔴 首版只断言 `success is False` 时**仍绿** —— 自己与自己没有关系行 →
+  get_relation 返回 None → 状态 NEUTRAL → 被 WAR 闸门顺手拦下（假绿）。
+  补断言 `"自己" in result.description` 后才变红 → 还原 → 通过
+- 改坏成功路径（`set_status(..., TRUCE ...)` → `NEUTRAL`）→ 2 failed → 还原 → 通过
+- 改坏 `update_turn` 停战到期分支（`elif ... TRUCE ...:` → `elif False:`）
+  → 1 failed → 还原 → 通过（证明命令层写下的到期回合真的被引擎回合消费）
 """
 
 from __future__ import annotations
@@ -127,12 +142,14 @@ from game.models import (
     AttackCommand,
     DeclareWarCommand,
     DevelopCommand,
+    DiplomaticStatus,
     ExploreCommand,
     MessageCommand,
     ProposeAllianceCommand,
     RecruitCommand,
     RewardCommand,
     RumorCommand,
+    TruceCommand,
 )
 
 # 本文件所有测试的基准构造里，攻击方 = caocao，守方 = liubei，
@@ -959,6 +976,146 @@ class TestUncoveredGaps:
         # 幽灵发信不得改变任何真实势力之间的信任度
         after = engine._diplomacy_relation_system.get_relation(ATTACKER, DEFENDER).trust
         assert after == trust_before, "幽灵发信不得改变真实势力的信任度"
+
+
+# ============================================================
+# 6.5 truce —— 停战命令（#3，第三批新增）
+# ============================================================
+
+
+class TestTruceOwnership:
+    """停战命令（TruceCommand）的三道门与到期链路。
+
+    三层各不相同，各测各的：
+    - 幽灵势力闸门（发起方必须真实存在）
+    - 交战状态闸门（只有 WAR 能和为 TRUCE）
+    - 阳性对照（真实势力在 WAR 下必须成功）
+    外加一条命令层 → 引擎回合的到期整合。
+    """
+
+    def test_truce_ghost_faction_rejected(self, _engine_template):
+        """不存在的势力不得求和。
+
+        🔴 场景是精确设计过的：先把 ghost↔liubei 的关系**直接置为 WAR**
+        （绕过引擎闸门，直接改系统状态）。否则幽灵势力在中立状态下会被
+        「非交战不得停战」那道闸先拦住，测出来的就不是幽灵闸门了 —— 假绿。
+        置 WAR 之后，幽灵闸门成了**唯一**的拦截点。
+
+        改坏验证：删掉 game/engine.py:_execute_truce 开头的
+        `if cmd.faction not in FACTIONS:` 分支 → 1 failed → 还原 → 通过
+        """
+        engine, a, b, _ = _build(_engine_template)
+        # 直接把幽灵势力与守方置于交战，绕开「非 WAR 不得停战」那道闸
+        engine._diplomacy_relation_system.set_status(
+            "ghost_faction", DEFENDER, DiplomaticStatus.WAR, turn=1
+        )
+        assert engine._diplomacy_relation_system.get_status(
+            "ghost_faction", DEFENDER
+        ) == DiplomaticStatus.WAR, "前置：幽灵势力已处于交战态，只剩幽灵闸门能拦它"
+
+        result = engine._execute_truce(
+            TruceCommand(turn=1, faction="ghost_faction", to=DEFENDER)
+        )
+        assert result.success is False, "不存在的势力不得求和"
+        assert "ghost_faction" not in FACTIONS, "前置：ghost_faction 确实是幽灵势力"
+
+    def test_truce_requires_war_status(self, _engine_template):
+        """非交战状态不得停战 —— 对真实势力也一样。
+
+        开局 caocao↔liubei 是 NEUTRAL，直接求和必须被拒。
+        此处的真实势力保证「幽灵闸门放行」，于是**交战状态闸门是唯一拦截点**。
+
+        改坏验证：删掉 `if status != DiplomaticStatus.WAR:` 分支
+        → 1 failed（状态被改成 TRUCE）→ 还原 → 通过
+        """
+        engine, a, b, _ = _build(_engine_template)
+        rel = engine._diplomacy_relation_system.get_relation(ATTACKER, DEFENDER)
+        assert rel.status != DiplomaticStatus.WAR, "前置：起始不是交战状态"
+
+        result = engine._execute_truce(
+            TruceCommand(turn=1, faction=ATTACKER, to=DEFENDER)
+        )
+        assert result.success is False, "非交战状态不得停战"
+        assert engine._diplomacy_relation_system.get_status(
+            ATTACKER, DEFENDER
+        ) != DiplomaticStatus.TRUCE, "被拒的停战不得改动状态"
+
+    def test_truce_self_rejected(self, _engine_template):
+        """不能与自己停战。
+
+        🔴 只断言 `success is False` 会是假绿：自己与自己之间根本不存在关系行，
+        get_relation 返回 None → 状态 NEUTRAL → 会被「非交战不得停战」那道闸
+        顺手拦下（实测：删掉自停战闸门后本测试仍绿）。所以必须断言**拒绝原因**
+        命中自停战闸门本身。
+
+        改坏验证：删掉 `if cmd.to == cmd.faction:` 分支
+        → 1 failed（拒绝原因变成"并非交战状态"）→ 还原 → 通过
+        """
+        engine, a, b, _ = _build(_engine_template)
+        result = engine._execute_truce(
+            TruceCommand(turn=1, faction=ATTACKER, to=ATTACKER)
+        )
+        assert result.success is False
+        assert "自己" in result.description, (
+            f"必须由「不能与自己停战」这道闸拦下，实际原因: {result.description}"
+        )
+
+    def test_truce_at_war_succeeds_positive_control(self, _engine_template):
+        """阳性对照：真实势力在交战状态下求和必须成功，状态转为 TRUCE。
+
+        没有这条，上面两条阴性断言无法区分「闸门生效」与「停战功能整体瘫掉」。
+        改坏验证：把 set_status 的目标从 TRUCE 改成 NEUTRAL
+        → 1 failed → 还原 → 通过
+        """
+        engine, a, b, _ = _build(_engine_template)
+        engine._execute_declare_war(
+            DeclareWarCommand(turn=1, faction=ATTACKER, to=DEFENDER)
+        )
+        assert engine._diplomacy_relation_system.get_status(
+            ATTACKER, DEFENDER
+        ) == DiplomaticStatus.WAR, "前置：宣战后应处于交战态"
+
+        result = engine._execute_truce(
+            TruceCommand(turn=1, faction=ATTACKER, to=DEFENDER)
+        )
+        assert result.success is True, f"交战状态下求和应成功，实际: {result.description}"
+        rel = engine._diplomacy_relation_system.get_relation(ATTACKER, DEFENDER)
+        assert rel.status == DiplomaticStatus.TRUCE
+        assert rel.truce_end_turn is not None, "停战必须带到期回合"
+
+    def test_truce_expires_through_engine_turn_processing(self, _engine_template):
+        """命令层 → 引擎回合：停战命令写下的到期回合并被 process_turn 消费。
+
+        系统层的 update_turn 到期已有专门单测（test_diplomacy_relation.py）。
+        这条补的是**整合链路**：命令层产出的 truce_end_turn 必须真的在
+        引擎回合里被读到并到期，否则 truce 就是个永不解禁的死状态。
+
+        改坏验证：把 game/systems/diplomacy_relation.py 的 update_turn 里
+        `elif rel.status == DiplomaticStatus.TRUCE and rel.truce_end_turn is not None:`
+        改成 `elif False:` → 1 failed → 还原 → 通过
+        """
+        engine, a, b, _ = _build(_engine_template)
+        engine._execute_declare_war(
+            DeclareWarCommand(turn=1, faction=ATTACKER, to=DEFENDER)
+        )
+        engine._execute_truce(
+            TruceCommand(turn=1, faction=ATTACKER, to=DEFENDER)
+        )
+        rel = engine._diplomacy_relation_system.get_relation(ATTACKER, DEFENDER)
+        assert rel.status == DiplomaticStatus.TRUCE
+        end = rel.truce_end_turn
+        assert end is not None
+
+        # 推进到停战结束那一刻（到期检查在 process_turn 开头，turn >= end 时触发）
+        guard = 0
+        while engine.turn < end and guard < 200:
+            engine.process_turn()
+            guard += 1
+        engine.process_turn()
+        assert guard < 200, "停战从未到期，命令层的到期回合可能没被引擎消费"
+        assert engine._diplomacy_relation_system.get_status(
+            ATTACKER, DEFENDER
+        ) == DiplomaticStatus.NEUTRAL, "停战到期后应回到中立"
 
 
 # ============================================================

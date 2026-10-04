@@ -339,3 +339,63 @@ class TestDiplomacyRelation:
         rel = system.get_relation("caocao", "liubei")
         assert rel.alliance_end_turn is None
         assert rel.truce_end_turn is None
+
+    # ================================================================
+    # 结盟两步谈判（#2，第三批）
+    # ================================================================
+
+    def test_resolve_accepts_at_or_above_threshold(self, system):
+        """待回应的结盟请求：信任度达到门槛 → 结成 ALLIANCE。
+
+        断言增量（+DIPLOMACY_TRUST_ALLIANCE_FORM）而非绝对值。
+        """
+        from game.constants import (
+            DIPLOMACY_ALLIANCE_DURATION,
+            DIPLOMACY_TRUST_ALLIANCE_FORM,
+            DIPLOMACY_TRUST_MIN_FOR_ALLIANCE,
+        )
+
+        system.set_status("caocao", "yuanshao", DiplomaticStatus.PROPOSED, turn=1)
+        rel = system.get_relation("caocao", "yuanshao")
+        rel.trust = DIPLOMACY_TRUST_MIN_FOR_ALLIANCE  # 恰好踩在门槛上
+
+        changes = system.resolve_proposals(turn=2)
+
+        rel = system.get_relation("caocao", "yuanshao")
+        assert rel.status == DiplomaticStatus.ALLIANCE
+        assert rel.trust == DIPLOMACY_TRUST_MIN_FOR_ALLIANCE + DIPLOMACY_TRUST_ALLIANCE_FORM
+        assert rel.alliance_end_turn == 2 + DIPLOMACY_ALLIANCE_DURATION
+        assert ("caocao", "yuanshao", DiplomaticStatus.ALLIANCE) in changes
+
+    def test_resolve_rejects_below_threshold(self, system):
+        """待回应的结盟请求：信任度不足 → 退回 NEUTRAL 并扣信任度。"""
+        from game.constants import (
+            DIPLOMACY_TRUST_ALLIANCE_REJECT,
+            DIPLOMACY_TRUST_MIN_FOR_ALLIANCE,
+        )
+
+        system.set_status("caocao", "yuanshao", DiplomaticStatus.PROPOSED, turn=1)
+        low = DIPLOMACY_TRUST_MIN_FOR_ALLIANCE - 1
+        system.get_relation("caocao", "yuanshao").trust = low
+
+        changes = system.resolve_proposals(turn=2)
+
+        rel = system.get_relation("caocao", "yuanshao")
+        assert rel.status == DiplomaticStatus.NEUTRAL
+        assert rel.trust == low + DIPLOMACY_TRUST_ALLIANCE_REJECT
+        assert ("caocao", "yuanshao", DiplomaticStatus.NEUTRAL) in changes
+
+    def test_resolve_ignores_non_proposed(self, system):
+        """非 PROPOSED 的关系不得被 resolve_proposals 触碰。"""
+        system.set_status("caocao", "liubei", DiplomaticStatus.WAR)
+        before_war = system.get_relation("caocao", "liubei").trust
+        system.set_status("sunjian", "liubei", DiplomaticStatus.ALLIANCE, turn=1)
+        before_ally = system.get_relation("sunjian", "liubei").trust
+
+        changes = system.resolve_proposals(turn=2)
+
+        assert changes == []
+        assert system.get_status("caocao", "liubei") == DiplomaticStatus.WAR
+        assert system.get_relation("caocao", "liubei").trust == before_war
+        assert system.get_status("sunjian", "liubei") == DiplomaticStatus.ALLIANCE
+        assert system.get_relation("sunjian", "liubei").trust == before_ally

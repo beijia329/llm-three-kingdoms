@@ -22,6 +22,7 @@ from game.constants import (
     DIPLOMACY_TRUST_BREAK_ALLIANCE,
     DIPLOMACY_TRUST_CAPTURE_CITY,
     DIPLOMACY_TRUST_MESSAGE_POSITIVE,
+    DIPLOMACY_TRUST_MIN_FOR_ALLIANCE,
     DIPLOMACY_ALLIANCE_DURATION,
     DIPLOMACY_TRUCE_DURATION,
 )
@@ -220,6 +221,42 @@ class DiplomacyRelationSystem:
         """拒绝同盟（降低信任度）"""
         self.change_trust(fa, fb, DIPLOMACY_TRUST_ALLIANCE_REJECT)
         return self.get_relation(fa, fb)
+
+    def resolve_proposals(self, turn: int) -> List[Tuple[str, str, DiplomaticStatus]]:
+        """结算所有待回应的结盟请求（两步谈判第二步，第三批 #2）。
+
+        上一回合 `_execute_propose_alliance` 把状态置成了 PROPOSED（并加了信任度），
+        本回合在这里决定「对方答不答应」：
+
+        - 信任度仍达到门槛 `DIPLOMACY_TRUST_MIN_FOR_ALLIANCE` → 结为 ALLIANCE
+          （走 `set_status(ALLIANCE)`：信任度 +`DIPLOMACY_TRUST_ALLIANCE_FORM`、
+           并写入同盟到期回合）
+        - 否则 → 退回 NEUTRAL，按 `reject_alliance` 扣信任度（让该方法复活）
+
+        门槛之上再判一次、而不是提出即成立，是为了给「提出到回应之间」留出
+        反应窗口：对方若在此期间宣战或夺城，信任度掉下来，请求就落空。
+
+        遍历按关系键排序，保证确定性（ADR-0002）。
+
+        Returns:
+            状态变更列表 [(fa, fb, new_status), ...]
+        """
+        changes: List[Tuple[str, str, DiplomaticStatus]] = []
+        for key in sorted(self._relations.keys()):
+            rel = self._relations[key]
+            if rel.status != DiplomaticStatus.PROPOSED:
+                continue
+            fa, fb = key
+            if rel.trust >= DIPLOMACY_TRUST_MIN_FOR_ALLIANCE:
+                self.set_status(fa, fb, DiplomaticStatus.ALLIANCE, turn=turn)
+                changes.append((fa, fb, DiplomaticStatus.ALLIANCE))
+                logger.info("结盟请求获准: %s <-> %s", fa, fb)
+            else:
+                self.reject_alliance(fa, fb)
+                self.set_status(fa, fb, DiplomaticStatus.NEUTRAL, turn=turn)
+                changes.append((fa, fb, DiplomaticStatus.NEUTRAL))
+                logger.info("结盟请求被拒: %s <-> %s", fa, fb)
+        return changes
 
     def on_city_captured(self, attacker: str, defender: str) -> None:
         """城市被占领时的外交影响"""

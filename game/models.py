@@ -77,6 +77,7 @@ class DiplomaticStatus(str, Enum):
     NEUTRAL = "neutral"   # 中立
     ALLIANCE = "alliance" # 同盟
     TRUCE = "truce"       # 停战
+    PROPOSED = "proposed" # 已提出结盟、等对方回应的中间态（第三批 #2）
 
 
 class FactionRelation(BaseModel):
@@ -389,6 +390,13 @@ class DeclareWarCommand(Command):
     type: str = Field(default="declare_war", description="命令类型")
     to: str = Field(description="目标势力")
     reason: str = Field(default="", description="宣战理由")
+
+
+class TruceCommand(Command):
+    """求和/停战命令"""
+
+    type: str = Field(default="truce", description="命令类型")
+    to: str = Field(description="目标势力")
 
 
 # ============================================================

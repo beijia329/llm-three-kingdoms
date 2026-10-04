@@ -148,6 +148,9 @@ class TestCommandExecution:
         原来的「曹操→刘备」信任度仅 35，已被结构性挡住（这正是修玩家反馈的
         「曹操、刘备、孙坚居然互相都结盟」所必需的行为）。
         本测试改用「曹操→袁绍」——184 年同为何进心腹、初值 65。
+
+        第三批 #2 起改为**两步谈判**：提出命令只把状态置为 PROPOSED（并加信任度），
+        是否真正结盟由下一回合的 process_turn 结算（见 TestTwoStepAlliance）。
         """
         engine = _make_initialized_engine()
         from game.models import ProposeAllianceCommand, DiplomaticStatus
@@ -155,7 +158,7 @@ class TestCommandExecution:
         result = engine.execute_command(cmd)
         assert result.success is True
         status = engine._diplomacy_relation_system.get_status("caocao", "yuanshao")
-        assert status == DiplomaticStatus.ALLIANCE
+        assert status == DiplomaticStatus.PROPOSED
 
     def test_alliance_blocked_for_historical_nemesis(self):
         """史实宿敌不得结盟（硬拒绝，不是概率降低）。"""
@@ -221,8 +224,9 @@ class TestCommandExecution:
         result = engine.execute_command(
             ProposeAllianceCommand(faction=a, turn=1, to=b)
         )
-        assert result.success is True, "信任度攒够后应当允许结盟"
-        assert system.get_status(a, b) == DiplomaticStatus.ALLIANCE
+        assert result.success is True, "信任度攒够后应当允许提出结盟"
+        # 第三批 #2：提出后是 PROPOSED（等对方回应），不是直接 ALLIANCE
+        assert system.get_status(a, b) == DiplomaticStatus.PROPOSED
 
     def test_execute_declare_war(self):
         """执行宣战命令"""
@@ -789,3 +793,217 @@ class TestGeneralDispatch:
         assert engine.cities["city_caocao_1"].generals == before_caocao1
         assert engine.cities["city_caocao_2"].generals == before_caocao2
         assert engine.cities["city_liubei_1"].generals == before_liubei
+
+
+class TestKingdomDiplomacyPenalty:
+    """建国/称帝的外交惩罚（#1，第三批接线）。
+
+    建国后其他势力对本方信任度统一下调 int(KINGDOM_DIPLO_PENALTY*100) 点。
+    这段代码此前是死的：`kingdom_system` 只把 debuff 写进一个没人读的 dict。
+    现在改走真正的 `change_trust`，所以这里对信任度做端到端断言。
+    """
+
+    def test_kingdom_founding_lowers_others_trust(self):
+        """势力够 3 城（称王）后，其他所有势力对本方信任度 -20。
+
+        改坏验证：注释掉 game/engine.py:1315-1321 的 change_trust 循环
+        → 1 failed → 还原 → 通过
+        """
+        from game.constants import FACTIONS
+        from game.data_loader import load_game_data
+        from game.kingdom_system import KINGDOM_DIPLO_PENALTY
+
+        engine = GameEngine(seed=1)
+        engine.init_game(load_game_data())
+
+        # 造出「只有 caocao 达到建国门槛」的局面：给它多塞一座中立城（2 → 3）
+        donor = next(c for c in engine.cities.values() if c.faction == "neutral")
+        donor.faction = "caocao"
+        assert engine._kingdom_system.is_kingdom("caocao") is False, "前置：尚未建国"
+
+        system = engine._diplomacy_relation_system
+        forced = 80
+        for other in FACTIONS:
+            if other != "caocao":
+                # 直接置高，避开信任度下限截断 —— 否则测的就不是 -20 这个增量
+                system.get_relation(other, "caocao").trust = forced
+
+        engine.process_turn()
+
+        assert engine._kingdom_system.is_kingdom("caocao") is True, "3 城应触发称王"
+        penalty = int(KINGDOM_DIPLO_PENALTY * 100)
+        for other in FACTIONS:
+            if other != "caocao":
+                got = system.get_relation(other, "caocao").trust
+                assert got == forced - penalty, (
+                    f"{other} 对 caocao 的信任度应下调 {penalty}，实际 {forced} → {got}"
+                )
+
+    def test_no_kingdom_no_trust_change_control(self):
+        """阴性对照：没有势力够门槛时，本回合信任度不得被这套逻辑改动。
+
+        开局每方至多 2 城（< KINGDOM_MIN_CITIES=3），故这一回合无建国。
+        没有这条，上面那条无法区分「惩罚由建国触发」和「process_turn 本来就扣信任」。
+        """
+        from game.constants import FACTIONS
+        from game.data_loader import load_game_data
+
+        engine = GameEngine(seed=1)
+        engine.init_game(load_game_data())
+        # 前置：确认确实没有势力够 3 城
+        counts = {}
+        for c in engine.cities.values():
+            counts[c.faction] = counts.get(c.faction, 0) + 1
+        assert all(
+            counts.get(f, 0) < 3 for f in FACTIONS
+        ), f"前置：不应有势力够建国门槛，实际 {counts}"
+
+        system = engine._diplomacy_relation_system
+        forced = 80
+        for other in FACTIONS:
+            if other != "caocao":
+                system.get_relation(other, "caocao").trust = forced
+
+        engine.process_turn()
+
+        assert engine._kingdom_system.is_kingdom("caocao") is False
+        for other in FACTIONS:
+            if other != "caocao":
+                assert system.get_relation(other, "caocao").trust == forced, (
+                    f"未建国却改动了 {other} 对 caocao 的信任度"
+                )
+
+
+class TestTwoStepAlliance:
+    """结盟两步谈判（#2，第三批）。
+
+    提出（propose_alliance）→ 状态 PROPOSED；下一回合 process_turn 里的
+    resolve_proposals 按信任度门槛结算为 ALLIANCE，或退回 NEUTRAL。
+    在此之前 propose_alliance/reject_alliance 两个系统方法从没被引擎调用过。
+    """
+
+    def _engine(self):
+        from game.data_loader import load_game_data
+
+        engine = GameEngine(seed=1)
+        engine.init_game(load_game_data())
+        return engine
+
+    def test_propose_sets_proposed_and_bumps_trust(self):
+        """提出结盟 → 状态 PROPOSED，信任度 +DIPLOMACY_TRUST_ALLIANCE_PROPOSE。
+
+        改坏验证：把 _execute_propose_alliance 的 set_status 目标改回 ALLIANCE
+        → 1 failed → 还原 → 通过
+        """
+        from game.constants import DIPLOMACY_TRUST_ALLIANCE_PROPOSE
+        from game.models import DiplomaticStatus, ProposeAllianceCommand
+
+        engine = self._engine()
+        system = engine._diplomacy_relation_system
+        before = system.get_relation("caocao", "yuanshao").trust
+
+        result = engine._execute_propose_alliance(
+            ProposeAllianceCommand(faction="caocao", turn=1, to="yuanshao")
+        )
+
+        assert result.success is True
+        rel = system.get_relation("caocao", "yuanshao")
+        assert rel.status == DiplomaticStatus.PROPOSED
+        assert rel.trust == before + DIPLOMACY_TRUST_ALLIANCE_PROPOSE
+
+    def test_proposal_resolved_to_alliance_next_turn(self):
+        """次回合结算：信任度够 → ALLIANCE，并写入同盟到期回合。
+
+        改坏验证：删掉 process_turn 里的 resolve_proposals 调用
+        → 1 failed（状态停在 PROPOSED）→ 还原 → 通过
+        """
+        from game.models import DiplomaticStatus, ProposeAllianceCommand
+
+        engine = self._engine()
+        engine._execute_propose_alliance(
+            ProposeAllianceCommand(faction="caocao", turn=1, to="yuanshao")
+        )
+        assert engine._diplomacy_relation_system.get_status(
+            "caocao", "yuanshao"
+        ) == DiplomaticStatus.PROPOSED, "前置：提出后应是待回应的 PROPOSED"
+
+        engine.process_turn()
+
+        rel = engine._diplomacy_relation_system.get_relation("caocao", "yuanshao")
+        assert rel.status == DiplomaticStatus.ALLIANCE, "信任度够，次回合应结成同盟"
+        assert rel.alliance_end_turn is not None
+
+    def test_proposal_rejected_when_trust_drops(self):
+        """次回合结算：信任度掉到门槛下 → 退回 NEUTRAL，并按 reject 扣信任度。
+
+        模拟「提出到回应之间对方翻脸」：把信任度压到门槛以下再结算。
+        改坏验证：把 resolve_proposals 的拒绝分支改成不调 reject_alliance
+        → 1 failed → 还原 → 通过
+        """
+        from game.constants import (
+            DIPLOMACY_TRUST_ALLIANCE_REJECT,
+            DIPLOMACY_TRUST_MIN_FOR_ALLIANCE,
+        )
+        from game.models import DiplomaticStatus, ProposeAllianceCommand
+
+        engine = self._engine()
+        system = engine._diplomacy_relation_system
+        engine._execute_propose_alliance(
+            ProposeAllianceCommand(faction="caocao", turn=1, to="yuanshao")
+        )
+        low = DIPLOMACY_TRUST_MIN_FOR_ALLIANCE - 10
+        system.get_relation("caocao", "yuanshao").trust = low
+
+        engine.process_turn()
+
+        rel = system.get_relation("caocao", "yuanshao")
+        assert rel.status == DiplomaticStatus.NEUTRAL, "信任度不够，请求应作废"
+        assert rel.trust == low + DIPLOMACY_TRUST_ALLIANCE_REJECT, "拒绝应扣信任度"
+
+    def test_propose_does_not_downgrade_existing_alliance(self):
+        """已是同盟时再提出结盟必须被拒，且同盟状态不得被改写。
+
+        🔴 防的是一条规则漏洞：若允许覆写，就成了「先结盟 → 再提一次（变成 PROPOSED）
+        → 立刻背刺」，因为 can_attack 只挡 ALLIANCE/TRUCE，不挡 PROPOSED。
+        改坏验证：删掉 `current_status == ALLIANCE` 那道闸
+        → 1 failed（状态被改成 PROPOSED）→ 还原 → 通过
+        """
+        from game.models import DiplomaticStatus, ProposeAllianceCommand
+
+        engine = self._engine()
+        system = engine._diplomacy_relation_system
+        system.set_status("caocao", "yuanshao", DiplomaticStatus.ALLIANCE, turn=1)
+
+        result = engine._execute_propose_alliance(
+            ProposeAllianceCommand(faction="caocao", turn=2, to="yuanshao")
+        )
+
+        assert result.success is False, "已是同盟不得再提结盟"
+        assert system.get_status("caocao", "yuanshao") == DiplomaticStatus.ALLIANCE, (
+            "同盟状态不得被重复提出覆写（否则可绕过『同盟期间不能攻击』）"
+        )
+
+    def test_repeated_propose_while_pending_rejected(self):
+        """已有一笔待回应的请求时，重复提出必须被拒（防止刷信任度）。
+
+        改坏验证：删掉 `current_status == PROPOSED` 那道闸
+        → 1 failed（信任度被二次抬高）→ 还原 → 通过
+        """
+        from game.models import DiplomaticStatus, ProposeAllianceCommand
+
+        engine = self._engine()
+        system = engine._diplomacy_relation_system
+        engine._execute_propose_alliance(
+            ProposeAllianceCommand(faction="caocao", turn=1, to="yuanshao")
+        )
+        assert system.get_status("caocao", "yuanshao") == DiplomaticStatus.PROPOSED
+        trust_after_first = system.get_relation("caocao", "yuanshao").trust
+
+        result = engine._execute_propose_alliance(
+            ProposeAllianceCommand(faction="caocao", turn=1, to="yuanshao")
+        )
+
+        assert result.success is False, "已有待回应请求时不得重复提出"
+        assert system.get_relation("caocao", "yuanshao").trust == trust_after_first, (
+            "重复提出不得再次抬高信任度"
+        )

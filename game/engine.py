@@ -36,6 +36,7 @@ from game.constants import (
     CITY_LOSS_LOYALTY_PENALTY,
     EXPLORE_COOLDOWN_TURNS,
 )
+from game.kingdom_system import KINGDOM_DIPLO_PENALTY
 from game.event_bus import (
     BattleEndedEvent,
     CityCapturedEvent,
@@ -63,6 +64,7 @@ from game.models import (
     RumorCommand,
     ProposeAllianceCommand,
     DeclareWarCommand,
+    TruceCommand,
     DiplomacyMessage,
     DiplomaticStatus,
     General,
@@ -227,7 +229,6 @@ class GameEngine:
 
         # Hex Map (loaded in init_game)
         self.hex_map: Optional[Any] = None
-        self._influence_system: Optional[Any] = None
 
         # 事件总线
         self.events: EventBus = EventBus()
@@ -330,7 +331,6 @@ class GameEngine:
             from game.hex_map import HexMap
             from game.hex_grid import HexCoord
             from game.tile import Tile, TerrainType
-            from game.influence_system import InfluenceSystem
 
             from game.constants import HEX_MAP_WIDTH, HEX_MAP_HEIGHT
 
@@ -365,9 +365,6 @@ class GameEngine:
             # 初始化地块归属和产出
             self._initialize_territories()
 
-            # 初始化影响力系统
-            self._influence_system = InfluenceSystem()
-
             logger.info("HexMap 生成完成: %d 格", len(list(self.hex_map.iter_tiles())))
         except (KeyError, ValueError, FileNotFoundError) as e:
             # 可预期的「地图数据缺失/格式错」：降级为无地图模式，但明确告警。
@@ -377,7 +374,6 @@ class GameEngine:
             # 显式 NotImplementedError 原则）。
             logger.warning("HexMap 生成失败（数据/格式问题），使用降级模式: %s", e)
             self.hex_map = None
-            self._influence_system = None
 
     def _find_nearest_passable(self, coord: 'HexCoord') -> 'Optional[HexCoord]':
         """从给定坐标开始 BFS 搜索最近的可通行地块
@@ -962,6 +958,22 @@ class GameEngine:
         # 单靠提示词与信任度只能让荒谬结盟变少，不能保证不发生；
         # 而「汉室与黄巾结盟」「袁绍与袁术结盟」这类是**史实上不可能**的，
         # 必须由代码兜底（对照：P 社/三国志系列同样用硬门槛 + 数值双层）。
+        # 状态机完整性（第三批 #2）：已是同盟 / 已有待回应请求时，不得再提。
+        # 🔴 不设这道闸会有规则漏洞：重复提出会把 ALLIANCE 覆写成 PROPOSED，
+        # 而 can_attack 只挡 ALLIANCE/TRUCE —— 于是「先结盟、再提一次、立刻背刺」
+        # 就能绕过「同盟期间不能攻击」，属于判据一明令禁止的靠漏洞获益。
+        current_status = self._diplomacy_relation_system.get_status(cmd.faction, cmd.to)
+        if current_status == DiplomaticStatus.ALLIANCE:
+            return CommandResult(
+                success=False, command_type="propose_alliance",
+                description=f"与 {FACTIONS.get(cmd.to, cmd.to)} 已是同盟",
+            )
+        if current_status == DiplomaticStatus.PROPOSED:
+            return CommandResult(
+                success=False, command_type="propose_alliance",
+                description=f"已向 {FACTIONS.get(cmd.to, cmd.to)} 发出结盟请求，等待回应",
+            )
+
         from game.personality import can_ally, relation_stance
 
         if not can_ally(cmd.faction, cmd.to):
@@ -993,14 +1005,23 @@ class GameEngine:
                 ),
             )
 
+        # 两步谈判（第三批 #2）：提出 ≠ 结盟成功。
+        # 之前这里直接 set_status(ALLIANCE)，一步到位，没有「对方答不答应」；
+        # 而 `propose_alliance`/`reject_alliance` 两个方法只被单测调用，是死方法。
+        # 现在：提出时走 system.propose_alliance（信任度 +DIPLOMACY_TRUST_ALLIANCE_PROPOSE），
+        # 状态置 PROPOSED；次回合由 resolve_proposals 按信任度门槛结算成败。
+        self._diplomacy_relation_system.propose_alliance(cmd.faction, cmd.to)
         rel = self._diplomacy_relation_system.set_status(
-            cmd.faction, cmd.to, DiplomaticStatus.ALLIANCE, turn=self.turn
+            cmd.faction, cmd.to, DiplomaticStatus.PROPOSED, turn=self.turn
         )
         return CommandResult(
             success=True,
             command_type="propose_alliance",
-            description=f"与 {FACTIONS.get(cmd.to, cmd.to)} 结为同盟（信任度: {rel.trust}）",
-            data={"trust": rel.trust, "alliance_end_turn": rel.alliance_end_turn},
+            description=(
+                f"向 {FACTIONS.get(cmd.to, cmd.to)} 派出结盟使者"
+                f"（信任度: {rel.trust}），对方下回合回应"
+            ),
+            data={"trust": rel.trust, "status": rel.status.value},
         )
 
     def _execute_declare_war(self, cmd: DeclareWarCommand) -> CommandResult:
@@ -1032,6 +1053,54 @@ class GameEngine:
             command_type="declare_war",
             description=f"向 {FACTIONS.get(cmd.to, cmd.to)} 宣战！（信任度: {rel.trust}）",
             data={"trust": rel.trust},
+        )
+
+    def _execute_truce(self, cmd: TruceCommand) -> CommandResult:
+        """执行求和/停战命令"""
+        # 幽灵势力闸门（第二批）：发起方必须是真实势力
+        if cmd.faction not in FACTIONS:
+            return CommandResult(
+                success=False, command_type="truce",
+                description=f"未知势力 {cmd.faction}，停战请求被拒绝",
+            )
+        if cmd.to not in FACTIONS:
+            return CommandResult(
+                success=False,
+                command_type="truce",
+                description=f"目标势力 {cmd.to} 不存在",
+            )
+        if cmd.to == cmd.faction:
+            return CommandResult(
+                success=False,
+                command_type="truce",
+                description="不能与自己停战",
+            )
+
+        rel = self._diplomacy_relation_system.get_relation(cmd.faction, cmd.to)
+        status = rel.status if rel is not None else DiplomaticStatus.NEUTRAL
+        # 停战只能由交战双方提出：把 WAR 转为 TRUCE（带到期）。
+        # 非交战状态（中立/同盟/已停战）提出停战无意义。
+        if status != DiplomaticStatus.WAR:
+            return CommandResult(
+                success=False,
+                command_type="truce",
+                description=(
+                    f"与 {FACTIONS.get(cmd.to, cmd.to)} 当前并非交战状态，无法求和"
+                ),
+            )
+
+        rel = self._diplomacy_relation_system.set_status(
+            cmd.faction, cmd.to, DiplomaticStatus.TRUCE, turn=self.turn
+        )
+        duration = (rel.truce_end_turn - self.turn) if rel.truce_end_turn else 0
+        return CommandResult(
+            success=True,
+            command_type="truce",
+            description=(
+                f"与 {FACTIONS.get(cmd.to, cmd.to)} 达成停战"
+                f"（{duration} 回合后自动恢复交战）"
+            ),
+            data={"truce_end_turn": rel.truce_end_turn},
         )
 
     # ============================================================
@@ -1090,6 +1159,13 @@ class GameEngine:
             expired = self._diplomacy_relation_system.update_turn(self.turn)
             for fa, fb, new_status in expired:
                 logger.info("外交状态变更: %s <-> %s -> %s", fa, fb, new_status.value)
+
+        # 0.5 结盟请求结算（两步谈判第二步，第三批 #2）
+        # 上回合提出的 PROPOSED 请求在这里按信任度门槛决定：成 ALLIANCE，或退回 NEUTRAL。
+        if self._diplomacy_relation_system is not None:
+            resolved = self._diplomacy_relation_system.resolve_proposals(self.turn)
+            for fa, fb, new_status in resolved:
+                logger.info("结盟请求结算: %s <-> %s -> %s", fa, fb, new_status.value)
 
         # 1. 资源产出
         for city in self.cities.values():
@@ -1267,6 +1343,14 @@ class GameEngine:
                                 FACTIONS.get(faction, faction),
                                 "帝" if kingdom["type"] == "emperor" else "王",
                                 kingdom["name"])
+                    # 称帝/建国招致其他势力警惕：所有其他势力对本方信任度下调
+                    if self._diplomacy_relation_system is not None:
+                        penalty = int(KINGDOM_DIPLO_PENALTY * 100)
+                        for other in FACTIONS:
+                            if other != faction:
+                                self._diplomacy_relation_system.change_trust(
+                                    other, faction, -penalty
+                                )
 
         # 8. 回合递增
         if not self.game_over:
@@ -1964,6 +2048,7 @@ register_command(
     "propose_alliance", ProposeAllianceCommand, GameEngine._execute_propose_alliance
 )
 register_command("declare_war", DeclareWarCommand, GameEngine._execute_declare_war)
+register_command("truce", TruceCommand, GameEngine._execute_truce)
 
 
 # ============================================================
@@ -1973,21 +2058,6 @@ register_command("declare_war", DeclareWarCommand, GameEngine._execute_declare_w
 # process_turn 本体无需改动（见 game/turn_phase.py、ADR-0006）。
 
 
-def _hook_spread_influence(engine: "GameEngine", result: Dict[str, Any]) -> None:
-    """相位钩子（after_production）：扩散影响力。
-
-    自 process_turn 内联逻辑迁移而来，位置与语义不变（资源产出之后、行军之前）。
-    """
-    if engine._influence_system is not None and engine.hex_map is not None:
-        engine._influence_system.spread_influence(
-            list(engine.cities.values()), engine.hex_map
-        )
-
-
-register_phase_hook(
-    TurnPhase.AFTER_PRODUCTION, _hook_spread_influence,
-    priority=100, name="influence_spread",
-)
 
 
 def _hook_nature_strain(engine: "GameEngine", result: Dict[str, Any]) -> None:

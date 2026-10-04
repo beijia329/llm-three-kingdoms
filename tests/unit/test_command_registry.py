@@ -30,11 +30,12 @@ BUILTIN_TYPES = [
     "rumor",
     "propose_alliance",
     "declare_war",
+    "truce",
 ]
 
 
 class TestBuiltinRegistration:
-    """内置 9 条命令已注册，且顺序确定。"""
+    """内置 10 条命令已注册，且顺序确定。"""
 
     def test_all_builtins_registered(self):
         for t in BUILTIN_TYPES:
