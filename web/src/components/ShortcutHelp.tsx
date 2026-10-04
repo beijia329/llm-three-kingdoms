@@ -92,7 +92,7 @@ const styles: Record<string, CSSProperties> = {
     width: '460px', maxWidth: '92vw', maxHeight: '86vh', overflowY: 'auto',
     background: 'rgba(16, 16, 30, 0.98)',
     border: '8px solid transparent',
-    borderImage: `url(${panelFrame}) 8 / 8px / 0 stretch`,
+    borderImage: `url("${panelFrame}") 8 / 8px / 0 stretch`,
     boxShadow: '0 16px 48px rgba(0, 0, 0, 0.6)',
     padding: '14px 16px', boxSizing: 'border-box',
   },

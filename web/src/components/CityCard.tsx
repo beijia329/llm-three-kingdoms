@@ -416,7 +416,7 @@ const styles: Record<string, CSSProperties> = {
     background: 'rgba(16, 16, 30, 0.94)',
     // Kenney UI Pack 面板九宫格边框（CC0，见 assets/art/ATTRIBUTION.md）
     border: '8px solid transparent',
-    borderImage: `url(${panelFrame}) 8 / 8px / 0 stretch`,
+    borderImage: `url("${panelFrame}") 8 / 8px / 0 stretch`,
     boxShadow: '0 10px 36px rgba(0, 0, 0, 0.5)',
     zIndex: 31,
     boxSizing: 'border-box',
