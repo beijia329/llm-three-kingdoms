@@ -331,6 +331,18 @@ class InvalidCommandError(GameError):
 4. **状态快照**：出问题时保存状态，便于复现
 5. **确定性**：固定seed，确保问题可复现
 
+### 6.7 版本发布规范（每次发版必做）
+
+版本信息的**正本在仓库里**；GitHub 上的 Release 由 workflow 自动同步，不要上网页手动编辑（下次同步会覆盖）。
+
+发版固定动作：
+
+1. **更新 `CHANGELOG.md`**：新版本在最上方加一节（`## [x.y.z] — YYYY-MM-DD` + 分主题条目）。日期写真实日期。
+2. **写 `docs/releases/vX.Y.Z.md`**：Release 说明正本。第一行是 `**主题：一句话**`，末尾附「完整对比」链接。
+3. **打 tag 并推送**：`git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`。
+4. **提交并推送说明文件**：push 之后 `sync-release-notes` workflow 会自动同步——Release 不存在则创建，存在则更新。**先推 tag，再推文件**。
+5. **同步版本号**：`web/package.json`、`build_release.sh`、`verify.sh` 里的版本号一起改（历史上漏过，见 commit `43921eb`）。
+
 ---
 
 ## 七、关键设计决策（已确定）

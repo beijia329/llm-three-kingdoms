@@ -25,10 +25,19 @@ jobs:
           for f in docs/releases/v*.md; do
             [ -e "$f" ] || continue
             tag="$(basename "$f" .md)"
+            # tag 必须先存在（先推 tag，再推说明文件）
+            if ! gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/$tag" >/dev/null 2>&1; then
+              echo "skip $tag (no such tag)"
+              continue
+            fi
             if gh release view "$tag" >/dev/null 2>&1; then
               gh release edit "$tag" --notes-file "$f"
               echo "updated $tag"
             else
-              echo "skip $tag (no such release)"
+              title="$tag"
+              subject="$(sed -n '1s/^\*\*主题：\(.*\)\*\*$/\1/p' "$f")"
+              if [ -n "$subject" ]; then title="$tag · $subject"; fi
+              gh release create "$tag" --notes-file "$f" --title "$title" --verify-tag
+              echo "created $tag"
             fi
           done
