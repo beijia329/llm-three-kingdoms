@@ -271,6 +271,32 @@ class TestMoraleNaturalChange:
         city.is_besieged = True
         assert CitySystem._calculate_morale_change(city) == -3
 
+    def test_besieged_penalty_equals_constant(self):
+        """被围困的民心惩罚必须等于 MORALE_LOSS_BESIEGED（#7，第三批接线）。
+
+        此前 city_system.py:401 写死 `change -= 3`，常量定义了却没人读。
+        """
+        from game.constants import MORALE_LOSS_BESIEGED
+
+        city = _make_city(morale=50, food=1000, garrison=500)
+        city.is_besieged = True
+        assert (
+            CitySystem._calculate_morale_change(city) == -MORALE_LOSS_BESIEGED
+        )
+
+    def test_besieged_penalty_follows_constant_not_hardcoded(self, monkeypatch):
+        """把常量改成 7，围困惩罚必须跟着变 —— 证明读的是常量。
+
+        改坏验证：把 city_system.py:401 改回写死 `change -= 3`
+        → 1 failed（结果仍是 -3）→ 还原 → 通过
+        """
+        import game.systems.city_system as cs_mod
+
+        monkeypatch.setattr(cs_mod, "MORALE_LOSS_BESIEGED", 7)
+        city = _make_city(morale=50, food=1000, garrison=500)
+        city.is_besieged = True
+        assert CitySystem._calculate_morale_change(city) == -7, "围困惩罚写死了，没读常量"
+
     def test_low_morale_recovers(self):
         """民心 <30 且 >0 → 向 50 回升 +1（全局唯一自校正项）"""
         city = _make_city(morale=20, food=1000, garrison=500)

@@ -396,6 +396,46 @@ class TestGeneralSystemEdgeCases:
 
 
 # ============================================================
+# 赏赐忠诚度上限（#6，第三批接线）
+# ============================================================
+
+
+class TestRewardLoyaltyCap:
+    """赏赐的忠诚度上限必须由 MAX_LOYALTY_FROM_REWARD 控制。
+
+    此前 general_system.py:243 写死 100，常量 MAX_LOYALTY_FROM_REWARD 定义了却没人读 ——
+    改常量不生效。现在改成读常量，这里把它钉死，防止将来又写回 100。
+    """
+
+    def test_cap_equals_constant(self):
+        """忠诚度被截断到常量值（不是某个写死的数字）。"""
+        from game.constants import MAX_LOYALTY_FROM_REWARD
+
+        gs = GeneralSystem(rng=GameRandom(seed=1))
+        general = _make_general(loyalty=MAX_LOYALTY_FROM_REWARD - 1)
+        city = _make_city(gold=10000)
+        result = gs.reward(general, city, gold=1000)  # 远超余量
+        assert result.success is True
+        assert general.loyalty == MAX_LOYALTY_FROM_REWARD
+
+    def test_cap_follows_constant_not_hardcoded(self, monkeypatch):
+        """把常量改成 90，上限必须跟着变成 90 —— 证明代码读的是常量。
+
+        改坏验证：把 general_system.py:243 改回写死 100
+        → 1 failed（loyalty 变成 95 而非 90）→ 还原 → 通过
+        """
+        import game.systems.general_system as gs_mod
+
+        monkeypatch.setattr(gs_mod, "MAX_LOYALTY_FROM_REWARD", 90)
+        gs = GeneralSystem(rng=GameRandom(seed=1))
+        general = _make_general(loyalty=80)
+        city = _make_city(gold=10000)
+        gs.reward(general, city, gold=1000)  # 本应 +50 → 被 90 截断
+        assert general.loyalty == 90
+        assert general.loyalty != 100, "上限写死了 100，没读常量"
+
+
+# ============================================================
 # 辅助函数
 # ============================================================
 

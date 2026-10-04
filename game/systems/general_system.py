@@ -13,6 +13,7 @@ from game.constants import (
     EXPLORE_BASE_CHANCE,
     EXPLORE_MORALE_FACTOR,
     REWARD_LOYALTY_BONUS_PER_100_GOLD,
+    MAX_LOYALTY_FROM_REWARD,
     # v4.0 忠诚度机制重写新增
     DEFAULT_LOYALTY_BASELINE,
     LOYALTY_REGRESSION_PER_TURN,
@@ -239,7 +240,7 @@ class GeneralSystem:
         # 执行赏赐
         city.gold -= gold
         old_loyalty = general.loyalty
-        general.loyalty = min(general.loyalty + loyalty_increase, 100)
+        general.loyalty = min(general.loyalty + loyalty_increase, MAX_LOYALTY_FROM_REWARD)
         actual_increase = general.loyalty - old_loyalty
 
         return RewardResult(

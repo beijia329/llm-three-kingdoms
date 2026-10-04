@@ -16,6 +16,7 @@ from game.constants import (
     CITY_TERRITORY_RADIUS,
     RECRUIT_COST_GOLD,
     RECRUIT_COST_FOOD,
+    MORALE_LOSS_BESIEGED,
 )
 from game.hex_grid import HexCoord, hex_distance
 from game.hex_map import HexMap
@@ -397,7 +398,7 @@ class CitySystem:
 
         # 被围困惩罚
         if city.is_besieged:
-            change -= 3
+            change -= MORALE_LOSS_BESIEGED
 
         # 粮草不足惩罚
         if city.food <= 0:
