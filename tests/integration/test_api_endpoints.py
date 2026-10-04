@@ -120,10 +120,13 @@ class TestGetState:
         state = _reset(client)
         for key in (
             "cities", "armies", "generals", "faction_stats", "events",
-            "reasoning", "hex_map", "provinces", "turn", "game_over",
+            "hex_map", "provinces", "turn", "game_over",
             "max_turns", "seed",
         ):
             assert key in state, f"/api/state 缺少前端依赖字段: {key}"
+        # 第二批起 reasoning 不再随默认状态下发（自动推进下每帧 ~200KB），
+        # 前端切「决策」Tab 时按需调 /api/reasoning；传 reasoning_limit 才下发。
+        assert "reasoning" not in state, "reasoning 不应随默认状态下发"
         assert state["turn"] == 1
         assert state["game_over"] is False
         assert len(state["cities"]) >= 19
@@ -163,15 +166,15 @@ class TestGetState:
         assert state["llm_model"] == ""
 
     def test_state_reasoning_limit_query_param(self, client):
-        """`?reasoning_limit=N` 只返回最近 N 条；省略则返回全部。"""
+        """`?reasoning_limit=N` 只返回最近 N 条；省略则不下发。"""
         _reset(client)
         mgr = _live_manager()
         mgr._reasoning = [
             {"turn": i, "faction": "caocao", "reasoning": f"r{i}", "commands": []}
             for i in range(5)
         ]
-        # 省略参数 → 全部（与旧行为一致）
-        assert len(client.get("/api/state").json()["reasoning"]) == 5
+        # 省略参数 → 不下发（第二批起改为按需，避免自动推进每帧搬运全量历史）
+        assert "reasoning" not in client.get("/api/state").json()
         # 传 2 → 末尾 2 条
         body = client.get("/api/state", params={"reasoning_limit": 2}).json()
         assert [r["reasoning"] for r in body["reasoning"]] == ["r3", "r4"]

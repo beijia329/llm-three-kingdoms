@@ -177,9 +177,10 @@ async def get_state(
 ) -> Dict[str, Any]:
     """获取当前游戏完整状态
 
-    reasoning_limit（可选）：只返回最近 N 条决策理由；省略则返回全部
-    （条数上限由 GameManager.MAX_REASONING_HISTORY 控制）。供前端「决策」面板
-    按需拉取，长局下避免一次传回全部历史。
+    reasoning_limit（可选）：只返回最近 N 条决策理由；省略或 0 则不下发
+    （前端切「决策」Tab 时按需调 /api/reasoning）。第二批起不再默认全量下发：
+    自动推进下每帧携带全量会把响应撑到 ~200KB，与「围观台要流畅」冲突。
+    条数上限由 GameManager.MAX_REASONING_HISTORY 控制。
 
     hex_map_version（可选）：客户端已知的 hex_map 版本。与当前版本一致时
     **不再回传** hex_map（响应从 ~2.34 MB 降到 ~30 KB）；不一致则回传完整地图。
