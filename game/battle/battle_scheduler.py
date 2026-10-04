@@ -20,6 +20,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from game.element import counter_factor, element_of
+from game.siege import assault_ready
 from game.systems.city_system import add_garrison
 from game.models import (
     Army,
@@ -63,17 +64,28 @@ class BattleScheduler:
         cities: Dict[str, City],
         map_system: MapSystem,
         generals: Optional[Dict[str, General]] = None,
+        *,
+        current_turn: Optional[int] = None,
+        persistent_siege: bool = False,
     ) -> List[BattleContext]:
         """检测所有即将发生的战斗
 
         遍历所有围城状态的军队，按目标城市分组。
         每组创建一个战斗上下文。
 
+        v4.2.0 围城持续化：当 `persistent_siege=True` 时，**仅当总攻条件满足**
+        （`game.siege.assault_ready`：城墙破 / 守军断粮累计到阈值 / 围城持续到阈值）
+        才为敌城产出战斗；否则保持围城、本回合不结算。
+        `persistent_siege` 默认 False = 旧行为（抵达即总攻），保证不传该参数的
+        既有调用方（含大量单元测试）行为不变；引擎在 `process_turn` 里显式传入。
+
         Args:
             armies: 所有军队（ID -> Army）
             cities: 所有城市（ID -> City）
             map_system: 地图系统
             generals: 所有将领（ID -> General），可选
+            current_turn: 当前引擎回合号（用于「围城持续」判定），可选
+            persistent_siege: 是否启用围城持续化语义，默认 False
 
         Returns:
             检测到的战斗上下文列表
@@ -93,6 +105,15 @@ class BattleScheduler:
             target_city = cities.get(city_id)
             if target_city is None:
                 logger.warning("围城目标城市 %s 不存在，跳过", city_id)
+                continue
+
+            # v4.2.0：围城持续化——敌城仅在总攻条件满足时产出战斗。
+            # 友方城（同势力）走 _create_battle_context 的「转驻防增援」分支，不受此门控。
+            if (
+                persistent_siege
+                and army_list[0].faction != target_city.faction
+                and not assault_ready(target_city, current_turn)
+            ):
                 continue
 
             battle = self._create_battle_context(

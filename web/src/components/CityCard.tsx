@@ -88,6 +88,8 @@ export function CityCard({
 
   const wallRatio = city.wall_max_hp > 0 ? city.wall_hp / city.wall_max_hp : 0
   const provinceName = city.province_id ? (state.provinces?.[city.province_id]?.name || city.province_id) : '—'
+  // v4.2.0：州郡生产 modifier（如「京畿重地：金钱产出 +15%」）
+  const provinceModifier = city.province_id ? state.provinces?.[city.province_id]?.modifier_desc : ''
 
   const attackDisabledReason =
     targets.length === 0 ? '无相邻敌城，无法出征'
@@ -176,8 +178,13 @@ export function CityCard({
         <Hint content={info('人口', '城市人口规模，是兵源与经济的基础。')}><Label icon="fa-people-group" text="人口" /></Hint>
         <span style={{ color: '#e8e0d0' }}>{city.population.toLocaleString()}</span>
 
-        <Hint content={info('州郡', '所属州。相邻同州城常有地缘牵动。')}><Label icon="fa-map" text="州郡" /></Hint>
-        <span style={{ color: '#e8e0d0' }}>{provinceName}</span>
+        <Hint content={info('州郡', provinceModifier ? `所属州：${provinceModifier}` : '所属州。相邻同州城常有地缘牵动。')}><Label icon="fa-map" text="州郡" /></Hint>
+        <span style={{ color: '#e8e0d0' }}>
+          {provinceName}
+          {provinceModifier && (
+            <span style={{ display: 'block', color: '#c9a96e', fontSize: '10px', lineHeight: 1.4 }}>{provinceModifier}</span>
+          )}
+        </span>
 
         {typeof city.economic_bonus === 'number' && city.economic_bonus > 0 && (
           <>

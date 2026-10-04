@@ -21,6 +21,7 @@ from game.constants import (
 from game.hex_grid import HexCoord, hex_distance
 from game.hex_map import HexMap
 from game.models import City, General
+from game.provinces import province_recruit_cost_multiplier
 from game.systems.resource_system import ResourceSystem
 
 
@@ -249,16 +250,17 @@ class CitySystem:
         # 实际可征兵数（受上限和资源限制）
         actual_troops = min(troops, available_space)
 
-        # 计算所需资源
-        gold_needed = actual_troops * RECRUIT_COST_GOLD
-        food_needed = actual_troops * RECRUIT_COST_FOOD
+        # 每兵成本（v4.2.0：叠加州郡征兵成本 modifier，如凉州/幽州 -10%）
+        recruit_mult = province_recruit_cost_multiplier(city.province_id)
+        unit_gold_cost = RECRUIT_COST_GOLD * recruit_mult
+        unit_food_cost = RECRUIT_COST_FOOD * recruit_mult
 
         # 根据金钱上限调整
-        max_by_gold = city.gold // RECRUIT_COST_GOLD
+        max_by_gold = int(city.gold / unit_gold_cost) if unit_gold_cost > 0 else 0
         actual_troops = min(actual_troops, max_by_gold)
 
         # 根据粮草上限调整
-        max_by_food = city.food // RECRUIT_COST_FOOD
+        max_by_food = int(city.food / unit_food_cost) if unit_food_cost > 0 else 0
         actual_troops = min(actual_troops, max_by_food)
 
         if actual_troops <= 0:
@@ -268,8 +270,8 @@ class CitySystem:
             )
 
         # 重新计算最终消耗
-        gold_needed = actual_troops * RECRUIT_COST_GOLD
-        food_needed = actual_troops * RECRUIT_COST_FOOD
+        gold_needed = int(actual_troops * unit_gold_cost)
+        food_needed = int(actual_troops * unit_food_cost)
 
         # 执行征兵
         city.gold -= gold_needed

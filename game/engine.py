@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -84,6 +85,7 @@ from game.systems.resource_system import ResourceSystem
 from game.battle.army_movement import ArmyMovementSystem
 from game.battle.battle_scheduler import BattleScheduler
 from game.battle.battle_resolver import BattleResolver
+from game.siege import end_siege, resolve_siege_turn
 
 logger = logging.getLogger(__name__)
 
@@ -186,14 +188,24 @@ class GameEngine:
     所有系统通过此类协调工作。
     """
 
-    def __init__(self, seed: int = 42) -> None:
+    def __init__(self, seed: int = 42, siege_persistent: Optional[bool] = None) -> None:
         """初始化游戏引擎
 
         Args:
             seed: 随机种子，默认42
+            siege_persistent: 是否启用围城持续化（v4.2.0）。默认 None →
+                取环境变量 `SIEGE_PERSISTENT`（"0" = 关闭，其余 = 开启），再回退 True。
+                设 False 时行为完全退回 v4.1.2（军队抵达敌城即同回合总攻）。
+                生产路径由 `api.game_manager.GameConfig.siege_persistent` 显式传入；
+                环境变量只是给平衡实验（tests/balance/exp11、exp12）提供单变量开关，
+                无需改动实验脚本即可对照 on/off。
         """
         self.seed: int = seed
         self.rng: GameRandom = GameRandom(seed)
+        # v4.2.0：围城持续化回滚开关（见 game/siege.py、docs/design/v4.1-gameplay-gaps.md §3）
+        if siege_persistent is None:
+            siege_persistent = os.environ.get("SIEGE_PERSISTENT", "1") != "0"
+        self.siege_persistent: bool = siege_persistent
 
         # 游戏状态
         self.turn: int = 1
@@ -1247,6 +1259,10 @@ class GameEngine:
             cities=self.cities,
             map_system=self.map,
             generals=self.generals,
+            # v4.2.0：围城持续化——仅当总攻条件满足才产出战斗；persistent_siege=False 时
+            # 退回旧行为（抵达即总攻），见 game/siege.py。
+            current_turn=self.turn,
+            persistent_siege=self.siege_persistent,
         )
 
         for ctx in battle_contexts:
@@ -1483,10 +1499,10 @@ class GameEngine:
                         #       军队会沿去程路径继续走到敌方城下，然后永久卡死。
                         self._redirect_army_home(army)
 
-        # 清理该城市的围城状态
+        # 清理该城市的围城状态（v4.2.0：统一走 end_siege，一并复位 siege_started_turn /
+        # starving_turns，避免下次围城的「持续回合」被错误累加）
         if defender_city is not None:
-            defender_city.is_besieged = False
-            defender_city.besieging_armies = []
+            end_siege(defender_city)
 
         # 清理俘虏的将领
         # v4.0：这里才真正被执行（此前 captured_generals 恒为空，见 battle_resolver 注释）
@@ -2113,5 +2129,24 @@ def _hook_city_morale(engine: "GameEngine", result: Dict[str, Any]) -> None:
 register_phase_hook(
     TurnPhase.AFTER_MOVEMENT, _hook_city_morale,
     priority=100, name="city_morale",
+)
+
+
+def _hook_city_siege(engine: "GameEngine", result: Dict[str, Any]) -> None:
+    """相位钩子（after_movement）：围城每回合结算（v4.2.0）。
+
+    承载 `game/siege.py::resolve_siege_turn`：城墙持续受损、断粮守军减员、
+    攻方断粮撤围。位置在行军之后（`is_besieged` 在行军相位被写入）、战斗结算之前
+    ——本相位决定的 `is_besieged` / `siege_started_turn` / `starving_turns` / `wall_hp`
+    正是 `battle_scheduler.detect_battles` 判定「是否总攻」的依据。
+
+    回滚开关 `engine.siege_persistent=False` 时短路（完全退回现状）。
+    """
+    resolve_siege_turn(engine, result)
+
+
+register_phase_hook(
+    TurnPhase.AFTER_MOVEMENT, _hook_city_siege,
+    priority=100, name="city_siege",
 )
 

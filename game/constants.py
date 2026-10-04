@@ -290,6 +290,22 @@ ROUT_LOSS_RATE: float = 0.1
 MAX_BATTLE_ROUNDS: int = 30
 """最大战斗回合数，超过则平局"""
 
+# --- 围城持续化（v4.2.0）---
+# 见 docs/design/v4.1-gameplay-gaps.md §3 与 game/siege.py。
+# 抵达敌城后不再立即总攻，而是逐回合围城结算；仅在下列条件之一满足时才发起总攻。
+SIEGE_ASSAULT_AFTER_TURNS: int = 3
+"""围城持续达到该回合数即发起总攻"""
+
+SIEGE_STARVATION_ASSAULT_TURNS: int = 2
+"""守军连续断粮达到该回合数即发起总攻"""
+
+SIEGE_WALL_DAMAGE_PER_TURN: int = 300
+"""围城每回合对城墙造成的持续伤害（量级参照 calculate_wall_damage 的 WALL_DAMAGE_BASE=400，
+此处取略低的持续轰击值）。[PLACEHOLDER] 待平衡实验标定。"""
+
+SIEGE_STARVATION_GARRISON_RATE: float = 0.02
+"""守军断粮时每回合减员比例（-2%）；整数截断且至少保留 1 兵，绝不把守军打到 0。"""
+
 # ============================================================
 # 将领系统参数
 # ============================================================

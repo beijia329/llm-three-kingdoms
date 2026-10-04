@@ -238,6 +238,10 @@ export interface ProvinceInfo {
   capital_city_id: string | null
   color: string
   cities: string[]
+  /** v4.2.0：州郡生产 modifier（如 {gold: 1.15}），后端 get_state 下发 */
+  modifiers?: Record<string, number>
+  /** v4.2.0：modifier 的人类可读说明，如「京畿重地：金钱产出 +15%」 */
+  modifier_desc?: string
 }
 
 export interface WebSocketMessage {

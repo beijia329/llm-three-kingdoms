@@ -32,6 +32,10 @@ from game.constants import (
 )
 from game.models import City, General
 from game.tile import Tile
+from game.provinces import (
+    province_gold_multiplier,
+    province_food_multiplier,
+)
 
 
 class ResourceSystem:
@@ -125,7 +129,9 @@ class ResourceSystem:
         )
 
         politics_bonus = self._get_politics_bonus(city, generals)
-        return int(total_before_morale * multiplier * politics_bonus)
+        # v4.2.0：州郡层差异化 —— 州生产 modifier（如司隶/扬州 +15% 金钱）
+        province_bonus = province_gold_multiplier(city.province_id)
+        return int(total_before_morale * multiplier * politics_bonus * province_bonus)
 
     # ============================================================
     # 粮草产出
@@ -159,6 +165,11 @@ class ResourceSystem:
         if city.morale < MIN_MORALE_FOR_PRODUCTION:
             return 0
 
+        # v4.2.0：被围城市粮草不产出（围城断粮机制；见 game/siege.py）。
+        # 守军消耗照常扣除（calculate_food_consumption），故被围城粮草会逐回合枯竭。
+        if city.is_besieged:
+            return 0
+
         level_config = CITY_LEVELS[city.level]
         base = level_config["base_food"]
         population_output = city.population * FOOD_PER_POPULATION
@@ -171,7 +182,11 @@ class ResourceSystem:
         season_factor = SEASON_FOOD_BONUS.get(season, 1.0) if season else 1.0
 
         politics_bonus = self._get_politics_bonus(city, generals)
-        return int(total_before_morale * multiplier * season_factor * politics_bonus)
+        # v4.2.0：州郡层差异化 —— 州生产 modifier（如益州 +20% 粮草）
+        province_bonus = province_food_multiplier(city.province_id)
+        return int(
+            total_before_morale * multiplier * season_factor * politics_bonus * province_bonus
+        )
 
     # ============================================================
     # 民心倍率计算

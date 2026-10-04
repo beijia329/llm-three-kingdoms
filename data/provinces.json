@@ -4,90 +4,116 @@
     "name": "司隶",
     "capital_city_id": "luoyang",
     "color": "#C9A96E",
-    "description": "京畿重地，洛阳所在"
+    "description": "京畿重地，洛阳所在",
+    "modifiers": {"gold": 1.15},
+    "modifier_desc": "京畿重地：金钱产出 +15%"
   },
   {
     "id": "yuzhou",
     "name": "豫州",
     "capital_city_id": "xuchang",
     "color": "#D4A84B",
-    "description": "中原腹地，四战之地"
+    "description": "中原腹地，四战之地",
+    "modifiers": {"gold": 1.10},
+    "modifier_desc": "中原腹地：金钱产出 +10%"
   },
   {
     "id": "jizhou",
     "name": "冀州",
     "capital_city_id": "yecheng",
     "color": "#8B6914",
-    "description": "河北平原，粮产丰饶"
+    "description": "河北平原，粮产丰饶",
+    "modifiers": {"food": 1.15},
+    "modifier_desc": "河北粮仓：粮草产出 +15%"
   },
   {
     "id": "yanzhou",
     "name": "兖州",
     "capital_city_id": "chenliu",
     "color": "#6B8E23",
-    "description": "黄河下游，兵家必争"
+    "description": "黄河下游，兵家必争",
+    "modifiers": {"food": 1.10},
+    "modifier_desc": "中原粮区：粮草产出 +10%"
   },
   {
     "id": "xuzhou",
     "name": "徐州",
     "capital_city_id": null,
     "color": "#B8860B",
-    "description": "江淮之间，水陆通衢"
+    "description": "江淮之间，水陆通衢",
+    "modifiers": {"food": 1.10},
+    "modifier_desc": "沃野：粮草产出 +10%"
   },
   {
     "id": "qingzhou",
     "name": "青州",
     "capital_city_id": null,
     "color": "#228B22",
-    "description": "齐鲁之地，渔盐之利"
+    "description": "齐鲁之地，渔盐之利",
+    "modifiers": {"gold": 1.10},
+    "modifier_desc": "渔盐之利：金钱产出 +10%"
   },
   {
     "id": "jingzhou",
     "name": "荆州",
     "capital_city_id": "xiangyang",
     "color": "#2E8B57",
-    "description": "江汉平原，南北咽喉"
+    "description": "江汉平原，南北咽喉",
+    "modifiers": {"food": 1.10},
+    "modifier_desc": "湖广熟：粮草产出 +10%"
   },
   {
     "id": "yangzhou",
     "name": "扬州",
     "capital_city_id": "shouchun",
     "color": "#CD853F",
-    "description": "江东富庶，水网密布"
+    "description": "江东富庶，水网密布",
+    "modifiers": {"gold": 1.15},
+    "modifier_desc": "江东富庶：金钱产出 +15%"
   },
   {
     "id": "yizhou",
     "name": "益州",
     "capital_city_id": "chengdu",
     "color": "#9370DB",
-    "description": "天府之国，山川险固"
+    "description": "天府之国，山川险固",
+    "modifiers": {"food": 1.20},
+    "modifier_desc": "天府之国：粮草产出 +20%"
   },
   {
     "id": "liangzhou",
     "name": "凉州",
     "capital_city_id": "tianshui",
     "color": "#4682B4",
-    "description": "河西走廊，西凉铁骑"
+    "description": "河西走廊，西凉铁骑",
+    "modifiers": {"recruit": 0.90},
+    "modifier_desc": "西凉铁骑：征兵成本 -10%"
   },
   {
     "id": "bingzhou",
     "name": "并州",
     "capital_city_id": null,
     "color": "#A0522D",
-    "description": "太行以西，胡汉交界"
+    "description": "太行以西，胡汉交界",
+    "modifiers": {"recruit": 0.95},
+    "modifier_desc": "边地尚武：征兵成本 -5%"
   },
   {
     "id": "youzhou",
     "name": "幽州",
     "capital_city_id": "ji",
     "color": "#708090",
-    "description": "北方边陲，燕赵之地"
+    "description": "北方边陲，燕赵之地",
+    "modifiers": {"recruit": 0.90},
+    "modifier_desc": "幽州突骑：征兵成本 -10%"
   },
   {
     "id": "jiaozhou",
     "name": "交州",
     "capital_city_id": null,
     "color": "#20B2AA",
-    "description": "岭南之地，百越之域"
+    "description": "岭南之地，百越之域",
+    "modifiers": {"gold": 0.90},
+    "modifier_desc": "蛮荒之地：金钱产出 -10%"
   }
 ]

@@ -148,6 +148,14 @@ class City(BaseModel):
     is_besieged: bool = Field(default=False, description="是否被围困")
     besieging_armies: List[str] = Field(default_factory=list, description="围城部队ID列表")
 
+    # v4.2.0：围城持续化（见 game/siege.py）
+    siege_started_turn: Optional[int] = Field(
+        default=None, description="本次围城开始的回合号（None = 当前未被围或尚未记录）"
+    )
+    starving_turns: int = Field(
+        default=0, ge=0, description="守军连续断粮累计回合数（粮草>0 时清零）"
+    )
+
     # [A3] 探索冷却：上次成功发起探索的回合号（None = 本局还没探索过）
     last_explore_turn: Optional[int] = Field(
         default=None,
@@ -172,6 +180,14 @@ class Province(BaseModel):
     color: str = Field(default="#888888", description="州渲染颜色")
     description: str = Field(default="", description="州简介")
     cities: List[str] = Field(default_factory=list, description="下辖城市ID列表")
+    # v4.2.0：州郡生产 modifier（钱/粮产出倍率 或 征兵成本倍率）。
+    # 引擎侧正本在 game/provinces.py::PROVINCE_MODIFIERS（不依赖数据加载顺序）；
+    # 这里承载 data/provinces.json 的数据行，供前端与人工核对。两者由
+    # tests/unit/test_province_modifiers.py 守卫一致。
+    modifiers: Dict[str, float] = Field(
+        default_factory=dict, description="生产 modifier，如 {'gold': 1.15}"
+    )
+    modifier_desc: str = Field(default="", description="modifier 的人类可读说明")
 
 
 class CityInfo(BaseModel):

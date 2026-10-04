@@ -150,6 +150,22 @@ class PromptBuilder:
         except ImportError:  # pragma: no cover
             stance_block = ""
 
+        # v4.2.0：州郡生产 modifier —— 让 LLM 知道「抢哪个州」的收益差异
+        try:
+            from game.provinces import PROVINCE_MODIFIER_DESC, PROVINCE_NAMES
+
+            province_lines = [
+                f"- {PROVINCE_NAMES.get(pid, pid)}：{desc}"
+                for pid, desc in PROVINCE_MODIFIER_DESC.items()
+            ]
+            province_block = (
+                "### 州郡差异（不同州的产出/征兵成本不同，抢州有取舍）\n"
+                + "\n".join(province_lines)
+                + "\n\n"
+            )
+        except ImportError:  # pragma: no cover
+            province_block = ""
+
         return f"""你是【{faction_name}】的领主，你的目标是统一中原，称霸天下。
 
 {lord_block}
@@ -192,6 +208,7 @@ class PromptBuilder:
 - 可以征兵（消耗金钱和粮草）
 - 被攻破后易主
 
+{province_block}
 ### 将领与五行（重要）
 - 每名将领按其最强属性归入一「将道」：火=勇武 土=统帅 金=智力 水=政治 木=忠诚
 - 五行相克：火→金→木→土→水→火。克制方伤害 +15%，被克方 -15%

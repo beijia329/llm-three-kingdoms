@@ -146,6 +146,14 @@ class GameConfig:
     max_workers: int = 12
     """并发决策的最大线程数"""
 
+    siege_persistent: bool = True
+    """围城持续化开关（v4.2.0）
+
+    True（默认）：军队抵达敌城后**保持围城**，逐回合结算（城墙受损 / 断粮守军减员 /
+    攻方断粮撤围），仅在总攻条件满足时才发起总攻（见 game/siege.py）。
+    False：行为**完全退回 v4.1.2**（抵达即同回合总攻）—— 这是回滚开关。
+    """
+
 
 class GameManager:
     """游戏会话管理器
@@ -190,7 +198,10 @@ class GameManager:
 
     def _init_engine(self) -> None:
         """初始化游戏引擎与 AI 玩家"""
-        self.engine = GameEngine(seed=self.config.seed)
+        self.engine = GameEngine(
+            seed=self.config.seed,
+            siege_persistent=self.config.siege_persistent,
+        )
         self.engine.max_turns = self.config.max_turns
 
         if self.config.game_mode == "infinite":
@@ -514,6 +525,9 @@ class GameManager:
                 "capital_city_id": prov.capital_city_id,
                 "color": prov.color,
                 "cities": prov.cities,
+                # v4.2.0：州郡生产 modifier（前端城市卡 / 州提示展示）
+                "modifiers": dict(prov.modifiers),
+                "modifier_desc": prov.modifier_desc,
             }
         data["provinces"] = provinces_data
 
