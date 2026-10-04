@@ -16,9 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
 
       - name: Update GitHub releases from docs/releases
         env:
@@ -43,11 +40,6 @@ jobs:
               gh release create "$tag" --notes-file "$f" --title "$title" --verify-tag
               echo "created $tag"
             fi
-            # 发布日期 = tag 指向 commit 的日期。补录的历史版本默认会是「今天」，排序也会乱。
-            pub_date="$(git log -1 --format=%aI "refs/tags/$tag^{commit}" 2>/dev/null || true)"
-            if [ -n "$pub_date" ]; then
-              rel_id="$(gh release view "$tag" --json id --jq .id)"
-              gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/$rel_id" -f published_at="$pub_date" >/dev/null
-              echo "  published_at -> $pub_date"
-            fi
+            # 注：GitHub 不支持自定义 Release 发布日期（API 无 published_at 可写），
+            # 补录的历史版本在 Releases 页会显示为补录当天；真实日期见说明文件的「发布于」行。
           done
