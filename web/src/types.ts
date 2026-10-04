@@ -188,6 +188,13 @@ export interface GameState {
   game_mode?: string
   /** v4.3.0：僵局熔断阈值（连续 N 回合无战事 → 领先胜出）。结算副标题用。 */
   stalemate_turns?: number
+  /**
+   * v4.3.0（D1 单一真源）：终局标题/副标题 —— 后端由 `game.end_copy.format_end_copy`
+   * 计算，前端**verbatim 渲染，不得再做任何 reason→文案映射**。
+   * 未结束时为空串。
+   */
+  end_title?: string
+  end_subtitle?: string
   cities: Record<string, City>
   armies: Record<string, Army>
   generals: Record<string, General>

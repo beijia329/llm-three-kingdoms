@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { GameState } from '../types'
-import { FACTION_COLORS, FACTIONS } from '../theme'
+import { FACTION_COLORS } from '../theme'
 
 interface GameOverOverlayProps {
   state: GameState
@@ -20,7 +20,6 @@ export function GameOverOverlay({ state, onDismiss }: GameOverOverlayProps) {
   if (showBoard) return null
 
   const winnerId = state.winner
-  const winnerName = winnerId ? (FACTIONS[winnerId] || winnerId) : null
   const winnerColor = winnerId ? (FACTION_COLORS[winnerId] || 'var(--gold)') : 'var(--gold)'
   const winnerCities = winnerId ? (state.faction_stats[winnerId]?.cities ?? 0) : 0
 
@@ -29,30 +28,22 @@ export function GameOverOverlay({ state, onDismiss }: GameOverOverlayProps) {
     .map(([fid, s]) => ({ fid, ...s }))
     .sort((a, b) => b.cities - a.cities || a.name.localeCompare(b.name, 'zh-CN'))
 
-  // v4.3.0（方案 A′）三层结束语义：文案按 end_reason 分支。
-  // 🔴 「一统天下」只在真·统一（unification）时出现；timeout / stalemate 一律「领先胜出」。
-  // 旧档（end_reason 缺省）回退推断：turn>=max_turns → timeout，否则 unification（向后兼容）。
-  const endReason = state.end_reason ?? (state.turn >= state.max_turns ? 'timeout' : 'unification')
-  const isUnification = endReason === 'unification'
-  const icon = !winnerId ? '🤝' : isUnification ? '🏆' : endReason === 'stalemate' ? '⚖️' : '⏳'
-  const headline = winnerName
-    ? (isUnification ? `${winnerName} 一统天下` : `${winnerName} 领先胜出`)
-    : '天下未定 · 并列'
-  const subReason = isUnification
-    ? `第 ${state.turn} 回合 · 廓清寰宇`
-    : endReason === 'stalemate'
-      ? `连续 ${state.stalemate_turns ?? 6} 回合无战事 · 僵局收束，天下未定`
-      : `第 ${state.turn} / ${state.max_turns} 回合 · 时限已到，天下未定`
+  // v4.3.0（D1 单一真源）：标题/副标题**verbatim 渲染后端下发的
+  // `end_title` / `end_subtitle`**（真源在 game.end_copy.format_end_copy）。
+  // 🔴 前端**不做任何 reason→文案映射**（含旧档回退推断）—— 否则又是三处漂移。
+  // `end_reason` 仅用于**图标选择**（icon 不是文案映射）。
+  const endReason = state.end_reason
+  const icon = !winnerId ? '🤝' : endReason === 'unification' ? '🏆' : endReason === 'stalemate' ? '⚖️' : '⏳'
 
   return (
     <div style={styles.backdrop}>
       <div style={styles.card}>
         <div style={{ fontSize: '44px', lineHeight: 1 }}>{icon}</div>
         <div style={{ ...styles.headline, color: winnerColor }}>
-          {headline}
+          {state.end_title}
         </div>
         <div style={styles.sub}>
-          {subReason}
+          {state.end_subtitle}
           {winnerId && ` · 坐拥 ${winnerCities} 城`}
         </div>
 

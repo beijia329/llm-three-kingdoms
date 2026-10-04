@@ -497,6 +497,22 @@ class GameManager:
         # 方案 A′ 下 infinite 的 max_turns 是软上限（192），故必须显式下发 game_mode。
         data["game_mode"] = self.config.game_mode
         data["stalemate_turns"] = self.config.stalemate_turns
+        # v4.3.0（D1 单一真源）：终局标题/副标题由 game.end_copy 计算，与事件流同源。
+        # 与 game_over / winner 同级下发；未结束为空串（字段始终存在）。
+        from game.end_copy import format_end_copy
+
+        if self.engine.game_over:
+            end_title, end_subtitle = format_end_copy(
+                getattr(self.engine, "end_reason", None),
+                self.engine.winner,
+                self.engine.turn,
+                self.engine.max_turns,
+                self.config.stalemate_turns,
+            )
+        else:
+            end_title, end_subtitle = "", ""
+        data["end_title"] = end_title
+        data["end_subtitle"] = end_subtitle
         data["events"] = list(self._events[-20:])
         # 最近战斗报告（近 MAX_RECENT_BATTLES 场；前端 BattleOverlay 据此画进攻箭头）
         data["recent_battles"] = list(self._recent_battles)
@@ -821,19 +837,21 @@ class GameManager:
         turn_result = self.engine.process_turn()
 
         if self.engine.game_over:
-            # v4.3.0：文案按 end_reason 分派（与前端 GameOverOverlay 同一套 canonical 文案）。
+            # v4.3.0：文案走单一真源 game.end_copy（与 /api/state 的
+            # end_title/end_subtitle 同源），杜绝三处各自映射后漂移。
             # 🔴 「一统天下」只在真·统一时出现；timeout / stalemate 一律「领先胜出」。
-            reason = getattr(self.engine, "end_reason", None)
-            if self.engine.winner:
-                w = FACTIONS.get(self.engine.winner, self.engine.winner)
-                if reason == "unification":
-                    self._add_event(f"🏆 {w} 一统天下！", "victory")
-                elif reason == "stalemate":
-                    self._add_event(f"⚖️ 僵局收束，{w} 领先胜出！", "victory")
-                else:  # timeout（含旧档 end_reason=None 的兜底）
-                    self._add_event(f"⏳ 时限已到，{w} 领先胜出！", "victory")
-            else:
-                self._add_event("天下未定 · 并列", "victory")
+            from game.end_copy import format_end_event
+
+            self._add_event(
+                format_end_event(
+                    getattr(self.engine, "end_reason", None),
+                    self.engine.winner,
+                    self.engine.turn,
+                    self.engine.max_turns,
+                    self.config.stalemate_turns,
+                ),
+                "victory",
+            )
             # v4.0.1：对局结束 → 计入跨局模型战绩（幂等，只记一次）
             self._record_match_result()
 
