@@ -1,0 +1,34 @@
+name: Sync release notes
+
+on:
+  push:
+    branches: [main, feat/web-frontend]
+    paths:
+      - 'docs/releases/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync release notes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update GitHub releases from docs/releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for f in docs/releases/v*.md; do
+            [ -e "$f" ] || continue
+            tag="$(basename "$f" .md)"
+            if gh release view "$tag" >/dev/null 2>&1; then
+              gh release edit "$tag" --notes-file "$f"
+              echo "updated $tag"
+            else
+              echo "skip $tag (no such release)"
+            fi
+          done
