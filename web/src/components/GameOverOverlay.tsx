@@ -1,6 +1,20 @@
 import { useState } from 'react'
 import type { GameState } from '../types'
 import { FACTION_COLORS } from '../theme'
+// [M2 2026-10-04] 去 emoji：终局图标改用本地 SVG（CSS mask 着色）。
+// 🔴 选哪个图标由**后端**（game.end_copy.format_end_icon）决定，随 /api/state 的
+//    `end_icon` 下发；前端只做「资产名 → 已 import 的 SVG」查表，不自行按 end_reason 选。
+import crownIcon from '../assets/icons/crown.svg'
+import scalesIcon from '../assets/icons/scales.svg'
+import siegeTowerIcon from '../assets/icons/siege-tower.svg'
+import shakingHandsIcon from '../assets/icons/shaking-hands.svg'
+
+const END_ICONS: Record<string, string> = {
+  crown: crownIcon,
+  scales: scalesIcon,
+  'siege-tower': siegeTowerIcon,
+  'shaking-hands': shakingHandsIcon,
+}
 
 interface GameOverOverlayProps {
   state: GameState
@@ -28,17 +42,34 @@ export function GameOverOverlay({ state, onDismiss }: GameOverOverlayProps) {
     .map(([fid, s]) => ({ fid, ...s }))
     .sort((a, b) => b.cities - a.cities || a.name.localeCompare(b.name, 'zh-CN'))
 
-  // v4.3.0（D1 单一真源）：标题/副标题**verbatim 渲染后端下发的
-  // `end_title` / `end_subtitle`**（真源在 game.end_copy.format_end_copy）。
-  // 🔴 前端**不做任何 reason→文案映射**（含旧档回退推断）—— 否则又是三处漂移。
-  // `end_reason` 仅用于**图标选择**（icon 不是文案映射）。
-  const endReason = state.end_reason
-  const icon = !winnerId ? '🤝' : endReason === 'unification' ? '🏆' : endReason === 'stalemate' ? '⚖️' : '⏳'
+  // v4.3.0（D1 单一真源）：标题/副标题与图标**全部 verbatim 渲染后端下发值**
+  // （真源：game.end_copy）。🔴 前端**不做任何 reason→文案/图标 映射**。
+  const iconUrl = state.end_icon ? END_ICONS[state.end_icon] : undefined
 
   return (
     <div style={styles.backdrop}>
       <div style={styles.card}>
-        <div style={{ fontSize: '44px', lineHeight: 1 }}>{icon}</div>
+        {iconUrl ? (
+          <span
+            aria-hidden
+            style={{
+              width: '44px',
+              height: '44px',
+              backgroundColor: winnerColor,
+              maskImage: `url(${iconUrl})`,
+              WebkitMaskImage: `url(${iconUrl})`,
+              maskSize: 'contain',
+              WebkitMaskSize: 'contain',
+              maskRepeat: 'no-repeat',
+              WebkitMaskRepeat: 'no-repeat',
+              maskPosition: 'center',
+              WebkitMaskPosition: 'center',
+              display: 'block',
+            }}
+          />
+        ) : (
+          <div style={{ fontSize: '44px', lineHeight: 1 }} />
+        )}
         <div style={{ ...styles.headline, color: winnerColor }}>
           {state.end_title}
         </div>

@@ -20,7 +20,9 @@ interface Credit {
 const CREDITS: Credit[] = [
   {
     name: 'game-icons.net',
-    detail: '图标：Lorc、Delapouite、Skoll 等',
+    // 2026-10-04：终局图标 scales(Lorc) / shaking-hands(Delapouite) 亦来自本库，
+    // 同属 CC BY 3.0，由本条统一署名（无需另列）。
+    detail: '图标：Lorc、Delapouite、Skoll 等（含终局 scales / shaking-hands）',
     license: 'CC BY 3.0',
     url: 'https://game-icons.net',
   },

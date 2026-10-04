@@ -23,12 +23,29 @@ from typing import Optional, Tuple
 
 from game.constants import FACTIONS
 
-# 结局 → 图标（事件流用；前端 icon 选择也以此为语义参考，但文案本身不在此决定）
+# 终局图标（**单一真源**）：映射到前端本地 SVG 资产名，**不再用 emoji**。
+# 前端只做「资产名 → import 的 SVG」查表，不得自行按 end_reason 选图标。
 END_ICON = {
-    "unification": "🏆",
-    "stalemate": "⚖️",
-    "timeout": "⏳",
+    "unification": "crown",          # 本地 assets/icons/crown.svg
+    "stalemate": "scales",           # game-icons(lorc/scales, CC BY 3.0)
+    "timeout": "siege-tower",        # 本地 assets/icons/siege-tower.svg
+    "tie": "shaking-hands",          # game-icons(delapouite/shaking-hands, CC BY 3.0)
 }
+
+
+def format_end_icon(end_reason: Optional[str], winner: Optional[str]) -> str:
+    """终局图标标识（单一真源）：返回前端本地 SVG 资产名。
+
+    - winner 为空（并列）→ "shaking-hands"
+    - unification → "crown" / stalemate → "scales" / timeout（含未知）→ "siege-tower"
+
+    🔴 前端**不得**再自行按 end_reason 选图标 —— 一律渲染本函数经
+    `/api/state` 下发的 `end_icon`。
+    """
+    if not winner:
+        return END_ICON["tie"]
+    return END_ICON.get(end_reason or "", END_ICON["timeout"])
+
 
 
 def format_end_copy(
@@ -89,10 +106,10 @@ def format_end_event(
     max_turns: int,
     stalemate_turns: int = 6,
 ) -> str:
-    """事件流文案：图标 + `format_end_copy` 的标题（**同一真源**，不再内联分支）。
+    """事件流文案：`format_end_copy` 的标题 + 句末感叹号（**同一真源**，不再内联分支）。
 
-    无胜者（并列）用 🤝。
+    🔴 去 emoji：事件流是纯文本行，图标由前端按事件类型渲染（Font Awesome），
+    这里**不再**嵌入 emoji（旧实现含 🏆/⚖️/⏳）。
     """
     title, _ = format_end_copy(end_reason, winner, turn, max_turns, stalemate_turns)
-    icon = END_ICON.get(end_reason or "", "") if winner else "🤝"
-    return f"{icon} {title}！" if icon else f"{title}！"
+    return f"{title}！"

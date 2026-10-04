@@ -195,6 +195,12 @@ export interface GameState {
    */
   end_title?: string
   end_subtitle?: string
+  /**
+   * v4.3.0（D1 单一真源）：终局图标标识（本地 SVG 资产名，如 crown / scales /
+   * siege-tower / shaking-hands）。前端只做「资产名 → 已 import 的 SVG」查表，
+   * **不得**自行按 end_reason 选图标。未结束为空串。
+   */
+  end_icon?: string
   cities: Record<string, City>
   armies: Record<string, Army>
   generals: Record<string, General>

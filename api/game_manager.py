@@ -499,7 +499,7 @@ class GameManager:
         data["stalemate_turns"] = self.config.stalemate_turns
         # v4.3.0（D1 单一真源）：终局标题/副标题由 game.end_copy 计算，与事件流同源。
         # 与 game_over / winner 同级下发；未结束为空串（字段始终存在）。
-        from game.end_copy import format_end_copy
+        from game.end_copy import format_end_copy, format_end_icon
 
         if self.engine.game_over:
             end_title, end_subtitle = format_end_copy(
@@ -509,10 +509,15 @@ class GameManager:
                 self.engine.max_turns,
                 self.config.stalemate_turns,
             )
+            end_icon = format_end_icon(
+                getattr(self.engine, "end_reason", None), self.engine.winner
+            )
         else:
-            end_title, end_subtitle = "", ""
+            end_title, end_subtitle, end_icon = "", "", ""
         data["end_title"] = end_title
         data["end_subtitle"] = end_subtitle
+        # [M2] 终局图标标识（单一真源）：前端只做「资产名 → SVG」查表，不自行选图标。
+        data["end_icon"] = end_icon
         data["events"] = list(self._events[-20:])
         # 最近战斗报告（近 MAX_RECENT_BATTLES 场；前端 BattleOverlay 据此画进攻箭头）
         data["recent_battles"] = list(self._recent_battles)
@@ -879,8 +884,9 @@ class GameManager:
 
             for f, k in ks.get_all_kingdoms().items():
                 label = KINGDOM_TYPE_LABELS.get(k["type"], k["type"])
+                # [M2 2026-10-04] 去 emoji：事件流为纯文本，图标由前端按 type 渲染。
                 self._add_event(
-                    f"🏰 {FACTIONS.get(f, f)} 称{label}！国号【{k['name']}】", "kingdom"
+                    f"{FACTIONS.get(f, f)} 称{label}！国号【{k['name']}】", "kingdom"
                 )
 
         battles = event.data.get("battles_fought", 0)

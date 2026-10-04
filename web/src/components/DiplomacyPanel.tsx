@@ -15,6 +15,12 @@ interface DiplomacyPanelProps {
 
 export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
   const [activeTab, setActiveTab] = useState<'relations' | 'messages' | 'send'>('relations')
+  // [M4 2026-10-04] 外交关系视图二选一：环形图 / 关系矩阵 —— 一次只渲染一个、各得满高。
+  // 依据 M4-measurements.json：环形图 + 战况摘要 + 12×12 矩阵三者同屏在 300px 窄栏里
+  // 纵向溢出 157px（矩阵底部被截断需滚动）。二选一后不再叠加溢出。
+  const [view, setView] = useState<'ring' | 'matrix'>('ring')
+  // 战况摘要默认折叠（M4 可选做强）
+  const [showSummary, setShowSummary] = useState(false)
   const relations = state.faction_relations || []
   const messages = state.messages || []
   const humanFaction = state.human_faction
@@ -75,89 +81,127 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
 
       {activeTab === 'relations' && (
         <div>
-          <div style={{ fontSize: '13px', color: 'var(--gold)', marginBottom: '10px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--gold)', marginBottom: '10px', fontFamily: 'var(--font-serif)' }}>
             势力外交关系
           </div>
-          {/* [阶段D 2026-10-03] 关系图：README 把「外交博弈」列为头部特性，但原界面只有列表
-              和一个**无行列标**的 24 格色块 → 卖点在界面上看不见。这里补环形关系图。 */}
-          <RelationGraph state={state} />
-
-          <div style={{ marginTop: 16, fontSize: '13px', color: 'var(--gold)', marginBottom: '6px' }}>
-            当前战况摘要
-          </div>
-          {myRelations.length === 0 && (
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 0' }}>暂无交战的势力对</div>
-          )}
-          {myRelations.map((rel, i) => {
-            const other = rel.faction_a === humanFaction ? rel.faction_b : rel.faction_a
-            // [修复 2026-10-01] 观战模式（无人类势力）下原代码只渲染 faction_a，
-            // 且关系数据多为"汉室↔X" → 整列全被渲染成"汉室"。改为显示完整 A ↔ B。
-            const label = humanFaction
-              ? (FACTIONS[other] || other)
-              : `${FACTIONS[rel.faction_a] || rel.faction_a} ↔ ${FACTIONS[rel.faction_b] || rel.faction_b}`
-            return (
-              <div
-                key={i}
+          {/* [M4] 视图开关：环形图 / 关系矩阵 二选一（一次只渲染一个） */}
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+            {(['ring', 'matrix'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 10px',
-                  marginBottom: '6px',
-                  background: 'rgba(255,255,255,0.03)',
+                  flex: 1,
+                  padding: '5px 0',
                   borderRadius: '6px',
+                  border: '1px solid ' + (view === v ? 'var(--panel-border)' : 'transparent'),
+                  background: view === v ? 'rgba(200,168,90,0.18)' : 'rgba(255,255,255,0.04)',
+                  color: view === v ? 'var(--gold)' : UI_COLORS.textSecondary,
+                  fontSize: '12px',
+                  cursor: 'pointer',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span
+                {v === 'ring' ? '环形图' : '关系矩阵'}
+              </button>
+            ))}
+          </div>
+
+          {/* [阶段D 2026-10-03] 关系图：README 把「外交博弈」列为头部特性，
+              但原界面只有列表 + 无行列标的 24 格色块 → 卖点看不见。这里补环形关系图。
+              [M4] 与矩阵二选一，各得满高；矩阵连同其读图说明一起切换。 */}
+          {view === 'ring' ? (
+            <RelationGraph state={state} />
+          ) : (
+            <>
+              <RelationMatrix state={state} />
+              <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-muted)' }}>
+                行/列均为势力单字徽标；格内 = 该对关系，浅色空格 = 中立。悬停可看双方名与信任度。
+              </div>
+            </>
+          )}
+
+          {/* [M4] 战况摘要默认折叠 */}
+          <button
+            onClick={() => setShowSummary((v) => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', width: '100%', marginTop: '16px',
+              padding: '6px 8px', background: 'rgba(255,255,255,0.03)',
+              border: '1px solid var(--panel-border)', borderRadius: '6px',
+              color: 'var(--gold)', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            <i className={`fa-solid fa-chevron-${showSummary ? 'down' : 'right'}`} style={{ marginRight: '6px', fontSize: '9px' }}></i>
+            当前战况摘要
+            <span style={{ marginLeft: 'auto', fontSize: '10px', color: 'var(--text-muted)' }}>
+              {myRelations.length} 对 · {showSummary ? '点击折叠' : '点击展开'}
+            </span>
+          </button>
+          {showSummary && (
+            <div style={{ marginTop: '8px' }}>
+              {myRelations.length === 0 && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 0' }}>暂无交战的势力对</div>
+              )}
+              {myRelations.map((rel, i) => {
+                const other = rel.faction_a === humanFaction ? rel.faction_b : rel.faction_a
+                // [修复 2026-10-01] 观战模式下原代码只渲染 faction_a，且关系数据多为"汉室↔X"
+                // → 整列全被渲染成"汉室"。改为显示完整 A ↔ B。
+                const label = humanFaction
+                  ? (FACTIONS[other] || other)
+                  : `${FACTIONS[rel.faction_a] || rel.faction_a} ↔ ${FACTIONS[rel.faction_b] || rel.faction_b}`
+                return (
+                  <div
+                    key={i}
                     style={{
-                      width: '10px',
-                      height: '10px',
-                      borderRadius: '50%',
-                      background: FACTION_COLORS[other] || '#888',
-                      display: 'inline-block',
-                    }}
-                  />
-                  <span style={{ fontSize: '12px', color: 'var(--text)' }}>
-                    {label}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      padding: '2px 8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      marginBottom: '6px',
+                      background: 'rgba(255,255,255,0.03)',
                       borderRadius: '6px',
-                      background: statusColor[rel.status] + '22',
-                      color: statusColor[rel.status],
                     }}
                   >
-                    {statusLabel[rel.status]}
-                  </span>
-                  <span style={{ fontSize: '11px', color: UI_COLORS.textSecondary, width: '30px', textAlign: 'right' }}>
-                    {rel.trust}
-                  </span>
-                </div>
-              </div>
-            )
-          })}
-
-          {/* 全矩阵：[阶段D 2026-10-03] 换成带**行列势力标**的 12×12 完整矩阵。
-              原实现是 `relations.slice(0,24)` 的 6 列色块，**没有任何行/列标题** ——
-              看到"战"字也不知道是哪一对，等于不可读；而且只覆盖 66 对里的前 24 对。 */}
-          <div style={{ marginTop: '16px', fontSize: '13px', color: 'var(--gold)', marginBottom: '6px' }}>
-            关系矩阵（全 12 方 · 含中立）
-          </div>
-          <RelationMatrix state={state} />
-          <div style={{ marginTop: 6, fontSize: 10, color: '#6f6b80' }}>
-            行/列均为势力单字徽标；格内 = 该对关系，浅色空格 = 中立。悬停可看双方名与信任度。
-          </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '50%',
+                          background: FACTION_COLORS[other] || '#888',
+                          display: 'inline-block',
+                        }}
+                      />
+                      <span style={{ fontSize: '12px', color: 'var(--text)' }}>
+                        {label}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          background: statusColor[rel.status] + '22',
+                          color: statusColor[rel.status],
+                        }}
+                      >
+                        {statusLabel[rel.status]}
+                      </span>
+                      <span style={{ fontSize: '11px', color: UI_COLORS.textSecondary, width: '30px', textAlign: 'right' }}>
+                        {rel.trust}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {activeTab === 'messages' && (
         <div>
-          <div style={{ fontSize: '13px', color: 'var(--gold)', marginBottom: '10px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--gold)', marginBottom: '10px', fontFamily: 'var(--font-serif)' }}>
             外交消息
           </div>
           {messages.length === 0 && (
@@ -173,7 +217,7 @@ export function DiplomacyPanel({ state }: DiplomacyPanelProps) {
 
       {activeTab === 'send' && humanFaction && (
         <div>
-          <div style={{ fontSize: '13px', color: 'var(--gold)', marginBottom: '10px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--gold)', marginBottom: '10px', fontFamily: 'var(--font-serif)' }}>
             发送外交消息
           </div>
           <div style={{ marginBottom: '10px' }}>

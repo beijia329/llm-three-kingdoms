@@ -137,7 +137,7 @@ function FactionList({
             onClick={() => setSelectedFaction(row.fid)}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isSelected ? 'var(--text)' : '#b8b3aa', fontWeight: 600, fontSize: '14px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isSelected ? 'var(--text)' : '#b8b3aa', fontWeight: 600, fontSize: '14px', fontFamily: 'var(--font-serif)' }}>
                 <FactionBadge faction={row.fid} size={18} />
                 {row.name}
                 {/* 「已出局」标识：后端一直返回 is_alive，此前前端零处引用 → 灭亡势力
@@ -369,7 +369,9 @@ function GeneralList({ state }: { state: GameState }) {
  */
 type EventCategory = 'battle' | 'kingdom' | 'diplomacy' | 'other'
 
-const KINGDOM_PATTERNS = [/称(kingdom|王|帝|公|侯)/, /国号【/, /^🏰/]
+// [M2 2026-10-04] 去 emoji：后端建国事件不再带 🏰 前缀，故去掉 /^🏰/ 判定，
+// 仍由 evt.type==='kingdom' 与「国号【」两条守卫归类。
+const KINGDOM_PATTERNS = [/称(kingdom|王|帝|公|侯)/, /国号【/]
 const DIPLOMACY_PATTERNS = [/结盟/, /盟约/, /外交/, /通使/, /宣战/, /中立/, /同盟/]
 const BATTLE_PATTERNS = [/攻占/, /占领/, /城陷/, /战斗/, /大战/, /围城/, /被围/, /投降/, /溃退/, /斩/, /大破/, /^第.*场战斗/]
 
@@ -847,7 +849,7 @@ function DataPanel({ state }: { state: GameState }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div style={{ ...styles.card }}>
-        <div style={{ color: 'var(--gold)', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>
+        <div style={{ color: 'var(--gold)', fontSize: '13px', fontWeight: 600, marginBottom: '10px', fontFamily: 'var(--font-serif)' }}>
           <i className="fa-solid fa-ranking-star" style={{ marginRight: '6px' }}></i>武将排行榜
         </div>
         <RankList title="统帅 Top 5" items={topCommanders.slice(0, 5)} attr="command" color={STAT_COLORS.command} />
@@ -857,7 +859,7 @@ function DataPanel({ state }: { state: GameState }) {
       </div>
 
       <div style={{ ...styles.card }}>
-        <div style={{ color: 'var(--gold)', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>
+        <div style={{ color: 'var(--gold)', fontSize: '13px', fontWeight: 600, marginBottom: '10px', fontFamily: 'var(--font-serif)' }}>
           <i className="fa-solid fa-city" style={{ marginRight: '6px' }}></i>城池统计
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -874,7 +876,7 @@ function DataPanel({ state }: { state: GameState }) {
 function RankList({ title, items, attr, color }: { title: string; items: General[]; attr: string; color: string }) {
   return (
     <div style={{ marginBottom: '10px' }}>
-      <div style={{ fontSize: '11px', color: UI_COLORS.textSecondary, marginBottom: '4px' }}>{title}</div>
+      <div style={{ fontSize: '11px', color: UI_COLORS.textSecondary, marginBottom: '4px', fontFamily: 'var(--font-serif)' }}>{title}</div>
       {items.map((g, i) => (
         <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '12px' }}>
           <span style={{ color: 'var(--text)' }}>{i + 1}. {g.name}</span>
@@ -888,7 +890,7 @@ function RankList({ title, items, attr, color }: { title: string; items: General
 function StatBox({ label, value }: { label: string; value: number }) {
   return (
     <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-      <div style={{ fontSize: '11px', color: UI_COLORS.textSecondary, marginBottom: '2px' }}>{label}</div>
+      <div style={{ fontSize: '11px', color: UI_COLORS.textSecondary, marginBottom: '2px', fontFamily: 'var(--font-serif)' }}>{label}</div>
       <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600 }}>{value.toLocaleString()}</div>
     </div>
   )
@@ -932,7 +934,7 @@ function EventsPanel({ state }: { state: GameState }) {
   const events = state.events || []
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <div style={{ color: 'var(--gold)', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
+      <div style={{ color: 'var(--gold)', fontSize: '13px', fontWeight: 600, marginBottom: '4px', fontFamily: 'var(--font-serif)' }}>
         <i className="fa-solid fa-calendar-day" style={{ marginRight: '6px' }}></i>回合事件
       </div>
       {turnLogs.length === 0 && events.length === 0 && (

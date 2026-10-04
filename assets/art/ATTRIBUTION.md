@@ -22,10 +22,17 @@
 - **来源**：game-icons.net（作者：Lorc、Delapouite、Skoll 等）
 - **下载**：https://github.com/game-icons/icons
 - **授权**：**CC BY 3.0 —— 必须署名**
-- **已下载 16 个**（已后处理：去黑底、`fill="currentColor"`，可直接用 CSS 改色）：
+- **已下载 18 个**（已后处理：去黑底、`fill="currentColor"`，可直接用 CSS 改色）：
   `castle` `siege-tower` `siege-ram` `horse-head` `crown` `crossed-swords` `shield`
   `treasure-map` `military-fort` `camping-tent` `gold-stack` `coins` `knight-banner`
-  `gate` `scroll-quill` `hill-fort`
+  `gate` `scroll-quill` `hill-fort` `scales` `shaking-hands`
+- **2026-10-04 新增 2 个**（M2 去 emoji：终局「僵局⚖️」「并列🤝」）：
+  - `scales`（原作者 **Lorc**；源 `lorc/scales.svg`）—— stalemate 终局图标
+  - `shaking-hands`（原作者 **Delapouite**；源 `delapouite/shaking-hands.svg`）—— 并列(无胜者)终局图标
+  - 后处理：去掉 game-icons 原图的整幅背景路径 + `fill="#fff"` → `fill="currentColor"`
+    （否则 CSS mask 会渲染成实心方块）
+  - 落地：`web/src/assets/icons/{scales,shaking-hands}.svg`；随 `end_icon` 下发在
+    `GameOverOverlay.tsx` 消费
 - ⚠️ **署名义务**：任何用到这些图标的产物须保留下面这行：
   > Icons made by Lorc, Delapouite, Skoll. Available on https://game-icons.net
 

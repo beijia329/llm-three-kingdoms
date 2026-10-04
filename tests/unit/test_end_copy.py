@@ -14,7 +14,11 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import pytest  # noqa: E402
 
-from game.end_copy import format_end_copy, format_end_event  # noqa: E402
+from game.end_copy import (  # noqa: E402
+    format_end_copy,
+    format_end_event,
+    format_end_icon,
+)
 
 
 class TestFormatEndCopyFourOutcomes:
@@ -74,6 +78,52 @@ class TestFormatEndEventSharesSource:
         for reason in ("timeout", "stalemate", None):
             ev = format_end_event(reason, "sunjian", 48, 48, 6)
             assert "统一" not in ev
+
+
+class TestFormatEndIconSingleSource:
+    """终局图标标识（单一真源）：后端决定，前端只查表。"""
+
+    def test_unification_icon(self):
+        assert format_end_icon("unification", "sunjian") == "crown"
+
+    def test_stalemate_icon(self):
+        assert format_end_icon("stalemate", "sunjian") == "scales"
+
+    def test_timeout_icon(self):
+        assert format_end_icon("timeout", "sunjian") == "siege-tower"
+
+    def test_no_winner_icon_is_tie(self):
+        assert format_end_icon("timeout", None) == "shaking-hands"
+        assert format_end_icon("stalemate", None) == "shaking-hands"
+
+    def test_unknown_reason_defaults_conservatively(self):
+        assert format_end_icon(None, "sunjian") == "siege-tower"
+
+    def test_icons_are_asset_names_not_emoji(self):
+        """🔴 图标标识必须是本地资产名（ASCII），不是 emoji。"""
+        for reason in ("unification", "stalemate", "timeout", None):
+            icon = format_end_icon(reason, "sunjian")
+            assert icon.isascii(), f"{icon!r} 不是 ASCII 资产名"
+
+
+class TestNoEmojiInEventText:
+    """M2：事件文案已去 emoji（旧实现含 🏆/⚖️/⏳）。"""
+
+    def test_no_emoji_in_end_event(self):
+        for reason in ("unification", "timeout", "stalemate", None):
+            ev = format_end_event(reason, "sunjian", 48, 48, 6)
+            for ch in "🏆⚖️⏳🏰⚔🤝":
+                assert ch not in ev
+
+
+class TestApiStateEndIconContract:
+    def test_end_icon_present_and_matches_source(self):
+        from api.game_manager import GameConfig, GameManager
+
+        gm = GameManager(GameConfig(seed=1, max_turns=1, game_mode="standard"))
+        gm.process_turn()
+        state = gm.get_state()
+        assert state["end_icon"] == format_end_icon(gm.engine.end_reason, gm.engine.winner)
 
 
 class TestApiStateEndCopyContract:

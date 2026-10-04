@@ -1,6 +1,32 @@
 import type { BattleReport, City } from '../../types'
 import { FACTION_COLORS, FACTIONS, FACTION_GLYPH, contrastText, UI_COLORS } from '../../theme'
 import { HEX_SIZE, axialToPixel } from '../../utils/hex'
+// [M2 2026-10-04] 去 emoji：战斗标签里的 ⚔ 改用本地 crossed-swords SVG（CSS mask 着色）。
+import swordsIcon from '../../assets/icons/crossed-swords.svg'
+
+/** ⚔ 分隔符（本地 SVG，替代 emoji）：size=屏幕 px 量级 */
+function CrossedSwords({ color, size }: { color: string; size: number }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: 'inline-block',
+        width: size,
+        height: size,
+        backgroundColor: color,
+        maskImage: `url(${swordsIcon})`,
+        WebkitMaskImage: `url(${swordsIcon})`,
+        maskSize: 'contain',
+        WebkitMaskSize: 'contain',
+        maskRepeat: 'no-repeat',
+        WebkitMaskRepeat: 'no-repeat',
+        maskPosition: 'center',
+        WebkitMaskPosition: 'center',
+        verticalAlign: 'middle',
+      }}
+    />
+  )
+}
 
 /**
  * 战斗回放叠加层（v4.1 · 阶段C2）
@@ -343,7 +369,7 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                   {b.attacker_general_name && (
                     <span style={{ color: '#f6f2e8', fontSize: 12, fontWeight: 700 }}>{b.attacker_general_name}</span>
                   )}
-                  <span style={{ color: UI_COLORS.textPrimary, fontSize: 13, fontWeight: 700 }}>⚔</span>
+                  <CrossedSwords color={UI_COLORS.textPrimary} size={13} />
                   <RoleChip role="守" />
                   <FactionTag faction={b.defender_faction} />
                   {b.defender_general_name && (
@@ -381,7 +407,7 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                   }}
                 >
                   {b.attacker_general_name ? `${b.attacker_general_name}　` : ''}
-                  {b.attacker_soldiers.toLocaleString()} ⚔ {b.defender_soldiers.toLocaleString()}
+                  {b.attacker_soldiers.toLocaleString()} <CrossedSwords color="#c9c4d4" size={11} /> {b.defender_soldiers.toLocaleString()}
                   <span style={{ color: '#b06a5a' }}>
                     {'　−'}
                     {(b.attacker_casualties + b.defender_casualties).toLocaleString()}
