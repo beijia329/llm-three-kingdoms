@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { GameEvent, GameState, General, ReasoningEntry, TurnLog } from '../types'
-import { FACTION_COLORS, FACTIONS, PANEL_W, STAT_COLORS, UI_COLORS } from '../theme'
+import { FACTION_COLORS, FACTIONS, STAT_COLORS, UI_COLORS } from '../theme'
+import { usePanelWidth } from '../hooks/usePanelWidth'
 // [H2 2026-10-04] 事件正文是否自带回合号（避免同一条并列两个回合号）
 import { hasTurnInText } from '../utils/eventTurn'
 // [阶段B] 决策正文用霞鹜文楷（局部按需，见 utils/wenKai.ts）
@@ -40,9 +41,11 @@ export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, set
   // [M8 2026-10-04] tab 的 hover 反馈。必须在 state 为空的提前返回**之前**声明，
   // 否则 hook 调用数量会随渲染变化，违反 React hook 规则。
   const [hoverTab, setHoverTab] = useState<TabKey | null>(null)
+  // [M4] 面板宽度随视口响应（与所有浮层 right 偏移同一事实源）
+  const panelW = usePanelWidth()
 
   if (!state) return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, width: panelW }}>
       <div style={styles.glassCard}>
         <span style={styles.dim}><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }}></i>加载中...</span>
       </div>
@@ -50,7 +53,7 @@ export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, set
   )
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, width: panelW }}>
       <div style={styles.tabs}>
         {TABS.map((t) => (
           <button
@@ -1038,7 +1041,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: UI_COLORS.textSecondary,
   },
   container: {
-    width: PANEL_W, // [M5] 与所有浮层的 right 偏移同一事实源
+    // [M4] 宽度由 usePanelWidth() 在渲染时注入（响应式）；此处不再写死
     height: '100%',
     backgroundColor: 'rgba(20, 32, 40, 0.85)',
     borderLeft: '1px solid var(--panel-border)',

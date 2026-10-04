@@ -3,29 +3,12 @@ import { FACTION_COLORS, FACTIONS, FACTION_GLYPH, contrastText, UI_COLORS } from
 import { HEX_SIZE, axialToPixel } from '../../utils/hex'
 // [M2 2026-10-04] 去 emoji：战斗标签里的 ⚔ 改用本地 crossed-swords SVG（CSS mask 着色）。
 import swordsIcon from '../../assets/icons/crossed-swords.svg'
+// 技术债合并：mask 样式走单一实现（见 utils/mask.ts）
+import { maskStyle } from '../../utils/mask'
 
 /** ⚔ 分隔符（本地 SVG，替代 emoji）：size=屏幕 px 量级 */
 function CrossedSwords({ color, size }: { color: string; size: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        display: 'inline-block',
-        width: size,
-        height: size,
-        backgroundColor: color,
-        maskImage: `url("${swordsIcon}")`,
-        WebkitMaskImage: `url("${swordsIcon}")`,
-        maskSize: 'contain',
-        WebkitMaskSize: 'contain',
-        maskRepeat: 'no-repeat',
-        WebkitMaskRepeat: 'no-repeat',
-        maskPosition: 'center',
-        WebkitMaskPosition: 'center',
-        verticalAlign: 'middle',
-      }}
-    />
-  )
+  return <span aria-hidden style={{ ...maskStyle(swordsIcon, color, size), display: 'inline-block', verticalAlign: 'middle' }} />
 }
 
 /**
@@ -148,24 +131,21 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
   if (!battles || battles.length === 0) return null
   const inv = 1 / Math.max(zoom, 0.02)
 
-  // 结果环（常驻）：只取**最近一回合有战斗的那一回合**的战果，且同一目标城只留最后一场
-  // （去重避免同一城叠出好几圈）。这是「战斗结束后地图上仍能读出结果」的载体——
-  // 三态不再只活在回放标签的文字里。
-  const latestTurn = battles.reduce((m, b) => Math.max(m, b.turn ?? 0), -1)
-  const ringBattles: BattleReport[] = (() => {
-    const byCity = new Map<string, BattleReport>()
-    for (const b of battles) {
-      if ((b.turn ?? 0) !== latestTurn) continue
-      if (!b.defender_city) continue
-      byCity.set(b.defender_city, b)
-    }
-    return [...byCity.values()]
-  })()
+  // [H3 · 战斗聚焦 2026-10-04] 同屏**最多高亮 1 场**战斗：优先正在回放的那场，
+  // 否则取最新一场。其余战斗降为「弱提示」（细线 + 低不透明度），
+  // 避免多场箭头在洛阳—陈留—许昌一带叠加成线团（QA 基线 H3）。
+  const focusIdx = activeIndex >= 0 ? activeIndex : battles.length - 1
+  const focusBattle: BattleReport | undefined = battles[focusIdx]
+  // 结果环只保留聚焦这一场（同屏 ≤1 个高亮；环仍是「这场的结果」载体）
+  const ringBattles: BattleReport[] =
+    focusBattle && focusBattle.defender_city ? [focusBattle] : []
 
   return (
     <div style={{ position: 'absolute', left: 0, top: 0, width: '1px', height: '1px', pointerEvents: 'none' }}>
       {battles.map((b, i) => {
         const active = i === activeIndex
+        // [H3] 是否为本场「聚焦」战斗（同屏仅一场高亮；其余弱提示）
+        const strong = i === focusIdx
         const meta = RESULT_META[b.result] || RESULT_META.draw
         const attColor = FACTION_COLORS[b.attacker_faction] || UI_COLORS.gold
 
@@ -178,7 +158,8 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
         const total = Math.max(1, b.attacker_soldiers + b.defender_soldiers)
         const attShare = b.attacker_soldiers / total
         const width = (4 + 5 * attShare) * inv
-        const w = active ? width : width * 0.7
+        // 聚焦场：回放中=全粗；非回放=略细。其余场：细一半（弱提示）
+        const w = strong ? (active ? width : width * 0.9) : width * 0.5
 
         // 城防（城墙耐久）剩量比例 —— 回放标签里的城防条用
         const wallRatio =
@@ -262,13 +243,13 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                   }
                   return (
                     <g key={k}>
-                      {/* 深色描边：保证箭头在浅羊皮纸与深海上都读得出来 */}
+                      {/* 深色描边：保证箭头在浅羊皮纸与深海上都读得出来（弱提示场更淡） */}
                       <path
                         d={d}
                         fill="none"
                         stroke="#120c06"
-                        strokeWidth={w + 2 * inv}
-                        strokeOpacity={active ? 0.5 : 0.28}
+                        strokeWidth={strong ? w + 2 * inv : w}
+                        strokeOpacity={strong ? (active ? 0.5 : 0.34) : 0.10}
                         strokeLinecap="round"
                       />
                       <path
@@ -276,51 +257,57 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                         fill="none"
                         stroke={attColor}
                         strokeWidth={w}
-                        strokeOpacity={active ? 0.98 : 0.45}
+                        strokeOpacity={strong ? (active ? 0.98 : 0.7) : 0.16}
                         strokeLinecap="round"
-                        strokeDasharray={active ? `${9 * inv} ${6 * inv}` : undefined}
-                        markerEnd={active ? (progress > 0.85 ? `url(#arrow-${i})` : undefined) : `url(#arrow-${i})`}
-                        style={active ? { strokeDashoffset: -(progress * 30 * inv) } : undefined}
+                        strokeDasharray={active && strong ? `${9 * inv} ${6 * inv}` : undefined}
+                        markerEnd={
+                          strong
+                            ? (active ? (progress > 0.85 ? `url(#arrow-${i})` : undefined) : `url(#arrow-${i})`)
+                            : undefined
+                        }
+                        style={active && strong ? { strokeDashoffset: -(progress * 30 * inv) } : undefined}
                       />
-                      {/* 第 3 层「亮色芯线」（压在暗 casing 与势力色主线之上、比主线细）。
-                          casing 管浅羊皮纸底、亮芯管深色势力填充——同一支箭头两种底色都能读出走向。
-                          动画语义与主线**完全一致**（相同 dasharray / dashoffset / markerEnd 触发条件），
-                          故回放表现不变，只是多了一条常驻的浅色芯。 */}
-                      <path
-                        d={d}
-                        fill="none"
-                        stroke={CORE_COLOR}
-                        strokeWidth={w * CORE_RATIO}
-                        strokeOpacity={active ? 0.95 : 0.5}
-                        strokeLinecap="round"
-                        strokeDasharray={active ? `${9 * inv} ${6 * inv}` : undefined}
-                        markerEnd={active ? (progress > 0.85 ? `url(#arrow-core-${i})` : undefined) : `url(#arrow-core-${i})`}
-                        style={active ? { strokeDashoffset: -(progress * 30 * inv) } : undefined}
-                      />
-                      {/* 起点圆点：给「从哪来」一个明确锚点——不必沿箭头回溯才知道出发点。
-                          外圈=势力色 + 深描边（与箭头同構），内芯=亮色（深色领土上仍可见）。 */}
-                      <circle
-                        cx={o.x}
-                        cy={o.y}
-                        r={4.2 * inv}
-                        fill={attColor}
-                        stroke="#120c06"
-                        strokeWidth={1.6 * inv}
-                        opacity={active ? 1 : 0.5}
-                      />
-                      <circle
-                        cx={o.x}
-                        cy={o.y}
-                        r={1.9 * inv}
-                        fill={CORE_COLOR}
-                        opacity={active ? 0.95 : 0.45}
-                      />
+                      {/* 第 3 层「亮色芯线」：**仅聚焦场**绘制（弱提示场不画芯，进一步降噪） */}
+                      {strong && (
+                        <path
+                          d={d}
+                          fill="none"
+                          stroke={CORE_COLOR}
+                          strokeWidth={w * CORE_RATIO}
+                          strokeOpacity={active ? 0.95 : 0.6}
+                          strokeLinecap="round"
+                          strokeDasharray={active ? `${9 * inv} ${6 * inv}` : undefined}
+                          markerEnd={active ? (progress > 0.85 ? `url(#arrow-core-${i})` : undefined) : `url(#arrow-core-${i})`}
+                          style={active ? { strokeDashoffset: -(progress * 30 * inv) } : undefined}
+                        />
+                      )}
+                      {/* 起点圆点：仅聚焦场给「从哪来」的锚点 */}
+                      {strong && (
+                        <>
+                          <circle
+                            cx={o.x}
+                            cy={o.y}
+                            r={4.2 * inv}
+                            fill={attColor}
+                            stroke="#120c06"
+                            strokeWidth={1.6 * inv}
+                            opacity={active ? 1 : 0.7}
+                          />
+                          <circle
+                            cx={o.x}
+                            cy={o.y}
+                            r={1.9 * inv}
+                            fill={CORE_COLOR}
+                            opacity={active ? 0.95 : 0.6}
+                          />
+                        </>
+                      )}
                     </g>
                   )
                 })}
 
-              {/* 交战爆点：回放推进到中段时闪一下 */}
-              {active && burstAt && progress > 0.35 && (
+              {/* 交战爆点：仅聚焦场、回放推进到中段时闪一下 */}
+              {active && strong && burstAt && progress > 0.35 && (
                 <circle
                   cx={burstAt.x}
                   cy={burstAt.y}
@@ -331,8 +318,9 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
               )}
             </svg>
 
-            {/* 回放标签：只给正在回放的那一场显示，避免全图刷屏 */}
-            {active && labelAt && (
+            {/* 战斗标签：只给**聚焦的那一场**显示（[H3] 同屏 ≤1 场），避免全图刷屏。
+                非回放时也常驻显示「最新一场」的标签（强底衬），让观众随时知道最近发生了什么。 */}
+            {strong && (active || activeIndex < 0) && labelAt && (
               <div
                 style={{
                   position: 'absolute',
@@ -347,7 +335,7 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                   alignItems: 'center',
                   gap: 3,
                   whiteSpace: 'nowrap',
-                  opacity: Math.min(1, progress * 3),
+                  opacity: active ? Math.min(1, progress * 3) : 1,
                 }}
               >
                 <div
@@ -357,9 +345,10 @@ export function BattleOverlay({ battles, cities, activeIndex, progress, zoom }: 
                     gap: 6,
                     padding: '3px 8px',
                     borderRadius: 6,
-                    background: 'rgba(14,14,26,0.92)',
+                    // [H3] 战斗标签加底衬：近实底 + 外描边，避免被穿过的线条干扰
+                    background: 'rgba(14,14,26,0.96)',
                     border: `1px solid ${meta.color}`,
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                    boxShadow: '0 0 0 2px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.5)',
                   }}
                 >
                   {/* 「谁在打谁」：显式标出 攻/守 角色 + 攻方（势力+主将）+ 守方（势力+城名），

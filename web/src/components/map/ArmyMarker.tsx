@@ -8,6 +8,8 @@ import horseIcon from '../../assets/icons/horse-head.svg'
 import swordsIcon from '../../assets/icons/crossed-swords.svg'
 import shieldIcon from '../../assets/icons/shield.svg'
 import { useHintProps } from '../Tooltip'
+// 技术债合并：mask 样式走单一实现（见 utils/mask.ts）
+import { maskStyle } from '../../utils/mask'
 
 interface ArmyMarkerProps {
   army: {
@@ -34,23 +36,6 @@ interface ArmyMarkerProps {
   toPos?: { x: number; y: number } | null
   /** 同格城池等级（比例锁定用：军队 ≤ 城池 ×0.80；缺省则不锁定） */
   cityLevel?: number
-}
-
-function maskStyle(url: string, color: string, size: number) {
-  return {
-    width: `${size}px`,
-    height: `${size}px`,
-    backgroundColor: color,
-    maskImage: `url("${url}")`,
-    WebkitMaskImage: `url("${url}")`,
-    maskSize: 'contain',
-    WebkitMaskSize: 'contain',
-    maskRepeat: 'no-repeat' as const,
-    WebkitMaskRepeat: 'no-repeat' as const,
-    maskPosition: 'center',
-    WebkitMaskPosition: 'center',
-    display: 'block',
-  }
 }
 
 const STATUS_LABELS: Record<string, string> = {

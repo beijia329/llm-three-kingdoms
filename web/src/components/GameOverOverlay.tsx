@@ -8,6 +8,8 @@ import crownIcon from '../assets/icons/crown.svg'
 import scalesIcon from '../assets/icons/scales.svg'
 import siegeTowerIcon from '../assets/icons/siege-tower.svg'
 import shakingHandsIcon from '../assets/icons/shaking-hands.svg'
+// 技术债合并：mask 样式走单一实现（见 utils/mask.ts）
+import { maskStyle } from '../utils/mask'
 
 const END_ICONS: Record<string, string> = {
   crown: crownIcon,
@@ -50,23 +52,7 @@ export function GameOverOverlay({ state, onDismiss }: GameOverOverlayProps) {
     <div style={styles.backdrop}>
       <div style={styles.card}>
         {iconUrl ? (
-          <span
-            aria-hidden
-            style={{
-              width: '44px',
-              height: '44px',
-              backgroundColor: winnerColor,
-              maskImage: `url("${iconUrl}")`,
-              WebkitMaskImage: `url("${iconUrl}")`,
-              maskSize: 'contain',
-              WebkitMaskSize: 'contain',
-              maskRepeat: 'no-repeat',
-              WebkitMaskRepeat: 'no-repeat',
-              maskPosition: 'center',
-              WebkitMaskPosition: 'center',
-              display: 'block',
-            }}
-          />
+          <span aria-hidden style={maskStyle(iconUrl, winnerColor, 44)} />
         ) : (
           <div style={{ fontSize: '44px', lineHeight: 1 }} />
         )}

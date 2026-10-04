@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FactionRelation, GameState } from '../types'
 import { FACTION_COLORS, FACTION_GLYPH, FACTIONS, contrastText, UI_COLORS } from '../theme'
+import { usePanelWidth } from '../hooks/usePanelWidth'
 
 /**
  * 外交关系可视化（v4.1 · 阶段D）
@@ -274,12 +275,14 @@ export function RelationGraph({ state }: { state: GameState }) {
   )
 }
 
-const CELL = 20
-
 /** 12×12 完整关系矩阵（含中立）。原来的"关系矩阵"只有 24 个**无行列标**的色块，
- *  根本定位不到是哪一对——这里给每一行/列都挂上势力单字徽标。 */
+ *  根本定位不到是哪一对——这里给每一行/列都挂上势力单字徽标。
+ *  [M4 2026-10-04] 格子大小随面板宽度自适应，**下限 18px**（可读性红线）；图例另起一行。 */
 export function RelationMatrix({ state }: { state: GameState }) {
   const { nodes } = useRelationModel(state)
+  const panelW = usePanelWidth()
+  // 13 列（1 表头 + 12 势力）；留出面板左右 padding(24) 与余量(4)
+  const cell = Math.max(18, Math.min(26, Math.floor((panelW - 28) / 13)))
 
   const lookup = useMemo(() => {
     const m = new Map<string, FactionRelation>()
@@ -296,58 +299,64 @@ export function RelationMatrix({ state }: { state: GameState }) {
   }
 
   return (
-    <div style={{ display: 'inline-block' }}>
-      {/* 表头行 */}
-      <div style={{ display: 'flex' }}>
-        <div style={{ width: CELL, height: CELL }} />
-        {nodes.map((f) => (
-          <div key={`h-${f}`} style={{ width: CELL, height: CELL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <GlyphBadge faction={f} size={CELL - 4} />
+    <div>
+      <div style={{ display: 'inline-block' }}>
+        {/* 表头行 */}
+        <div style={{ display: 'flex' }}>
+          <div style={{ width: cell, height: cell }} />
+          {nodes.map((f) => (
+            <div key={`h-${f}`} style={{ width: cell, height: cell, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <GlyphBadge faction={f} size={cell - 4} />
+            </div>
+          ))}
+        </div>
+        {/* 数据行 */}
+        {nodes.map((row) => (
+          <div key={`r-${row}`} style={{ display: 'flex' }}>
+            <div style={{ width: cell, height: cell, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <GlyphBadge faction={row} size={cell - 4} />
+            </div>
+            {nodes.map((col) => {
+              if (row === col) {
+                return <div key={`c-${row}-${col}`} style={{ width: cell, height: cell, background: 'rgba(255,255,255,0.04)' }} />
+              }
+              const rel = lookup.get(`${row}|${col}`)
+              const status = rel?.status || 'neutral'
+              const trust = rel?.trust ?? 0
+              const inten = rel ? relIntensity(status, trust) : 0
+              const color = REL_STATUS_COLOR[status] || UI_COLORS.textSecondary
+              // 中立格压到很浅：66 对里大部分是中立，若同色会淹没真正的战/盟
+              const alpha = status === 'neutral' ? 0.13 : 0.3 + 0.6 * inten
+              return (
+                <div
+                  key={`c-${row}-${col}`}
+                  title={`${factionName(row)} ↔ ${factionName(col)}：${REL_STATUS_NAME[status] || status}${rel ? `（信任 ${trust}）` : ''}`}
+                  style={{
+                    width: cell,
+                    height: cell,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: Math.max(10, cell - 10),
+                    fontWeight: status === 'neutral' ? 400 : 700,
+                    color: status === 'neutral' ? '#6f6b80' : '#12101c',
+                    background: status === 'neutral' ? 'transparent' : color,
+                    opacity: status === 'neutral' ? 1 : alpha,
+                    outline: status === 'neutral' ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                    outlineOffset: -1,
+                  }}
+                >
+                  {status === 'neutral' ? '' : REL_STATUS_LABEL[status]}
+                </div>
+              )
+            })}
           </div>
         ))}
       </div>
-      {/* 数据行 */}
-      {nodes.map((row) => (
-        <div key={`r-${row}`} style={{ display: 'flex' }}>
-          <div style={{ width: CELL, height: CELL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <GlyphBadge faction={row} size={CELL - 4} />
-          </div>
-          {nodes.map((col) => {
-            if (row === col) {
-              return <div key={`c-${row}-${col}`} style={{ width: CELL, height: CELL, background: 'rgba(255,255,255,0.04)' }} />
-            }
-            const rel = lookup.get(`${row}|${col}`)
-            const status = rel?.status || 'neutral'
-            const trust = rel?.trust ?? 0
-            const inten = rel ? relIntensity(status, trust) : 0
-            const color = REL_STATUS_COLOR[status] || UI_COLORS.textSecondary
-            // 中立格压到很浅：66 对里大部分是中立，若同色会淹没真正的战/盟
-            const alpha = status === 'neutral' ? 0.13 : 0.3 + 0.6 * inten
-            return (
-              <div
-                key={`c-${row}-${col}`}
-                title={`${factionName(row)} ↔ ${factionName(col)}：${REL_STATUS_NAME[status] || status}${rel ? `（信任 ${trust}）` : ''}`}
-                style={{
-                  width: CELL,
-                  height: CELL,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 10,
-                  fontWeight: status === 'neutral' ? 400 : 700,
-                  color: status === 'neutral' ? '#6f6b80' : '#12101c',
-                  background: status === 'neutral' ? 'transparent' : color,
-                  opacity: status === 'neutral' ? 1 : alpha,
-                  outline: status === 'neutral' ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                  outlineOffset: -1,
-                }}
-              >
-                {status === 'neutral' ? '' : REL_STATUS_LABEL[status]}
-              </div>
-            )
-          })}
-        </div>
-      ))}
+      {/* [M4] 图例另起一行（不再与矩阵挤在一处） */}
+      <div style={{ marginTop: 8 }}>
+        <RelationLegend />
+      </div>
     </div>
   )
 }

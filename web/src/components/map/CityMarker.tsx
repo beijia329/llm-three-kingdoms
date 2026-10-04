@@ -11,6 +11,8 @@ import crownIcon from '../../assets/icons/crown.svg'
 import siegeTowerIcon from '../../assets/icons/siege-tower.svg'
 // [交互 2026-10-03] hover 悬浮卡（审计 §4-3）
 import { useHintProps } from '../Tooltip'
+// 技术债合并：mask 样式走单一实现（见 utils/mask.ts）
+import { maskStyle } from '../../utils/mask'
 
 interface CityMarkerProps {
   city: {
@@ -37,24 +39,6 @@ const CITY_ICONS = [gateIcon, fortIcon, castleIcon, hillFortIcon, hillFortIcon]
 function cityIcon(level: number): string {
   const i = Math.min(Math.max(level, 1), 5) - 1
   return CITY_ICONS[i]
-}
-
-/** 生成「单色剪影」的 mask 样式（用于把 SVG 染成任意色） */
-function maskStyle(url: string, color: string, size: number) {
-  return {
-    width: `${size}px`,
-    height: `${size}px`,
-    backgroundColor: color,
-    maskImage: `url("${url}")`,
-    WebkitMaskImage: `url("${url}")`,
-    maskSize: 'contain',
-    WebkitMaskSize: 'contain',
-    maskRepeat: 'no-repeat' as const,
-    WebkitMaskRepeat: 'no-repeat' as const,
-    maskPosition: 'center',
-    WebkitMaskPosition: 'center',
-    display: 'block',
-  }
 }
 
 /** 棋子内部参考框（px，缩放前的世界量级；配合 scale 让屏幕尺寸 = markerScreen） */

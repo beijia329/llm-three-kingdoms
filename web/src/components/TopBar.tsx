@@ -1,5 +1,6 @@
 import type { GameState } from '../types'
-import { FACTIONS, GAP_PANEL, PANEL_W } from '../theme'
+import { FACTIONS, GAP_PANEL } from '../theme'
+import { usePanelWidth } from '../hooks/usePanelWidth'
 
 interface TopBarProps {
   state: GameState | null
@@ -7,9 +8,11 @@ interface TopBarProps {
 }
 
 export function TopBar({ state, connected }: TopBarProps) {
+  // [M4] 与面板同一事实源的右偏移（面板宽度响应式）
+  const panelW = usePanelWidth()
   if (!state) {
     return (
-      <div style={styles.container}>
+      <div style={{ ...styles.container, right: panelW + GAP_PANEL }}>
         <span style={styles.title}>
           <i className="fa-solid fa-dragon" style={{ marginRight: '8px', color: 'var(--gold)' }}></i>
           乱斗三国 - 加载中...
@@ -35,7 +38,7 @@ export function TopBar({ state, connected }: TopBarProps) {
     .slice(0, 5)
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, right: panelW + GAP_PANEL }}>
       <div style={styles.left}>
         <span style={styles.title} className="font-serif">
           <i className="fa-solid fa-dragon" style={{ marginRight: '8px' }}></i>
@@ -65,7 +68,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     top: '12px',
     left: '12px',
-    right: PANEL_W + GAP_PANEL, // [M5] 由面板宽度推导（原魔数 324）
+    // right 由 usePanelWidth() 在渲染时注入（[M4] 面板宽度响应式）
     height: '50px',
     background: 'rgba(20, 32, 40, 0.82)',
     border: '1px solid var(--panel-border)',

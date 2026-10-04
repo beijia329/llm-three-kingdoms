@@ -9,7 +9,8 @@ import { Panel } from './components/Panel'
 import { ShortcutHelp } from './components/ShortcutHelp'
 import { TooltipProvider, useHintProps } from './components/Tooltip'
 import { TopBar } from './components/TopBar'
-import { FACTION_COLORS, FACTIONS, GAP_PANEL, NEXT_BTN_W, PANEL_W } from './theme'
+import { FACTION_COLORS, FACTIONS, GAP_PANEL, NEXT_BTN_W } from './theme'
+import { usePanelWidth } from './hooks/usePanelWidth'
 import { useGame } from './hooks/useGame'
 
 type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning' | 'records'
@@ -33,6 +34,8 @@ function App() {
     // A5：置灰原因必须写进界面 —— 不做假控件
     nextTurnBlockedReason, actionBlockedReason,
   } = useGame()
+  // [M4] 面板宽度响应式：所有浮层右偏移与面板宽度同一事实源
+  const panelW = usePanelWidth()
   const [tab, setTab] = useState<TabKey>('factions')
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null)
   const [selectedFaction, setSelectedFaction] = useState<string | null>(null)
@@ -145,6 +148,7 @@ function App() {
           <button
             style={{
               ...styles.nextButton,
+              right: panelW + GAP_PANEL,
               opacity: nextTurnBlockedReason ? 0.5 : 1,
               cursor: nextTurnBlockedReason ? 'not-allowed' : 'pointer',
             }}
@@ -175,14 +179,14 @@ function App() {
           {/* 操作被前端拦下时的原因提示（如断网点按钮）。
               静默失败会让用户以为"点了没反应"，所以必须给出可见反馈。 */}
           {actionBlockedReason && (
-            <div style={styles.blockedNotice} role="alert">
+            <div style={{ ...styles.blockedNotice, right: panelW + GAP_PANEL }} role="alert">
               <i className="fa-solid fa-circle-exclamation" style={{ marginRight: '6px' }}></i>
               {actionBlockedReason}
             </div>
           )}
 
           {auto && (
-            <div style={styles.autoIndicator}>
+            <div style={{ ...styles.autoIndicator, right: panelW + GAP_PANEL + NEXT_BTN_W + 12 }}>
               <i className="fa-solid fa-play" style={{ marginRight: '6px' }}></i>
               自动推进中
               <button
@@ -314,8 +318,7 @@ const styles: Record<string, React.CSSProperties> = {
   nextButton: {
     position: 'absolute',
     bottom: '14px',
-    // [M5] 由面板宽度推导（原魔数 318 → 与顶栏/事件流统一为 324）
-    right: PANEL_W + GAP_PANEL,
+    // right 由 usePanelWidth() 在渲染时注入（[M4] 面板宽度响应式）
     width: NEXT_BTN_W,
     height: '46px',
     background: 'rgba(20, 32, 40, 0.82)',
@@ -332,8 +335,7 @@ const styles: Record<string, React.CSSProperties> = {
   autoIndicator: {
     position: 'absolute',
     bottom: '14px',
-    // [M5] 紧邻「下一回合」按钮左侧：面板 + 间距 + 按钮宽 + 12 间距
-    right: PANEL_W + GAP_PANEL + NEXT_BTN_W + 12,
+    // right 由 usePanelWidth() 在渲染时注入（面板 + 间距 + 按钮宽 + 12）
     padding: '10px 16px',
     background: 'rgba(20, 32, 40, 0.82)',
     border: '1px solid rgba(90, 180, 100, 0.4)',
@@ -349,7 +351,7 @@ const styles: Record<string, React.CSSProperties> = {
   blockedNotice: {
     position: 'absolute',
     bottom: '68px',
-    right: PANEL_W + GAP_PANEL,
+    // right 由 usePanelWidth() 在渲染时注入
     width: NEXT_BTN_W,
     padding: '7px 10px',
     background: 'rgba(157, 41, 51, 0.92)',

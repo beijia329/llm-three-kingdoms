@@ -194,15 +194,33 @@ export const ARMY_VS_CITY_RATIO = 0.80
 
 
 /**
- * 右侧常驻面板宽度（px）。
+ * 右侧常驻面板宽度（px）—— **宽屏基准值**。
  *
  * [M5 2026-10-04] 此前顶栏/事件流/「下一回合」按钮/自动推进条各自硬编码 right
  * 偏移（324 / 330 / 318 / 470），四个值互不对齐（最大差 12px），且 Panel 宽度一改
- * 就四处全错位。现在统一由本常量推导：
- *   right = PANEL_W + GAP_PANEL（= 324）
- * 自动推进条再叠一个按钮宽 + 间距。
+ * 就四处全错位。现在统一由本常量推导：right = PANEL_W + GAP_PANEL。
+ *
+ * [M4 2026-10-04] 300 → 420：外交关系矩阵（12×12）在 300px 栏里格太小、需滚动。
+ * 🔴 加宽会挤压地图可用区，故**不直接全局写死 420**，而是由
+ * `responsivePanelWidth(viewportW)` 按视口宽度取档（见下），组件用 `usePanelWidth()`
+ * 拿运行值——窄屏（1366/1280）自动收窄，保证地图不被压到不可用。
  */
-export const PANEL_W = 300
+export const PANEL_W = 420
+/** 面板宽度下限（窄屏不再低于此值，否则内容/矩阵不可读） */
+export const PANEL_W_MIN = 300
+
+/**
+ * 按视口宽度取面板宽度档（M4 响应式）：
+ *   ≥1440 → 420（宽屏基准）
+ *   1200–1439 → 360（1366 等常见窄屏：地图仍 ≥1000px）
+ *   <1200 → 300（小屏保底）
+ * 返回值为「不含间距」的面板宽度；浮层右偏移 = 返回值 + GAP_PANEL。
+ */
+export function responsivePanelWidth(viewportW: number): number {
+  if (viewportW >= 1440) return 420
+  if (viewportW >= 1200) return 360
+  return PANEL_W_MIN
+}
 /** 浮层与面板之间的统一间距 */
 export const GAP_PANEL = 24
 /** 「下一回合」按钮宽度（自动推进条定位依赖它） */
