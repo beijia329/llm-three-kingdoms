@@ -139,13 +139,19 @@ class TestProcessTurn:
         assert gm.engine.turn == t0 + 1
 
     def test_reasoning_is_list_copy(self):
-        """reasoning 暴露给外部时必须与内部列表解耦
+        """reasoning 默认不下发（B2），按需经 get_reasoning() 取，且与内部列表解耦
 
-        原实现直接返回内部列表引用，调用方修改会污染引擎侧记录。
+        原实现直接把内部列表塞进 state，调用方 append 会污染引擎侧记录。
+        第二批 B2 改为 get_state() 默认不含 reasoning（避免自动推进每帧 ~200KB），
+        新增 /api/reasoning 端点按需拉取；这里验证两点：
+        1) 默认 state 不再带 reasoning；
+        2) get_reasoning() 返回的是副本，外部篡改不影响引擎内部记录。
         """
         gm = GameManager(GameConfig(seed=7, max_turns=32, factions=["caocao"]))
         gm.process_turn()
         state = gm.get_state()
+        assert "reasoning" not in state, "B2：get_state() 默认不应下发 reasoning"
         before = len(gm._reasoning)
-        state["reasoning"].append({"turn": 999, "faction": "fake", "reasoning": "x", "commands": []})
-        assert len(gm._reasoning) == before
+        reasoning = gm.get_reasoning()
+        reasoning.append({"turn": 999, "faction": "fake", "reasoning": "x", "commands": []})
+        assert len(gm._reasoning) == before, "get_reasoning() 必须返回与内部列表解耦的副本"

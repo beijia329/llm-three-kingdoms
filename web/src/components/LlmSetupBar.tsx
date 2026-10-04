@@ -110,16 +110,25 @@ export function LlmSetupBar({
    */
   const doRestart = () => {
     setConfirmRestart(false)
-    // 只提交「已选势力」的模型分配，未指定的由后端回退到默认模型
+    // 只提交「已选势力」的模型分配，未指定的由后端回退到默认模型。
+    // 下拉 value 现在是 "provider/id"，拆回 provider 与 model 两份映射，
+    // 否则后端拿到 "deepseek/deepseek-flash" 当模型名会调不通。
     const factionModels: Record<string, string> = {}
+    const factionProviders: Record<string, string> = {}
     for (const fid of selected) {
-      const m = models[fid]
-      if (m) factionModels[fid] = m
+      const raw = models[fid]
+      if (!raw) continue
+      const sep = raw.indexOf('/')
+      const provider = sep >= 0 ? raw.slice(0, sep) : 'deepseek'
+      const id = sep >= 0 ? raw.slice(sep + 1) : raw
+      factionModels[fid] = id
+      factionProviders[fid] = provider
     }
     void onRestart({
       useLlm: mode === 'llm',
       factions: selected,
       factionModels,
+      factionProviders,
     })
   }
 
@@ -140,7 +149,8 @@ export function LlmSetupBar({
     if (pool.length === 0) return
     const next: Record<string, string> = {}
     selected.forEach((fid, i) => {
-      next[fid] = pool[i % pool.length].id
+      const m = pool[i % pool.length]
+      next[fid] = `${m.provider}/${m.id}`
     })
     setModels(next)
   }
@@ -276,7 +286,7 @@ export function LlmSetupBar({
                         >
                           <option value="">默认</option>
                           {modelOptions.map((m) => (
-                            <option key={`${m.provider}/${m.id}`} value={m.id}>
+                            <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
                               {/* 非默认 provider 的模型本机多半没有对应 key，
                                   标出来避免选完才发现调不通（真实可用性仍以首次调用为准） */}
                               {m.provider === 'deepseek' ? m.id : `${m.id}（需 ${m.provider} key）`}

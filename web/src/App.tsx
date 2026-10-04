@@ -12,7 +12,7 @@ import { TopBar } from './components/TopBar'
 import { FACTION_COLORS, FACTIONS, GAP_PANEL, NEXT_BTN_W, PANEL_W } from './theme'
 import { useGame } from './hooks/useGame'
 
-type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning'
+type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning' | 'records'
 
 /** 判断事件目标是否是可输入控件 —— 快捷键必须让位给输入框 */
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -91,6 +91,8 @@ function App() {
         setTab('log')
       } else if (e.key === '8') {
         setTab('reasoning')
+      } else if (e.key === '9') {
+        setTab('records')
       }
     }
     window.addEventListener('keydown', handleKey)

@@ -9,7 +9,7 @@ from game.systems.diplomacy_system import (
     SendMessageResult,
     RumorResult,
 )
-from game.constants import CITY_LEVELS
+from game.constants import CITY_LEVELS, RUMOR_MORALE_DECREASE
 from game.hex_grid import HexCoord
 
 
@@ -156,8 +156,13 @@ class TestRumor:
         assert isinstance(result.success, bool)
 
     def test_rumor_no_general(self):
-        """没有目标将领也能散布流言"""
+        """没有目标将领、也没给城市：流言无明确作用对象，如实返回失败（B3 不再谎报成功）
+
+        原实现只要掷骰通过就返回 success=True，却什么都不做——典型「显示成功但
+        实际没生效」的假绿。B3 改为：无目标将领时若有城市则降民心，否则明确失败。
+        """
         ds = DiplomacySystem(rng=GameRandom(seed=42))
+        ds._rng.random = lambda: 0.0  # 强制掷骰成功，隔离骰子与断言（失败只可能来自缺对象）
 
         result = ds.spread_rumor(
             target_city_id="chengdu",
@@ -167,7 +172,36 @@ class TestRumor:
             turn=5,
         )
 
-        assert isinstance(result.success, bool)
+        assert result.success is False
+
+    def test_rumor_no_general_lowers_city_morale(self):
+        """没有目标将领但给了城市：流言动摇守军民心（B3 的真实效果）
+
+        这是 B3 修复后新增的有效路径——此前「无目标将领」分支什么都不做，等于
+        让流言命令在多数情况下沦为空操作。这里用固定 RNG 隔离骰子，断言：
+        1) 成功；
+        2) 城市民心按 RUMOR_MORALE_DECREASE 下降；
+        3) 不碰将领忠诚度（loyalty_decrease 为 0）。
+        """
+        ds = DiplomacySystem(rng=GameRandom(seed=42))
+        ds._rng.random = lambda: 0.0  # 强制掷骰成功
+        city = City(
+            id="chengdu", name="成都", faction="liubei", level=3,
+            wall_hp=100, wall_max_hp=200, gold=1000, food=1000,
+            population=5000, morale=80, garrison=2000,
+            position=HexCoord(q=0, r=0),
+        )
+        result = ds.spread_rumor(
+            target_city_id="chengdu",
+            target_faction="liubei",
+            target_general=None,
+            spy_intelligence=80,
+            city=city,
+            turn=5,
+        )
+        assert result.success is True
+        assert city.morale == 80 - RUMOR_MORALE_DECREASE
+        assert result.loyalty_decrease == 0
 
 
 class TestMessageQuery:

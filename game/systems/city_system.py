@@ -90,6 +90,20 @@ GARRISON_CAP_PER_LEVEL: int = 1000
 """每级城市守军上限"""
 
 
+def add_garrison(city: "City", n: int) -> int:
+    """把 n 名兵力并入城市守军，硬截断在等级上限内。返回实际并入数。
+
+    守军写入的**统一入口**：征兵 / 发展军事(城墙满转训练) / 援军到达 /
+    解散残军入城 / 占城并兵力，全部经此，避免任何一条路径把守军堆过上限
+    （实测：援军到达路径可把洛阳守军从 4000 堆到 9000）。
+    """
+    cap = city.level * GARRISON_CAP_PER_LEVEL
+    space = max(0, cap - city.garrison)
+    added = max(0, min(n, space))
+    city.garrison += added
+    return added
+
+
 class CitySystem:
     """城市系统
 
@@ -160,10 +174,10 @@ class CitySystem:
             if repaired > 0:
                 effect_value = repaired
             else:
-                # 城墙已满 → 转为训练守军，保证该操作始终有收益
-                cap = city.level * GARRISON_CAP_PER_LEVEL
+                # 城墙已满 → 转为训练守军，保证该操作始终有收益。
+                # 经统一入口 add_garrison 截断在等级上限内。
                 before = city.garrison
-                city.garrison = min(city.garrison + MILITARY_TRAIN_GARRISON, cap)
+                add_garrison(city, MILITARY_TRAIN_GARRISON)
                 effect_value = city.garrison - before
 
         elif develop_type == "culture":
@@ -259,7 +273,7 @@ class CitySystem:
         # 执行征兵
         city.gold -= gold_needed
         city.food -= food_needed
-        city.garrison += actual_troops
+        add_garrison(city, actual_troops)
 
         return RecruitResult(
             success=True,

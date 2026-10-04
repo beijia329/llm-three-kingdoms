@@ -14,10 +14,11 @@ from typing import Dict, List, Optional
 from game.constants import (
     MAX_MESSAGES_PER_TURN,
     RUMOR_LOYALTY_DECREASE,
+    RUMOR_MORALE_DECREASE,
     RUMOR_BASE_SUCCESS_RATE,
     RUMOR_INTELLIGENCE_FACTOR,
 )
-from game.models import DiplomacyMessage, General
+from game.models import City, DiplomacyMessage, General
 from game.random import GameRandom
 
 
@@ -170,6 +171,7 @@ class DiplomacySystem:
         target_faction: str,
         spy_intelligence: int,
         target_general: Optional[General] = None,
+        city: Optional["City"] = None,
         turn: int = 0,
     ) -> RumorResult:
         """散布流言
@@ -207,11 +209,22 @@ class DiplomacySystem:
                     loyalty_decrease=actual_decrease,
                     description=f"流言成功！{target_general.name}忠诚度降低{actual_decrease}",
                 )
-            else:
+            # 无具体目标将领：流言动摇守军民心（真实效果，不再谎报成功）。
+            # city 由引擎传入；直接调本函数而不传 city 时退化为失败（如实返回）。
+            if city is not None:
+                morale_drop = RUMOR_MORALE_DECREASE
+                old_morale = city.morale
+                city.morale = max(0, city.morale - morale_drop)
+                actual_drop = old_morale - city.morale
                 return RumorResult(
                     success=True,
-                    description=f"流言在{target_city_id}散布成功！",
+                    loyalty_decrease=0,
+                    description=f"流言在{target_city_id}散布，守军民心下降{actual_drop}",
                 )
+            return RumorResult(
+                success=False,
+                description=f"流言在{target_city_id}散布失败（无有效目标）",
+            )
 
         return RumorResult(
             success=False,

@@ -414,9 +414,9 @@ class GameManager:
         """获取当前游戏状态（JSON 可序列化）
 
         Args:
-            reasoning_limit: 只返回最近 N 条决策理由；None = 返回全部
-                （上限由 MAX_REASONING_HISTORY 控制）。前端「决策」面板
-                可按需限制传输量；不传时行为与旧版一致（返回全部）。
+            reasoning_limit: 只返回最近 N 条决策理由；None = **不下发**
+                （前端「决策」Tab 按需调 /api/reasoning 拉取）。默认随
+                state 全量下发会把自动推进每帧撑到 ~200KB，故改为按需。
             known_hex_map_version: 客户端**已知**的 hex_map 版本。若与当前版本
                 一致，则**不再回传** hex_map（响应从 2.34 MB 降到约 30 KB）；
                 不一致（或未传）时回传完整地图。默认 None = 回传（行为与旧版
@@ -485,11 +485,11 @@ class GameManager:
             gdata["element_name"] = ELEMENT_NAMES.get(element, "")
             gdata["title"] = get_general_title(gid)
 
-        # 决策理由（前端「决策」面板）：默认全部（上限 MAX_REASONING_HISTORY）；
-        # 传 reasoning_limit 时只返回最近 N 条（0 表示不返回）
-        if reasoning_limit is None:
-            data["reasoning"] = list(self._reasoning)
-        else:
+        # 决策理由（前端「决策」面板）：默认**不随状态下发**（按需拉取）。
+        # 自动推进下每帧都带全量 reasoning 会把 /api/state 撑到 ~200KB，
+        # 与「围观台要流畅」直接冲突。传 reasoning_limit 时才按需返回最近 N 条；
+        # 省略或 0 = 不返回（前端切到「决策」Tab 时调 /api/reasoning）。
+        if reasoning_limit is not None:
             limit = max(0, int(reasoning_limit))
             data["reasoning"] = list(self._reasoning[-limit:]) if limit > 0 else []
         data["human_faction"] = self.config.human_faction
@@ -560,6 +560,17 @@ class GameManager:
         ]
 
         return data
+
+    def get_reasoning(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """返回决策理由历史（按需，供 /api/reasoning）。
+
+        默认随 /api/state 全量下发会把自动推进每帧撑到 ~200KB，故 get_state
+        改为默认不下发 reasoning；前端切到「决策」Tab 时再调本方法拉取。
+        """
+        if limit is None:
+            return list(self._reasoning)
+        limit = max(0, int(limit))
+        return list(self._reasoning[-limit:]) if limit > 0 else []
 
     # ============================================================
     # 命令执行

@@ -20,6 +20,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from game.element import counter_factor, element_of
+from game.systems.city_system import add_garrison
 from game.models import (
     Army,
     ArmyStatus,
@@ -175,7 +176,9 @@ class BattleScheduler:
 
         # 友方城市不触发战斗：转换为驻防增援
         if attacker_faction == defender_faction:
-            target_city.garrison += sum(a.soldiers for a in armies)
+            # add_garrison 已在原地累加并返回新增量，不能赋值给 garrison，
+            # 否则会把原守军覆盖成「仅本次增援」的量。
+            add_garrison(target_city, sum(a.soldiers for a in armies))
             for a in armies:
                 a.status = ArmyStatus.GARRISONED
                 a.soldiers = 0

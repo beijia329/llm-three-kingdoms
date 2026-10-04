@@ -483,6 +483,9 @@ MAX_MESSAGES_PER_TURN: int = 1
 RUMOR_LOYALTY_DECREASE: int = 5
 """成功散布流言降低忠诚度"""
 
+RUMOR_MORALE_DECREASE: int = 3
+"""无具体目标将领时，流言动摇守军民心（避免"谎报成功"却无任何效果）"""
+
 RUMOR_BASE_SUCCESS_RATE: float = 0.50
 """流言基础成功率50%"""
 

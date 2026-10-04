@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { GameEvent, GameState, General, ReasoningEntry, TurnLog } from '../types'
 import { FACTION_COLORS, FACTIONS, PANEL_W, STAT_COLORS, UI_COLORS } from '../theme'
 // [H2 2026-10-04] 事件正文是否自带回合号（避免同一条并列两个回合号）
@@ -12,7 +12,7 @@ import { DiplomacyPanel } from './DiplomacyPanel'
 // [交互 2026-10-03] hover 悬浮说明（审计 §4-3）：资源数字此前无任何解释
 import { Hint } from './Tooltip'
 
-type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning'
+type TabKey = 'factions' | 'city' | 'generals' | 'diplomacy' | 'data' | 'events' | 'log' | 'reasoning' | 'records'
 
 interface PanelProps {
   state: GameState | null
@@ -33,6 +33,7 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'events', label: '事件', icon: 'fa-calendar-day' },
   { key: 'log', label: '战报', icon: 'fa-scroll' },
   { key: 'reasoning', label: '决策', icon: 'fa-brain' },
+  { key: 'records', label: '战绩', icon: 'fa-trophy' },
 ]
 
 export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, setSelectedFaction, onSelectCity }: PanelProps) {
@@ -80,6 +81,7 @@ export function Panel({ state, tab, setTab, selectedCityId, selectedFaction, set
         {tab === 'events' && <EventsPanel state={state} />}
         {tab === 'log' && <EventLog events={state.events} />}
         {tab === 'reasoning' && <ReasoningPanel state={state} />}
+        {tab === 'records' && <ModelRecordsPanel />}
       </div>
     </div>
   )
@@ -540,15 +542,52 @@ function countCommands(commands: string[]): [string, number][] {
 }
 
 function ReasoningPanel({ state }: { state: GameState }) {
-  const entries = state.reasoning || []
-  const llmActive = state.llm_active === true
-  const llmRequested = state.llm_requested === true
+  // B2：决策理由不再随 /api/state 每帧下发（否则自动推进下 /api/state 会涨到 ~200KB）。
+  // 本组件仅在该 Tab 激活时才挂载，于是「切到决策 Tab」即触发按需拉取；
+  // 并把 turn 纳入依赖，每回合推进后再拉一次，保证看到最新理由。
+  const API_BASE = import.meta.env.VITE_API_BASE || ''
+  const [entries, setEntries] = useState<ReasoningEntry[]>(state?.reasoning || [])
+  const [loading, setLoading] = useState(false)
+  const llmActive = state?.llm_active === true
+  const llmRequested = state?.llm_requested === true
+  const turn = state?.turn ?? 0
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetch(`${API_BASE}/api/reasoning`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return
+        const list = Array.isArray(data.reasoning) ? data.reasoning : []
+        setEntries(list as ReasoningEntry[])
+      })
+      .catch(() => {
+        // 拉取失败不阻断面板：保持空态提示，不抛错、不假绿
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [turn])
+
   // 只在真的有决策理由要显示时才拉霞鹜文楷
   useWenKai(entries.length > 0)
 
   if (entries.length === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {loading ? (
+          <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
+            <i
+              className="fa-solid fa-spinner fa-spin"
+              style={{ fontSize: '28px', color: UI_COLORS.textMuted, marginBottom: '10px' }}
+            ></i>
+            <div style={styles.dim}>加载决策理由中…</div>
+          </div>
+        ) : (
         <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
           <i
             className={`fa-solid ${llmActive ? 'fa-brain' : 'fa-circle-question'}`}
@@ -562,7 +601,8 @@ function ReasoningPanel({ state }: { state: GameState }) {
                 : '当前为规则 AI（CLI）开局，无决策理由。切换到「LLM 围观」并重开一局即可看到真实模型的意图。'}
           </div>
         </div>
-        {!llmActive && (
+        )}
+        {!loading && !llmActive && (
           <div style={{ ...styles.card, borderLeft: '3px solid #d4a84b' }}>
             <div style={{ color: '#d4a84b', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
               <i className="fa-solid fa-lightbulb" style={{ marginRight: '5px' }}></i>
@@ -638,6 +678,160 @@ function ReasoningPanel({ state }: { state: GameState }) {
           })}
         </div>
       ))}
+    </div>
+  )
+}
+
+// [批次B5] 跨局模型战绩榜：/api/model_records 早已存在，前端从未接线，
+// 等于「定义了但观众永远看不到」。这里作为独立 Tab 按需拉取并展示。
+interface ModelRecordRow {
+  model: string
+  matches: number
+  wins: number
+  win_rate: number
+  avg_rank: number
+  avg_cities: number
+}
+interface RecentMatchResult {
+  faction: string
+  faction_name: string
+  model: string
+  cities: number
+  rank: number
+  winner: boolean
+}
+interface RecentMatch {
+  ts: string
+  seed: number
+  max_turns: number
+  turns: number
+  winner: string
+  results: RecentMatchResult[]
+}
+interface ModelRecordsData {
+  leaderboard: ModelRecordRow[]
+  recent: RecentMatch[]
+  total_matches: number
+}
+
+function ModelRecordsPanel() {
+  const API_BASE = import.meta.env.VITE_API_BASE || ''
+  const [data, setData] = useState<ModelRecordsData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetch(`${API_BASE}/api/model_records`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => {
+        if (!cancelled) setData(d as ModelRecordsData)
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (loading) {
+    return <div style={styles.dim}>加载战绩中…</div>
+  }
+  if (error) {
+    return (
+      <div style={{ ...styles.card, borderLeft: '3px solid #e0776d', color: '#e8a04b' }}>
+        <i className="fa-solid fa-circle-exclamation" style={{ marginRight: '6px' }}></i>
+        战绩加载失败：{error}
+      </div>
+    )
+  }
+  if (!data || data.total_matches === 0) {
+    return (
+      <div style={{ ...styles.card, textAlign: 'center', padding: '24px' }}>
+        <i
+          className="fa-solid fa-trophy"
+          style={{ fontSize: '28px', color: UI_COLORS.textMuted, marginBottom: '10px' }}
+        ></i>
+        <div style={styles.dim}>
+          还没有跨局战绩。完成一局「LLM 围观」后，各模型的胜率与平均排名会在这里累计，
+          用来回答「哪个大模型更会玩三国」。
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div>
+        <div style={{ ...styles.sectionHead, color: '#d4a84b' }}>
+          <i className="fa-solid fa-trophy" style={{ marginRight: '5px' }}></i>
+          模型战绩榜
+          <span style={styles.foldCount}>{data.total_matches} 局累计</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          {data.leaderboard.map((row) => (
+            <div
+              key={row.model}
+              style={{ ...styles.card, borderLeft: '3px solid #d4a84b' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <span style={{ color: '#e8e0d0', fontWeight: 600, fontSize: '13px' }}>
+                  {row.model || '(未记录模型)'}
+                </span>
+                <span style={{ color: '#5ab464', fontSize: '13px', fontWeight: 600 }}>
+                  胜率 {Math.round(row.win_rate * 100)}%
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '14px', color: '#a8a29a', fontSize: '11px', marginTop: '4px' }}>
+                <span>参战 {row.matches} 局</span>
+                <span>胜 {row.wins}</span>
+                <span>平均排名 {row.avg_rank}</span>
+                <span>平均城池 {row.avg_cities}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div style={{ ...styles.sectionHead, color: '#d4a84b' }}>
+          <i className="fa-solid fa-clock-rotate-left" style={{ marginRight: '5px' }}></i>
+          最近对局
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          {data.recent.map((m, i) => (
+            <div key={`${m.ts}-${i}`} style={{ ...styles.card }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+                <span style={{ color: '#d8d2c6', fontSize: '12px' }}>
+                  seed {m.seed} · 第 {m.turns} 回合 · 胜方 {FACTIONS[m.winner] || m.winner}
+                </span>
+                <span style={{ color: UI_COLORS.textMuted, fontSize: '10px' }}>{m.ts}</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                {m.results.map((r) => (
+                  <span
+                    key={r.faction}
+                    style={{
+                      ...styles.cmdChip,
+                      borderColor: r.winner ? 'rgba(90,180,100,0.6)' : 'rgba(255,255,255,0.12)',
+                    }}
+                    title={`${r.faction_name}：城池 ${r.cities} · 排名 ${r.rank}`}
+                  >
+                    {r.winner && <i className="fa-solid fa-crown" style={{ marginRight: '3px', color: '#e8c877', fontSize: '9px' }}></i>}
+                    {r.faction_name}
+                    {r.model ? `（${r.model}）` : ''}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.game_manager import GameConfig, GameManager
+from api.game_manager import GameConfig, GameManager, MAX_REASONING_HISTORY
 
 logger = logging.getLogger(__name__)
 
@@ -237,6 +237,19 @@ async def get_model_records() -> Dict[str, Any]:
     return _manager.get_model_records()
 
 
+@app.get("/api/reasoning")
+async def get_reasoning(limit: int = MAX_REASONING_HISTORY) -> Dict[str, Any]:
+    """获取决策理由历史（前端「决策」Tab 按需拉取，避免每帧塞进 /api/state）。
+
+    自动推进下如果每次 state 都带全量 reasoning，/api/state 会涨到 ~200KB，
+    与围观台要流畅直接冲突。get_state 默认不再下发 reasoning，
+    前端切到「决策」Tab 时再调本端点拉取。
+    """
+    if _manager is None:
+        return {"error": "游戏管理器未初始化"}
+    return {"reasoning": _manager.get_reasoning(limit)}
+
+
 @app.post("/api/command")
 async def post_command(command: Dict[str, Any]) -> Dict[str, Any]:
     """执行一个命令
@@ -448,6 +461,11 @@ async def game_websocket(websocket: WebSocket) -> None:
                     model=msg.get("model") or GameConfig.model,
                     provider=msg.get("provider") or GameConfig.provider,
                     factions=msg.get("factions") or None,
+                    # v4.0.1：按势力分配模型/provider（多模型大乱斗）。
+                    # WS init 与 REST /api/reset 共用 GameConfig，这里补上透传，
+                    # 否则经 WS init 开局时 faction_models 会被静默丢弃、多模型失效。
+                    faction_models=msg.get("faction_models"),
+                    faction_providers=msg.get("faction_providers"),
                 )
                 # 建局实测 ~4.2s（建 24000 格地图 + 建 12 方 AI），同步执行会卡死事件循环
                 _manager = await _run_in_executor_unlocked(GameManager, config=cfg)

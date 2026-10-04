@@ -25,6 +25,7 @@ from game.constants import (
     SEASON_MOVEMENT_FACTOR,
 )
 from game.models import Army, ArmyStatus
+from game.systems.city_system import add_garrison
 
 
 # ============================================================
@@ -347,8 +348,8 @@ class ArmyMovementSystem:
         if cities and army.to_city in cities:
             target_city = cities[army.to_city]
             if target_city.faction == army.faction:
-                # 友方城市：兵力并入守军，将领返回城市
-                target_city.garrison += army.soldiers
+                # 友方城市：兵力并入守军，将领返回城市（经统一入口截断在等级上限内）
+                add_garrison(target_city, army.soldiers)
                 army.soldiers = 0
                 army.status = ArmyStatus.GARRISONED
                 if generals and army.general_id in generals:

@@ -34,15 +34,17 @@
 | attack | 只能带己方且未被俘将领出征 | A1 已修，本文件回归保护 |
 | reward | 只能赏己方将领，且由己方金库付款 | A1 已修，本文件回归保护 |
 | explore | 只能探索己方城市 | A1 已修，本文件回归保护 |
-| rumor | 间谍必须是自己人 | **未修 —— 见 `TestUncoveredGaps` 的 xfail** |
-| message | 发信方必须是真实势力 | **未修 —— 见 `TestUncoveredGaps` 的 xfail** |
-| propose_alliance | 结盟方必须是真实势力 | **未修 —— 见 `TestUncoveredGaps` 的 xfail** |
-| declare_war | 宣战方必须是真实势力 | **未修 —— 见 `TestUncoveredGaps` 的 xfail** |
+| rumor | 间谍必须是自己人 | 第二批 B3 已修，本文件回归保护 |
+| message | 发信方必须是真实势力 | 第二批 幽灵闸门 已修，本文件回归保护 |
+| propose_alliance | 结盟方必须是真实势力 | 第二批 幽灵闸门 已修，本文件回归保护 |
+| declare_war | 宣战方必须是真实势力 | 第二批 幽灵闸门 已修，本文件回归保护 |
 
-后 4 项**不是本批该修的**（A1 范围只含 develop/recruit/attack/reward/explore），
-但它们是真缺口，用 `xfail(strict=True)` 钉住：
-修好之后 strict xfail 会因「意外通过」而**变红报错**，
-强制下一个人摘掉标记并把断言翻正 —— 缺口不会被静默遗忘。
+后 4 项在 A1 时尚属未覆盖缺口，第二批已统一修复：
+- `rumor` 的间谍归属在 `_execute_rumor` 内校验（见 B3 注释）；
+- `message` / `propose_alliance` / `declare_war` 的发起方存在性，
+  由 `execute_command` 分发前单一闸门 + 各 `_execute_*` 方法内的二次校验挡住
+  （幽灵势力无法建关系行 / 刷信任 / 结盟）。
+原 `xfail(strict=True)` 标记已在修复后摘掉、断言翻正，缺口不再被静默遗忘。
 
 # 改坏验证记录（实测数据，逐条勿删；由 tests/unit/_mutation_check_tmp.py 复现）
 
@@ -98,14 +100,18 @@
 - 通过时 `return None` → `return CommandResult(success=True,...)`
   → **1 failed** → 还原 → 1 passed（防返回值语义被反转后全部校验静默失效）
 
-## 未修缺口（xfail，钉住不许静默遗忘）
-- `test_rumor_enemy_general_as_spy_rejected`：现状漏洞可利用。
+## 原未修缺口（第二批已修复，xfail 标记已摘、断言翻正）
+- `test_rumor_enemy_general_as_spy_rejected`：原可用敌方将领当间谍抬高成功率。
   🔴 这条最初写成「掷一次骰子看 success」，结果 strict xfail 变成 XPASS 而报红——
   掷输了就"通过"了。**已改为把 `spread_rumor` 的 RNG 打成常量 0.0**，
-  让 success 只由归属校验决定，与骰子无关。
-- `test_declare_war_ghost_faction_rejected`：幽灵势力能宣战并建出关系行。
-- `test_propose_alliance_ghost_faction_rejected`：幽灵势力刷满信任后能结盟。
-- `test_message_ghost_sender_rejected`：幽灵势力能发信并刷信任。
+  让 success 只由归属校验决定，与骰子无关。现 `_execute_rumor` 校验间谍归属，
+  该测试已无 xfail、直接绿。
+- `test_declare_war_ghost_faction_rejected`：幽灵势力能宣战并建出关系行 —— 第二批
+  幽灵闸门修复。
+- `test_propose_alliance_ghost_faction_rejected`：幽灵势力刷满信任后能结盟 —— 第二批
+  幽灵闸门修复。
+- `test_message_ghost_sender_rejected`：幽灵势力能发信并刷信任 —— 第二批
+  幽灵闸门修复。
 """
 
 from __future__ import annotations
@@ -794,30 +800,25 @@ class TestExploreOwnership:
 
 
 # ============================================================
-# 6. 未修缺口 —— 用 strict xfail 钉住，不许静默遗忘
+# 6. 原缺口（第二批已修复，xfail 标记已摘、断言翻正）
 # ============================================================
 
 
 class TestUncoveredGaps:
-    """A1 未覆盖的 4 类命令的归属权缺口。
+    """A1 未覆盖的 4 类命令的归属权缺口 —— 第二批已统一修复。
 
-    🔴 这些**当前是漏洞**，本批不修（A1 范围只含
-    develop/recruit/attack/reward/explore）。但它们是真缺口，
-    绝不能因为「不在这批范围」就忘掉，因此用 `xfail(strict=True)` 钉住。
+    这 4 条原本是真缺口（rumor 间谍归属、message/propose_alliance/declare_war
+    的发起方存在性），第二批已修复：
+    - rumor 的间谍归属在 `_execute_rumor` 内校验（B3）；
+    - 其余三类的发起方存在性由 `execute_command` 分发前单一闸门 +
+      各 `_execute_*` 方法内二次校验挡住（幽灵势力闸门）。
 
-    `strict=True` 的含义：修好之后这条测试会因为「意外通过」而**变红报错**，
-    强制下一个人摘掉 xfail 标记并把断言翻正。
-    非 strict 的 xfail 会在修复后静默变绿 —— 那就等于给缺口发了许可证，
-    与本项目历史教训完全相反。
+    修复前它们用 `xfail(strict=True)` 钉住，修复后 strict xfail 会因
+    「意外通过」变红报错，于是已摘掉标记、断言翻正 —— 缺口不再被静默遗忘。
 
     复现命令见各测试 docstring。
     """
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="A1 未覆盖：_execute_rumor 不校验 spy_general 归属，"
-               "可用敌方将领做间谍（实测成功率 53% → 89%）",
-    )
     def test_rumor_enemy_general_as_spy_rejected(self, _engine_template):
         """用**敌方将领**当间谍必须被拒。
 
@@ -874,11 +875,6 @@ class TestUncoveredGaps:
         )
         assert result.success is True, f"己方将领当间谍应成功，实际: {result.description}"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="A1 未覆盖：_execute_declare_war 只校验目标势力 to 是否存在，"
-               "不校验发起方 cmd.faction，幽灵势力能建出外交关系行",
-    )
     def test_declare_war_ghost_faction_rejected(self, _engine_template):
         """不存在的势力不得宣战。
 
@@ -900,11 +896,6 @@ class TestUncoveredGaps:
         assert result.success is False, "不存在的势力不得宣战"
         assert "ghost_faction" not in FACTIONS, "前置：ghost_faction 确实是幽灵势力"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="A1 未覆盖：_execute_propose_alliance 不校验发起方 cmd.faction，"
-               "幽灵势力刷满信任后可与真实势力结盟",
-    )
     def test_propose_alliance_ghost_faction_rejected(self, _engine_template):
         """不存在的势力不得结盟。
 
@@ -938,11 +929,6 @@ class TestUncoveredGaps:
         )
         assert result.success is False, "不存在的势力不得与真实势力结盟"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="A1 未覆盖：_execute_message 不校验发起方 cmd.faction 与收信方 cmd.to，"
-               "幽灵势力可发信并抬高真实势力的信任度",
-    )
     def test_message_ghost_sender_rejected(self, _engine_template):
         """不存在的势力不得发外交消息。
 

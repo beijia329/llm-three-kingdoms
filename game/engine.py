@@ -73,7 +73,7 @@ from game.models import (
 )
 from game.random import GameRandom
 from game.personality import FACTION_PERSONALITY, get_general_profile
-from game.systems.city_system import CitySystem, GARRISON_CAP_PER_LEVEL
+from game.systems.city_system import CitySystem, GARRISON_CAP_PER_LEVEL, add_garrison
 from game.systems.diplomacy_system import DiplomacySystem
 from game.systems.diplomacy_relation import DiplomacyRelationSystem
 from game.systems.general_system import GeneralSystem
@@ -369,8 +369,13 @@ class GameEngine:
             self._influence_system = InfluenceSystem()
 
             logger.info("HexMap 生成完成: %d 格", len(list(self.hex_map.iter_tiles())))
-        except Exception as e:
-            logger.warning("HexMap 生成失败: %s，使用降级模式", e)
+        except (KeyError, ValueError, FileNotFoundError) as e:
+            # 可预期的「地图数据缺失/格式错」：降级为无地图模式，但明确告警。
+            # 其它异常（编程错误、import 失败等）直接重抛 —— 本作拒绝静默降级：
+            # 地图生成失败会让整局走 legacy 分支（地块产出/领地/寻路全消失），
+            # 规则与有地图时完全不同，不能装作"正常"（参见 load_state_snapshot 的
+            # 显式 NotImplementedError 原则）。
+            logger.warning("HexMap 生成失败（数据/格式问题），使用降级模式: %s", e)
             self.hex_map = None
             self._influence_system = None
 
@@ -496,6 +501,18 @@ class GameEngine:
 
         # v4.0：记录本回合各势力实际发出的命令类型，供「人设代价」判定使用。
         # 放在最前面记录（无论成败），因为"想做什么"比"做成了什么"更能体现本性。
+        # 🔴 幽灵势力闸门（第二批）：命令发起方必须是真实存在的势力。
+        # A1 只校验了「对象归属」，没校验「发起方自己是谁」，导致 declare_war /
+        # propose_alliance / message 三类外交命令可以用一个不存在的 faction 建出
+        # 外交关系行、刷信任、乃至结盟 —— 等于让观众看到「凭空多出一个势力在下棋」。
+        # 单一拦截点覆盖全部命令类型，一处校验挡住全部幽灵势力入口。
+        if command.faction not in FACTIONS:
+            return CommandResult(
+                success=False,
+                command_type=command_type,
+                description=f"未知势力 {command.faction}，命令被拒绝",
+            )
+
         self._turn_actions.append((command.faction, command_type))
 
         try:
@@ -826,6 +843,12 @@ class GameEngine:
 
     def _execute_message(self, cmd: MessageCommand) -> CommandResult:
         """执行外交消息命令"""
+        # 幽灵势力闸门（第二批）：发起方必须是真实势力，否则不进入任何信任度变动。
+        if cmd.faction not in FACTIONS:
+            return CommandResult(
+                success=False, command_type="message",
+                description=f"未知势力 {cmd.faction}，消息被拒绝",
+            )
         result = self._diplomacy_system.send_message(
             from_faction=cmd.faction,
             to_faction=cmd.to,
@@ -859,22 +882,50 @@ class GameEngine:
         )
 
     def _execute_rumor(self, cmd: RumorCommand) -> CommandResult:
-        """执行流言命令"""
-        target_general = None
-        if cmd.target_general:
-            target_general = self.generals.get(cmd.target_general)
+        """执行流言命令
+
+        归属与阵营校验（第二批 B3）：
+        - 目标城市必须存在且非己方（不能对自己人散布流言）。
+        - 间谍必须是本方将领（带敌方将领当间谍会抬高成功率，属越权）。
+        - 目标将领（若有）必须是敌方将领（不能自降己将忠诚）。
+        """
+        city = self.cities.get(cmd.city)
+        if city is None:
+            return CommandResult(
+                success=False, command_type="rumor",
+                description=f"目标城市 {cmd.city} 不存在",
+            )
+        if city.faction == cmd.faction:
+            return CommandResult(
+                success=False, command_type="rumor",
+                description="不能对本方城市散布流言",
+            )
 
         spy_intelligence = 50
         if cmd.spy_general:
             spy = self.generals.get(cmd.spy_general)
-            if spy:
-                spy_intelligence = spy.intelligence
+            if spy is None or spy.faction != cmd.faction:
+                return CommandResult(
+                    success=False, command_type="rumor",
+                    description="间谍必须是本方将领",
+                )
+            spy_intelligence = spy.intelligence
+
+        target_general = None
+        if cmd.target_general:
+            target_general = self.generals.get(cmd.target_general)
+            if target_general is None or target_general.faction == cmd.faction:
+                return CommandResult(
+                    success=False, command_type="rumor",
+                    description="流言目标必须是敌方将领",
+                )
 
         result = self._diplomacy_system.spread_rumor(
             target_city_id=cmd.city,
-            target_faction="",  # 由 GameEngine 查城市归属
+            target_faction=city.faction,  # 由城市真实归属回填，不再留空
             spy_intelligence=spy_intelligence,
             target_general=target_general,
+            city=city,
             turn=self.turn,
         )
         return CommandResult(
@@ -886,6 +937,12 @@ class GameEngine:
 
     def _execute_propose_alliance(self, cmd: ProposeAllianceCommand) -> CommandResult:
         """执行提出同盟命令"""
+        # 幽灵势力闸门（第二批）：发起方必须是真实势力，否则不进入任何概率/信任判定。
+        if cmd.faction not in FACTIONS:
+            return CommandResult(
+                success=False, command_type="propose_alliance",
+                description=f"未知势力 {cmd.faction}，结盟请求被拒绝",
+            )
         if cmd.to not in FACTIONS:
             return CommandResult(
                 success=False,
@@ -948,6 +1005,12 @@ class GameEngine:
 
     def _execute_declare_war(self, cmd: DeclareWarCommand) -> CommandResult:
         """执行宣战命令"""
+        # 幽灵势力闸门（第二批）：发起方必须是真实势力，否则不建出任何外交关系行。
+        if cmd.faction not in FACTIONS:
+            return CommandResult(
+                success=False, command_type="declare_war",
+                description=f"未知势力 {cmd.faction}，宣战被拒绝",
+            )
         if cmd.to not in FACTIONS:
             return CommandResult(
                 success=False,
@@ -1304,7 +1367,7 @@ class GameEngine:
                             self.generals[army.general_id].location = city.id
                         # 标记为可清理
                         army.soldiers = 0
-                city.garrison += surviving_attackers
+                add_garrison(city, surviving_attackers)
 
             # 清理攻击方军队（已并入守军或全灭）
             for army_id in list(ctx.attacker_armies):
@@ -1537,8 +1600,7 @@ class GameEngine:
             army: 要解散的军队
             city: 接收残部的己方城市
         """
-        cap = city.level * GARRISON_CAP_PER_LEVEL
-        city.garrison = min(city.garrison + army.soldiers, cap)
+        add_garrison(city, army.soldiers)
         gen = self.generals.get(army.general_id)
         if gen is not None:
             gen.location = city.id
