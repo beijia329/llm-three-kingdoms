@@ -129,7 +129,7 @@ class GeneralSystem:
     def explore(self, city: City) -> ExploreResult:
         """在城市探索发现新将领
 
-        探索概率受城市民心影响。
+        探索概率受城市民心影响。人才池耗尽后返回 `found=False`。
 
         Args:
             city: 探索目标城市
@@ -137,15 +137,30 @@ class GeneralSystem:
         Returns:
             探索结果
         """
+        # [A3] 人才池耗尽 = 一个真实的 sink，不再环形发人。
+        # 修复前是 `POTENTIAL_GENERALS[self._next_general_index % len(...)]`：
+        # 20 人取完一轮后从徐庶重新开始，同一局里反复出现同名同值的"徐庶"，
+        # 而 `new_general.id` 是 `explored_{len(self.generals)+1}` 递增的
+        # → 同一局出现 5 个属性完全相同的"徐庶"，且都算进 battle_scheduler
+        # 的守方/进攻方平均战力。实测连续探索 300 次：新获 109 名、去重后 20 名。
+        #
+        # 判定放在掷骰**之前**：池子空了就不该再消耗随机数，
+        # 否则「池空」与「本次没找到」两种结果会共用同一个 RNG 序列，
+        # 让 A3 的行为依赖调用方此前掷了多少次骰（确定性污染）。
+        if self._next_general_index >= len(POTENTIAL_GENERALS):
+            return ExploreResult(
+                description=(
+                    f"天下英才已尽（人才池 {len(POTENTIAL_GENERALS)} 人已全部被发现）"
+                )
+            )
+
         # 计算探索成功率
         success_chance = EXPLORE_BASE_CHANCE + city.morale * EXPLORE_MORALE_FACTOR
         success_chance = min(success_chance, 0.8)  # 上限80%
 
         if self._rng.random() < success_chance:
             # 发现新将领：从史实人才池按顺序取（确定性，且属性与人设一致）
-            profile = POTENTIAL_GENERALS[
-                self._next_general_index % len(POTENTIAL_GENERALS)
-            ]
+            profile = POTENTIAL_GENERALS[self._next_general_index]
             self._next_general_index += 1
 
             name = profile["name"]
@@ -172,12 +187,18 @@ class GeneralSystem:
     def _generate_general_name(self) -> str:
         """生成探索发现的将领名字（已废弃，保留以兼容旧引用与测试）
 
+        [A3] 原实现同样是 `POTENTIAL_GENERALS[index % len(...)]` 环形复用。
+        本方法无调用者（`explore()` 已直接取 profile），保留仅为不破坏旧引用；
+        池空时抛 IndexError 而不是悄悄回绕到徐庶 —— 回绕就是被 A3 修掉的缺陷本身。
+
         Returns:
             人才池中下一个将领的名字
         """
-        name = POTENTIAL_GENERALS[
-            self._next_general_index % len(POTENTIAL_GENERALS)
-        ]["name"]
+        if self._next_general_index >= len(POTENTIAL_GENERALS):
+            raise IndexError(
+                f"人才池已耗尽（{len(POTENTIAL_GENERALS)} 人全部取完），不再生成名字"
+            )
+        name = POTENTIAL_GENERALS[self._next_general_index]["name"]
         self._next_general_index += 1
         return name
 

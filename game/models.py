@@ -147,6 +147,15 @@ class City(BaseModel):
     is_besieged: bool = Field(default=False, description="是否被围困")
     besieging_armies: List[str] = Field(default_factory=list, description="围城部队ID列表")
 
+    # [A3] 探索冷却：上次成功发起探索的回合号（None = 本局还没探索过）
+    last_explore_turn: Optional[int] = Field(
+        default=None,
+        description=(
+            "上次对本城发起探索的回合号（引擎 self.turn，非命令里的 turn）。"
+            "None 表示本局尚未探索。用于 EXPLORE_COOLDOWN_TURNS 冷却判定。"
+        ),
+    )
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 

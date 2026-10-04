@@ -34,6 +34,7 @@ from game.constants import (
     ARMY_FOOD_COST_PER_SOLDIER,
     NATURE_STRAIN_MORALE_PENALTY,
     CITY_LOSS_LOYALTY_PENALTY,
+    EXPLORE_COOLDOWN_TURNS,
 )
 from game.event_bus import (
     BattleEndedEvent,
@@ -111,6 +112,64 @@ class TurnResult:
     armies_moved: int = 0
     battles_fought: int = 0
     events: List[Dict[str, Any]] = field(default_factory=list)
+
+
+# ============================================================
+# 归属权校验（命令层统一入口）
+# ============================================================
+
+
+def _assert_owns(actor: str, owner: Optional[str], what: str, cmd_type: str) -> Optional[CommandResult]:
+    """归属权校验：确认 `actor`（命令发起势力）对 `owner`（对象当前归属）有支配权。
+
+    ## 为什么要有这个统一入口
+
+    本项目 9 个 `_execute_xxx` 此前**各写各的**归属校验：
+    `develop` / `recruit` / `attack`(异地调将分支) 有校验，
+    `explore` / `reward` / `attack`(将领恰在出发城分支) 没有。
+    没有统一入口 → 漏一个没人发现。实测三处越权漏洞：
+
+    1. `explore` 敌方城市 → 直接把 `explored_xx` 塞进敌方 `city.generals`，
+       新将领 `faction` 却是攻击方 —— 守方凭空多一个敌方总教头，
+       `battle_scheduler` 会把他算进**守方**平均统帅/勇武。
+    2. `reward` 敌方战俘 → 支付城市由 `general.location` 反推，
+       于是「赏赐敌将」花的是**敌国金库**。
+    3. `attack` 指定敌方战俘 → 当目标将领恰好驻在出发城时，
+       归属权与被俘判定被 `if general.location != from_city.id` 整段跳过。
+
+    统一后新增命令只需在入口调一次本函数，不依赖各处理器作者的记忆力。
+
+    ## 语义
+
+    - `owner is None`（中立/无主）**同样返回失败**：中立城谁都不能"探索"，
+      没主的对象谁都不能"发赏赐"。这是刻意的 —— 判据是
+      「能靠规则漏洞获益」，中立城若可被任意方白嫖探索/白嫖赏赐，
+      就是同类漏洞。
+    - 返回 `None` 表示校验通过；返回失败的 `CommandResult` 表示校验不通过，
+      调用方直接 `return` 该结果即可（不继续执行任何副作用）。
+
+    Args:
+        actor: 命令发起方势力 ID（`cmd.faction`）
+        owner: 目标对象当前归属（`city.faction` / `general.faction`），可为 None
+        what: 人类可读的对象描述，用于错误信息（如「城市 julu」「将领 徐庶」）
+        cmd_type: 命令类型，用于 `CommandResult.command_type`
+
+    Returns:
+        None 表示通过；失败的 CommandResult 表示归属权不足。
+    """
+    if owner is None:
+        return CommandResult(
+            success=False,
+            command_type=cmd_type,
+            description=f"{what}无归属势力，任何势力均无权操作",
+        )
+    if owner != actor:
+        return CommandResult(
+            success=False,
+            command_type=cmd_type,
+            description=f"{what}不属于 {actor}（当前归属 {owner}）",
+        )
+    return None
 
 
 # ============================================================
@@ -531,20 +590,34 @@ class GameEngine:
             return CommandResult(success=False, command_type="attack",
                                  description=f"将领 {cmd.general} 不存在")
 
+        # [A1-c] 归属权与被俘状态：**统一前置**，不再依赖「是否需要调将」这个
+        # 偶然条件。修复前 `general.faction == cmd.faction` 与
+        # `not general.is_captured` 写在 `if general.location != from_city.id:`
+        # 分支内部 —— 目标将领恰好驻在出发城时整段被跳过，于是任何一方都能
+        # 带着**敌方战俘**出征（实测：刘备 faction=liubei is_captured=True，
+        # caocao 照样发兵成功，且该战俘会被算进进攻方战力）。
+        denied = _assert_owns(cmd.faction, general.faction,
+                              f"将领 {general.name}", "attack")
+        if denied is not None:
+            return denied
+        if general.is_captured:
+            return CommandResult(success=False, command_type="attack",
+                                 description=f"将领 {general.name} 仍为战俘，不能出征")
+
         # [G 解将荒 2026-10-0X v4.0] 放宽将领校验：原实现硬要求
         # `general.location == from_city.id`，导致「无驻将的城市」永久无法出征 ——
         # 出征胜后将领驻留新占城（见本函数占领分支 `general.location = city.id`），
         # 不回原城，终局约 48% 城市无本地将领 → 地图约第 26~31 回合彻底冻结。
         # 现允许调度**位于己方任意城市**的空闲将领随军出征，引擎自动「调将前来领兵」。
+        #
+        # ⚠️ 上面那条放宽的是「必须驻在出发城」这一条**位置**要求，
+        # **不是**放宽归属权：faction / is_captured 已在前面统一前置校验，
+        # 这里只再判「将领此刻站在哪、那座城归谁」，两者职责不可混同。
         dispatch_note = ""
         if general.location != from_city.id:
-            is_dispatchable = (
-                general.faction == cmd.faction
-                and not general.is_captured
-                and general.location in self.cities
-                and self.cities[general.location].faction == cmd.faction
-            )
-            if not is_dispatchable:
+            # 调将合法性：将领必须身处某座**己方**城市（既非行军途中、也非敌城）
+            if not (general.location in self.cities
+                    and self.cities[general.location].faction == cmd.faction):
                 return CommandResult(success=False, command_type="attack",
                                      description=f"将领 {cmd.general} 不在 {cmd.from_city}")
             # 🔴 必须同步维护两座城的 city.generals 列表：
@@ -627,6 +700,15 @@ class GameEngine:
             return CommandResult(success=False, command_type="reward",
                                  description=f"将领 {cmd.general} 不存在")
 
+        # [A1-a] 归属权第一道：被赏赐的将领必须属于本势力。
+        # 修复前本函数全程不判断 general.faction，配合下面的「支付城市由
+        # general.location 反推」，caocao 可以对敌方战俘发赏赐而**花掉敌国金库**
+        # （实测：己方 5000→5000，敌方 5000→0）。
+        denied = _assert_owns(cmd.faction, general.faction,
+                              f"将领 {general.name}", "reward")
+        if denied is not None:
+            return denied
+
         # 确定支付赏赐的城市
         city: Optional[City] = None
         if general.location in self.cities:
@@ -640,6 +722,14 @@ class GameEngine:
         if city is None:
             return CommandResult(success=False, command_type="reward",
                                  description=f"将领所在位置 {general.location} 无城市")
+
+        # [A1-a] 归属权第二道：实际掏钱的那座城也必须属于本势力。
+        # 第一道只挡「赏赐敌将」，这一道挡「敌将站在我方城里/我方军队里，
+        # 但 location 反推出敌方城市」等边界组合。两道都要，缺一不可。
+        denied = _assert_owns(cmd.faction, city.faction,
+                              f"支付城市 {city.name}", "reward")
+        if denied is not None:
+            return denied
 
         result = self._general_system.reward(general, city, cmd.gold)
         return CommandResult(
@@ -655,6 +745,51 @@ class GameEngine:
         if city is None:
             return CommandResult(success=False, command_type="explore",
                                  description=f"城市 {cmd.city} 不存在")
+
+        # [A1-b] 归属权校验：只能探索己方城市。
+        # 修复前本函数只查 `city is None`，任何势力都能对任意城市（包括敌方城、
+        # 甚至中立城）反复探索。危害不止"白嫖人才"：新将领 faction 记的是
+        # `cmd.faction`，location 记的是敌方城市 id，并被 append 进敌方
+        # `city.generals` —— `battle_scheduler.stationed_generals` 直接读这个
+        # 列表算守方平均统帅/勇武，于是凭空给守方加成（实测：julu 守将
+        # ['liu_bei'] → ['liu_bei', 'explored_54']）。
+        # 中立城（faction == "neutral"）同样挡住：无主之地谁都不能白嫖。
+        denied = _assert_owns(cmd.faction, city.faction,
+                              f"城市 {city.name}", "explore")
+        if denied is not None:
+            return denied
+
+        # [A3] 探索冷却：接入 EXPLORE_COOLDOWN_TURNS（该常量此前全仓 0 引用，
+        # 是典型的「定义了但从未执行」——参数默认空 + 生产调用点不传 = 整段逻辑
+        # 从未运行）。
+        #
+        # 冷却语义（用 `self.turn`，**不是** `cmd.turn`）：
+        #   距上次探索不足 EXPLORE_COOLDOWN_TURNS 个回合 → 拒绝。
+        # 用引擎自己的回合号而非命令里的 turn，是判据一「AI 必须守规矩」的要求：
+        # cmd.turn 由调用方自称，若拿它当基准，发一条 `turn=9999` 的假命令
+        # 就能永久绕过冷却（冷却就成了摆设）。引擎只信自己的回合。
+        #
+        # 判定用 `self.turn - last < COOLDOWN` 而非 `self.turn == last + COOLDOWN`：
+        # 前者对「跳过若干回合才回来探索」是宽容的（不会因为 exploring 稀疏
+        # 而误伤），后者在中间有命令被拒/未探索时会永远差一回合解不开。
+        # last_explore_turn is None（开局首次）→ 无冷却。
+        if city.last_explore_turn is not None:
+            elapsed = self.turn - city.last_explore_turn
+            if elapsed < EXPLORE_COOLDOWN_TURNS:
+                return CommandResult(
+                    success=False,
+                    command_type="explore",
+                    description=(
+                        f"{city.name}探索冷却中（还需 {EXPLORE_COOLDOWN_TURNS - elapsed} 回合，"
+                        f"上次探索于第 {city.last_explore_turn} 回合）"
+                    ),
+                    data={"cooling_down": True, "turns_left": EXPLORE_COOLDOWN_TURNS - elapsed},
+                )
+
+        # 无论本次是否真的发现人才，都记一次探索 —— 冷却针对的是「探索行为」
+        # 而不是「探索成功」。否则玩家可以无成本地反复空探刷 RNG，
+        # 等于没加冷却（这正是原缺陷的形态：只有成功才消耗资源）。
+        city.last_explore_turn = self.turn
 
         result = self._general_system.explore(city)
         if result.found:

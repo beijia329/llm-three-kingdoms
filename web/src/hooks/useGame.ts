@@ -77,6 +77,10 @@ export interface UseGameReturn {
   commandResult: CommandResult | null
   /** 执行一条命令：立即进入 pending，收到 command_result 或超时后解除 */
   runCommand: (command: Record<string, unknown>, label: string) => void
+  /** 「下一回合」当前不可用的原因；空串 = 可用。用于把置灰理由写进界面 */
+  nextTurnBlockedReason: string
+  /** 最近一次「操作被前端拦下」的原因（断网点按钮等），空串 = 无 */
+  actionBlockedReason: string
 }
 
 /**
@@ -163,10 +167,20 @@ export function useGame(): UseGameReturn {
   // 命令执行中/结果：城市详情卡的「征兵/发展/出征」按钮据此转圈并回显成败
   const [commandPending, setCommandPending] = useState<{ type: string; label: string } | null>(null)
   const [commandResult, setCommandResult] = useState<CommandResult | null>(null)
+  // 🔴 A5：「操作被前端拦下」的原因。断网点「下一回合」时 send() 静默 return，
+  // 界面却已经进入"思考中"并锁死 240s（TURN_TIMEOUT_S）——观感是"点了没反应，
+  // 还把按钮搞坏了"。改为：拦住并把原因显示出来。
+  const [actionBlockedReason, setActionBlockedReason] = useState('')
   const commandSeqRef = useRef(0)
 
   // hex_map 缓存（性能核心，2026-10-03）：后端整图/增量/空三态，前端据此维护缓存。
   const hexCacheRef = useRef<HexCache>({})
+
+  // 🔴 A5：auto 的最新值镜像。onopen 补发消息要读它 —— 见 onopen 内注释。
+  const autoRef = useRef(auto)
+  useEffect(() => {
+    autoRef.current = auto
+  }, [auto])
 
   const applyIncoming = useCallback((next: GameState) => {
     // 1. 整图（首帧 / 重连 / 跨多版）
@@ -211,6 +225,18 @@ export function useGame(): UseGameReturn {
         reconnectDelay = 1000
         setConnected(true)
         ;(window as any).__gameWS = ws
+        // 🔴 A5：重连后必须补发 auto 状态。
+        // 后端的 auto_loop 是**连接级局部变量**（api/server.py 的 auto_task），
+        // WS 一断就随协程一起没了 —— 新连接里的 auto_task 是 None，
+        // 即后端根本没在自动推进。而前端 auto 仍是 true → 界面显示
+        //「自动推进中」、「下一回合」被永久禁用，实际一步没走。
+        // 这里用**最新的 auto 状态**（autoRef）而不是闭包捕获值：
+        // 本 effect 的依赖是 [applyIncoming]，若直接读 auto 会拿到首次挂载时的
+        // 快照，之后用户切换 A 键也不会反映到补发消息里。
+        const wantAuto = autoRef.current
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'auto', enabled: wantAuto, interval_ms: 800 }))
+        }
       }
       // 断线自动重连（指数退避，上限 10s）。此前只置 connected=false，
       // 用户必须手动刷新页面 —— 对「长时间观战」场景等于白屏。
@@ -251,6 +277,17 @@ export function useGame(): UseGameReturn {
             setCommandPending(null)
           } else if (msg.type === 'event') {
             console.log('[GAME]', msg.text)
+          } else if (msg.type === 'auto_stopped') {
+            // 🔴 A5：后端主动告知「自动推进真的停了」及其原因。
+            // 不置 false 的话：后端已 break、前端 auto 仍为 true →
+            // 「下一回合」/「空格」因 auto 恒真被永久禁用，而后端一步没推进。
+            setAuto(false)
+            setPendingTurn(null)
+            const reason = msg.reason === 'game_over'
+              ? '对局已结束'
+              : (msg.text || '后端已停止自动推进')
+            setActionBlockedReason(`自动推进已停止：${reason}`)
+            console.log('[GAME] auto_stopped:', msg.reason, msg.text)
           } else if (msg.type === 'error') {
             console.error('[GAME ERROR]', msg.message)
             // 出错也要解锁，否则用户会被永久禁用在"思考中"
@@ -292,10 +329,20 @@ export function useGame(): UseGameReturn {
     return () => clearTimeout(t)
   }, [pendingTurn])
 
+  // 🔴 A5：对局结束 → 自动推进必须复位。
+  // 后端的 auto_loop 在 game_over 时会 break 并回 auto_stopped（A5 新增），
+  // 但**不能只依赖那一条消息**：断网/重连窗口内它可能收不到。
+  // state.game_over 是后端权威状态，收到就无条件复位 auto —— 三方对齐的兜底。
+  useEffect(() => {
+    if (state?.game_over) setAuto(false)
+  }, [state?.game_over])
+
   const send = useCallback((msg: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg))
+      return true
     }
+    return false
   }, [])
 
   const sendCommand = useCallback((command: Record<string, unknown>) => {
@@ -309,13 +356,23 @@ export function useGame(): UseGameReturn {
    * `command_result`），若按钮点了不改任何状态，观感就是"点了没反应"——
    * 正是玩家最恨的那类控件。这里统一切到 pending、禁用按钮、转圈，
    * 收到回执或超时后再解除，并把后端的人类可读 description 回显出来。
+   *
+   * 🔴 A5：断网时**不能**进入 pending。原实现先 setCommandPending 再 send，
+   * 而 send 在 readyState != OPEN 时静默 return → 按钮转圈 20s
+   * （COMMAND_TIMEOUT_S）后才报"超时"，观感是"点了没反应还把按钮搞坏了"。
+   * 现在改为：拦住 + 显示原因，且**不动** UI 的 pending 状态。
    */
   const runCommand = useCallback((command: Record<string, unknown>, label: string) => {
+    if (!connected) {
+      setActionBlockedReason(`未连接到后端，「${label}」未发送（正在自动重连，可稍后再试）`)
+      return
+    }
+    setActionBlockedReason('')
     const type = String(command?.type || '')
     setCommandResult(null)
     setCommandPending({ type, label })
     sendCommand(command)
-  }, [sendCommand])
+  }, [connected, sendCommand])
 
   // 命令超时兜底：后端异常/未回执时不能永久转圈
   useEffect(() => {
@@ -343,19 +400,40 @@ export function useGame(): UseGameReturn {
     setCommandResult(null)
   }, [state?.turn])
 
+  /**
+   * 推进一个回合。
+   *
+   * 🔴 A5：入口必须检查连接状态。原实现只靠 `send()` 里的
+   * `readyState != OPEN → 静默 return`：断网点「下一回合」时，
+   * `setPendingTurn` 照样把 UI 切成"思考中"并设 240s（TURN_TIMEOUT_S）超时 ——
+   * 消息根本没发出去，按钮却被锁死 4 分钟。现在：拦住 + 显示原因，
+   * 且**不动**任何 UI 状态（不清 pending、不进 thinking）。
+   */
   const nextTurn = useCallback(() => {
+    if (!connected) {
+      setActionBlockedReason('未连接到后端，「下一回合」未发送（正在自动重连，可稍后再试）')
+      return
+    }
+    setActionBlockedReason('')
     // 幂等：上一回合还没算完就再点，不发第二条（后端是阻塞串行，会雪上加霜）
     setPendingTurn((pending) => {
       if (pending !== null) return pending
       send({ type: 'next_turn' })
       return stateTurnRef.current + 1
     })
-  }, [send])
+  }, [connected, send])
 
   const toggleAuto = useCallback(() => {
     const next = !auto
     setAuto(next)
-    send({ type: 'auto', enabled: next, interval_ms: 800 })
+    if (!send({ type: 'auto', enabled: next, interval_ms: 800 }) && next) {
+      // 开了但没发出去：界面会显示"自动推进中"而后端没动 —— 必须说清楚。
+      // 注意 auto 仍置 true：onopen 会在重连后按当前 auto 补发（A5 要求 2），
+      // 用户的意图不丢，这里只负责告知"还没生效"。
+      setActionBlockedReason('未连接到后端，自动推进尚未开始（重连成功后将自动恢复）')
+    } else {
+      setActionBlockedReason('')
+    }
   }, [auto, send])
 
   const reset = useCallback((config?: Record<string, unknown>) => {
@@ -417,6 +495,24 @@ export function useGame(): UseGameReturn {
     ? (state?.llm_error || '后端已回退为规则 AI（原因未说明）')
     : ''
 
+  /**
+   * 🔴 A5：「下一回合」当前不可用的原因（空串 = 可用）。
+   *
+   * 纪律：**不做假控件** —— 按钮置灰必须同时写明为什么。
+   * 原实现 disabled={auto || thinking} 只有一个光秃秃的 disabled，
+   * 界面无法区分"在思考"、"在自动推进"和"已断网"，用户只能靠猜。
+   * 顺序按用户最可能关心的问题排：断网 > 思考中 > 自动推进中 > 终局。
+   */
+  const nextTurnBlockedReason = !connected
+    ? '未连接后端'
+    : pendingTurn !== null
+      ? '正在推进上一回合'
+      : auto
+        ? '自动推进中（如需手动推进请先停止）'
+        : state?.game_over
+          ? '对局已结束'
+          : ''
+
   return useMemo(() => ({
     state,
     connected,
@@ -435,9 +531,12 @@ export function useGame(): UseGameReturn {
     commandPending,
     commandResult,
     runCommand,
+    nextTurnBlockedReason,
+    actionBlockedReason,
   }), [
     state, connected, auto, sendCommand, nextTurn, toggleAuto, reset,
     restart, restarting, restartError, pendingTurn, thinkingSeconds,
     llmActive, llmError, commandPending, commandResult, runCommand,
+    nextTurnBlockedReason, actionBlockedReason,
   ])
 }

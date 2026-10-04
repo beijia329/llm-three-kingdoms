@@ -9,11 +9,14 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import logging
 import os
+import threading
+import weakref
 from contextlib import asynccontextmanager
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +29,74 @@ logger = logging.getLogger(__name__)
 
 # 全局游戏管理器（单例，后续可扩展为多房间）
 _manager: Optional[GameManager] = None
+
+T = TypeVar("T")
+
+
+# ============================================================
+# 回合执行闸门（A4：把同步回合挪出事件循环）
+# ============================================================
+#
+# 🔴 为什么需要闸门：`GameManager.process_turn()` / `execute_command()` 是**同步**
+# 函数，且直接读写引擎内部状态（`engine.cities` / `armies` / `generals` …）。
+# 在此之前它们直接在 `async def` 里调用 —— LLM 模式单回合 12 方约 40 秒
+# （`api/game_manager.py` `parallel_players` 字段自述），这 40 秒里 asyncio 事件
+# 循环**完全停摆**：WS 收不到「停止自动推进」、ping 无响应、同进程其它 HTTP
+# 请求排队饿死。改为 `run_in_executor` 后引擎写操作发生在**工作线程**上，
+# 于是必须有把互斥量把「写引擎」这件事串起来，否则两个回合会并发改同一份状态。
+#
+# 为什么按事件循环分桶而不是一个模块级 `asyncio.Lock`：
+# `asyncio.Lock` 在首次 await 时绑定当时的 event loop（`_LoopBoundMixin`），
+# 换 loop 再用会抛 "is bound to a different event loop"。而每个 `TestClient(app)`
+# / 每次 uvicorn 重启都是一个新 loop —— 模块级单例会直接炸测试。
+# WeakKeyDictionary 让 loop 被回收时锁一起消失，也不会泄漏。
+_turn_locks: "weakref.WeakKeyDictionary[Any, asyncio.Lock]" = weakref.WeakKeyDictionary()
+_turn_locks_guard = threading.Lock()
+
+
+def _get_turn_lock() -> asyncio.Lock:
+    """取当前事件循环的回合互斥锁（不存在则建）。"""
+    loop = asyncio.get_running_loop()
+    with _turn_locks_guard:
+        lock = _turn_locks.get(loop)
+        if lock is None:
+            lock = asyncio.Lock()
+            _turn_locks[loop] = lock
+        return lock
+
+
+async def _run_exclusive(lock: asyncio.Lock, fn: Callable[..., T], *args: Any) -> T:
+    """在 executor 里跑同步阻塞函数，**全程持锁**。
+
+    🔴 锁的释放时机是本函数最容易写错的地方：绝不能写在 `await` 之后
+    （`async with` 的隐式释放）。原因是 `auto_task.cancel()` 会在 await 点抛
+    CancelledError，但**工作线程不可中断、仍会把整个回合跑完**。若此时锁已释放，
+    下一个 tick 会看到「锁空闲」而并发进入引擎 —— 于是我们亲手制造了
+    「两个回合同时改一份状态」的 corruption。
+    正确做法：把释放挂到 executor future 的 done 回调上（= 线程真正结束的时刻），
+    并用 `asyncio.shield` 保证 await 被取消时 future 不被连带取消。
+    """
+    loop = asyncio.get_running_loop()
+    try:
+        fut = loop.run_in_executor(None, functools.partial(fn, *args))
+    except BaseException:
+        # 提交失败（executor 已关闭等）：没有线程会跑，锁必须就地释放，否则永久死锁
+        lock.release()
+        raise
+    fut.add_done_callback(lambda _f: lock.release())
+    # shield：await 点被 cancel 时，fut 继续跑完，回调在真实结束点释放锁
+    return await asyncio.shield(fut)
+
+
+async def _run_in_executor_unlocked(fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    """把同步函数挪进 executor，**不加闸门**。
+
+    仅用于**只读或与对局状态无关**的调用：`get_state`（读快照）、`GameManager(...)`
+    构造（建新局，不碰旧局）。凡是会写引擎的（process_turn / execute_command）
+    必须走 `_run_exclusive`，否则会绕开互斥。
+    """
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, functools.partial(fn, *args, **kwargs))
 
 
 def _env_int(name: str, default: int) -> int:
@@ -112,6 +183,11 @@ async def get_state(
 
     hex_map_version（可选）：客户端已知的 hex_map 版本。与当前版本一致时
     **不再回传** hex_map（响应从 ~2.34 MB 降到 ~30 KB）；不一致则回传完整地图。
+
+    🔴 A4 刻意**不加**回合闸门：读端一旦排队，就是「LLM 回合 40s 内所有
+    /api/state 全挂」——那正是本次要消灭的失效模式。读侧与写侧并发的安全性
+    已实测（`docs/qa/verify_scripts/a4_race_probe.py`：113 回合并发 239 次
+    get_state，0 异常）。最坏情况只是地图比实际慢一个回合，非状态错误。
     """
     if _manager is None:
         return {"error": "游戏管理器未初始化"}
@@ -163,18 +239,33 @@ async def get_model_records() -> Dict[str, Any]:
 
 @app.post("/api/command")
 async def post_command(command: Dict[str, Any]) -> Dict[str, Any]:
-    """执行一个命令"""
-    if _manager is None:
+    """执行一个命令
+
+    🔴 A4：与 WS 侧共用同一把回合闸门 —— 否则 REST 发出的命令会和自动推进
+    正在跑的回合并发改同一份引擎状态。
+    """
+    lock = _get_turn_lock()
+    await lock.acquire()
+    mgr = _manager  # 拿锁之后再取实例（与 WS 侧同一口径）
+    if mgr is None:
+        lock.release()
         return {"error": "游戏管理器未初始化"}
-    return _manager.execute_command(command)
+    return await _run_exclusive(lock, mgr.execute_command, command)
 
 
 @app.post("/api/next-turn")
 async def next_turn() -> Dict[str, Any]:
-    """推进一回合"""
+    """推进一回合
+
+    🔴 A4：挪进 executor，LLM 模式单回合 40s 不再冻结整个事件循环
+    （期间同进程的 GET /api/state、WS ping 都能立即响应）。
+    """
+    lock = _get_turn_lock()
+    await lock.acquire()
     if _manager is None:
+        lock.release()
         return {"error": "游戏管理器未初始化"}
-    return _manager.process_turn()
+    return await _run_exclusive(lock, _manager.process_turn)
 
 
 @app.post("/api/reset")
@@ -201,7 +292,7 @@ async def reset_game(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
                 f"可用字段：{', '.join(valid_fields)}"
             ),
         ) from exc
-    _manager = GameManager(config=cfg)
+    _manager = await _run_in_executor_unlocked(GameManager, config=cfg)
     return _manager.get_state()
 
 
@@ -223,6 +314,12 @@ async def game_websocket(websocket: WebSocket) -> None:
     - {"type": "state", "data": {...}}
     - {"type": "event", "text": "..."}
     - {"type": "error", "message": "..."}
+    - {"type": "auto_stopped", "reason": "game_over", "text": "..."}
+      （A5 新增：自动推进**真的**停了。前端据此把 auto 置 false，
+        否则界面会永久显示「自动推进中」而「下一回合」被永久禁用）
+
+    🔴 A4：所有会写引擎的同步调用（process_turn / execute_command）都经
+    `_run_exclusive` 挪进 executor 并串行化；只读调用走 `_run_in_executor_unlocked`。
     """
     global _manager
     await websocket.accept()
@@ -235,20 +332,92 @@ async def game_websocket(websocket: WebSocket) -> None:
     # 连接级 hex_map 版本：首次必发完整地图，之后只在版本变化（占领变城）时再发。
     # 这样自动推进 800ms/回合也只推 ~30 KB 的状态增量，而不是每回合 2.58 MB。
     sent_hex_version: Optional[str] = None
+    # 回合闸门：与 REST 侧共用同一把锁，保证「写引擎」全局串行
+    turn_lock = _get_turn_lock()
 
     async def send_state() -> None:
+        """推送当前状态。
+
+        `get_state()` 是同步的（含 24000 格 hex_map 的序列化，实测 8~40ms），
+        同样挪进 executor —— 它现在是自动推进每 800ms 调一次的高频路径，
+        留在事件循环里会持续制造几百 ms 的卡顿。
+        """
         nonlocal sent_hex_version
-        data = _manager.get_state(known_hex_map_version=sent_hex_version)
+        mgr = _manager
+        if mgr is None:
+            return
+        data = await _run_in_executor_unlocked(mgr.get_state, known_hex_map_version=sent_hex_version)
         sent_hex_version = data.get("hex_map_version")
         await websocket.send_json({"type": "state", "data": data})
 
     async def auto_loop(interval_ms: int) -> None:
+        """自动推进循环。
+
+        🔴 闸门（`turn_lock.locked()`）：上一回合没算完就**跳过本 tick**，绝不排队。
+        排队会雪球 —— LLM 模式单回合 40s，而 interval 只有 800ms，
+        每 tick 排一个 → 队列只增不减，点「停止」要等几十个回合才生效。
+        跳过则天然收敛：算得完就一直推进，算不完就等于自动降速。
+        """
+        nonlocal auto_task
         while True:
             await asyncio.sleep(interval_ms / 1000.0)
-            if _manager.engine and _manager.engine.game_over:
+            if _manager is None:
+                await _notify_auto_stopped("manager_gone", "游戏管理器已释放，自动推进停止")
                 break
-            _manager.process_turn()
+            if _manager.engine and _manager.engine.game_over:
+                # 🔴 A5：break 前必须通知前端。后端静默退出循环，前端的 auto
+                # 布尔却仍为 true → 「下一回合」被 auto 恒真永久禁用，而后端一步
+                # 都没在推进 = 界面显示「自动推进中」骗观众。
+                await _notify_auto_stopped("game_over", "对局已结束，自动推进停止")
+                break
+            if turn_lock.locked():
+                # 上一回合仍在跑：跳过本 tick（不排队，见上方说明）
+                continue
+            await turn_lock.acquire()
+            # 🔴 `_manager` 是 global，可能在本协程 await 锁期间被 init/reset 换掉。
+            # 因此**在拿到锁之后**才取实例快照：回合只作用于当前这一局，
+            # 不会把旧局的回合写进新局。
+            turn_mgr = _manager
+            if turn_mgr is None:
+                await _notify_auto_stopped("manager_gone", "游戏管理器已释放，自动推进停止")
+                break
+            try:
+                await _run_exclusive(turn_lock, turn_mgr.process_turn)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                # 单个回合异常不能让 auto_loop 静默死掉（前端会一直显示"推进中"）
+                logger.exception("自动推进的单回合执行失败: %r", exc)
+                await _notify_auto_stopped("turn_error", f"回合执行异常，自动推进已停止：{exc}")
+                break
+            if _manager is not turn_mgr:
+                # 回合期间用户重开了新局：这次结果属于旧局，不推给前端
+                logger.info("回合结束后检测到对局已被重置，丢弃本次状态推送")
+                continue
+            # 回合本身把对局打结束（达到 max_turns / 某方统一）时，
+            # 下一个 tick 才会检查到 game_over 并 break —— 但那要等 interval。
+            # 这里立刻发终止事件，让界面第一时间解除「自动推进中」。
+            if turn_mgr.engine and turn_mgr.engine.game_over:
+                await send_state()
+                await _notify_auto_stopped("game_over", "对局已结束，自动推进停止")
+                break
             await send_state()
+
+    async def _notify_auto_stopped(reason: str, text: str) -> None:
+        """告知前端「自动推进真的停了」及其原因（A5）。
+
+        事件是**新增**的下行消息类型，不改既有 state/event 的语义。
+        前端收到即把 auto 置 false —— 于是「下一回合」「空格」恢复可用。
+        """
+        try:
+            await websocket.send_json({
+                "type": "auto_stopped",
+                "reason": reason,
+                "text": text,
+            })
+        except (WebSocketDisconnect, RuntimeError):
+            # 连接已断：前端重连后会自己补发 auto 状态，无需在此兜底
+            pass
 
     # 发送初始状态
     await send_state()
@@ -280,18 +449,49 @@ async def game_websocket(websocket: WebSocket) -> None:
                     provider=msg.get("provider") or GameConfig.provider,
                     factions=msg.get("factions") or None,
                 )
-                _manager = GameManager(config=cfg)
+                # 建局实测 ~4.2s（建 24000 格地图 + 建 12 方 AI），同步执行会卡死事件循环
+                _manager = await _run_in_executor_unlocked(GameManager, config=cfg)
                 # 新开一局 = 全新地图，必须重置连接级版本，强制重发完整地图
                 sent_hex_version = None
                 await send_state()
 
             elif msg_type == "command":
-                result = _manager.execute_command(msg.get("command", {}))
+                # execute_command 走 engine.execute_command → 命令处理器，
+                # 全是内存计算（无 LLM 调用，已核对 game/ 下零 llm_client 引用），
+                # 单次毫秒级。但它**写引擎**，必须与 process_turn 共用闸门，
+                # 否则会和后台正在跑的回合并发改同一份状态。
+                await turn_lock.acquire()
+                mgr = _manager  # 拿锁之后再取实例（理由同 auto_loop 内注释）
+                if mgr is None:
+                    turn_lock.release()
+                    await websocket.send_json({"type": "error", "message": "游戏管理器未初始化"})
+                    continue
+                try:
+                    result = await _run_exclusive(turn_lock, mgr.execute_command, msg.get("command", {}))
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    logger.exception("命令执行失败: %r", exc)
+                    result = {"success": False, "error": str(exc)}
                 await websocket.send_json({"type": "command_result", "data": result})
                 await send_state()
 
             elif msg_type == "next_turn":
-                turn_result = _manager.process_turn()
+                # 不像 auto_loop 那样跳过：手动点击是明确意图，等上一回合跑完再执行
+                # （前端有 pendingTurn 幂等守卫 + 240s 超时兜底，不会无限等）。
+                await turn_lock.acquire()
+                mgr = _manager  # 拿锁之后再取实例（理由同 auto_loop 内注释）
+                if mgr is None:
+                    turn_lock.release()
+                    await websocket.send_json({"type": "error", "message": "游戏管理器未初始化"})
+                    continue
+                try:
+                    turn_result = await _run_exclusive(turn_lock, mgr.process_turn)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    logger.exception("回合推进失败: %r", exc)
+                    turn_result = {"error": str(exc)}
                 await websocket.send_json({"type": "turn_result", "data": turn_result})
                 await send_state()
 
@@ -299,8 +499,23 @@ async def game_websocket(websocket: WebSocket) -> None:
                 enabled = msg.get("enabled", False)
                 if auto_task and not auto_task.done():
                     auto_task.cancel()
+                    # 等它真正结束再起新的：旧 auto_loop 此刻可能正持锁跑回合。
+                    # 用 asyncio.wait 而非 `await auto_task` —— 后者会把子任务的
+                    # CancelledError 抛到本协程，在 cancel 竞态下容易误吞外层取消。
+                    await asyncio.wait({auto_task})
                     auto_task = None
                 if enabled:
+                    mgr = _manager
+                    if mgr is not None and mgr.engine is not None and mgr.engine.game_over:
+                        # 对局已结束还开自动推进 = 假控件：后端只会立刻 break。
+                        # 明确告知而不是假装开了。
+                        await websocket.send_json({
+                            "type": "auto_stopped",
+                            "reason": "game_over",
+                            "text": "对局已结束，无法开启自动推进",
+                        })
+                        await websocket.send_json({"type": "event", "text": "自动推进: 开（已拒绝：对局已结束）"})
+                        continue
                     interval = msg.get("interval_ms", 500)
                     auto_task = asyncio.create_task(auto_loop(interval))
                 await websocket.send_json({"type": "event", "text": f"自动推进: {'开' if enabled else '关'}"})

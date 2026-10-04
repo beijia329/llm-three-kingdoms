@@ -245,4 +245,7 @@ export interface WebSocketMessage {
   data?: unknown
   text?: string
   message?: string
+  /** v4.1.3（A5）：仅 type === 'auto_stopped' 时有值。
+   *  'game_over' | 'manager_gone' | 'turn_error' —— 供前端区分停止原因。 */
+  reason?: string
 }

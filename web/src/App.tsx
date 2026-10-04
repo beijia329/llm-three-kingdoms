@@ -30,6 +30,8 @@ function App() {
     // thinkingSeconds 仅透传给 LlmSetupBar（等待条在那边渲染，见 M7 注释）
     restarting, restartError, thinking, thinkingSeconds, llmActive, llmError,
     runCommand, commandPending, commandResult,
+    // A5：置灰原因必须写进界面 —— 不做假控件
+    nextTurnBlockedReason, actionBlockedReason,
   } = useGame()
   const [tab, setTab] = useState<TabKey>('factions')
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null)
@@ -67,7 +69,10 @@ function App() {
 
       if (e.code === 'Space') {
         e.preventDefault()
-        if (!auto) nextTurn()
+        // 🔴 A5：与按钮同一套判定。原来只有 `if (!auto)`，断网/终局时按空格
+        // 仍会调 nextTurn —— nextTurn 内部虽已拦住不再锁死按钮，但这里
+        // 静默无反馈会让"空格好像坏了"。统一走 nextTurnBlockedReason。
+        if (!nextTurnBlockedReason) nextTurn()
       } else if (e.key === 'a' || e.key === 'A') {
         toggleAuto()
       } else if (e.key === '1') {
@@ -90,7 +95,7 @@ function App() {
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [auto, nextTurn, toggleAuto, helpOpen])
+  }, [auto, nextTurn, toggleAuto, helpOpen, nextTurnBlockedReason])
 
   const handleSelectCity = (cityId: string) => {
     setSelectedCityId(cityId)
@@ -129,14 +134,21 @@ function App() {
           />
           <EventTicker events={state?.events || []} />
 
+          {/* 🔴 A5：disabled 判定纳入 connected，并把「为什么不可用」写进按钮。
+              原实现 disabled={auto || thinking} 有两个问题：
+                ① 断网时按钮可点 → 点下去 send() 静默 return，UI 却进入"思考中"
+                   并锁死 240s（TURN_TIMEOUT_S），观感是"点了没反应还把按钮搞坏"；
+                ② 置灰不写理由 —— 用户无法区分"在思考"/"自动推进中"/"已断网"。
+              纪律：不做假控件。不可用就要说清楚为什么不可用。 */}
           <button
             style={{
               ...styles.nextButton,
-              opacity: auto || thinking ? 0.5 : 1,
-              cursor: auto || thinking ? 'not-allowed' : 'pointer',
+              opacity: nextTurnBlockedReason ? 0.5 : 1,
+              cursor: nextTurnBlockedReason ? 'not-allowed' : 'pointer',
             }}
-            onClick={() => !auto && !thinking && nextTurn()}
-            disabled={auto || thinking}
+            onClick={() => !nextTurnBlockedReason && nextTurn()}
+            disabled={!!nextTurnBlockedReason}
+            title={nextTurnBlockedReason || '推进一个回合（快捷键：空格）'}
           >
             <i
               className={`fa-solid ${thinking ? 'fa-spinner fa-spin' : 'fa-forward-step'}`}
@@ -146,9 +158,26 @@ function App() {
               {thinking ? '思考中...' : '下一回合'}
             </div>
             <div style={{ color: '#a8a29a', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <i className="fa-solid fa-keyboard" style={{ fontSize: '9px' }}></i>空格 / A
+              {nextTurnBlockedReason ? (
+                // 不可用时，这行小字改为显示原因（原来恒为「空格 / A」，
+                // 与按钮实际是否可用无关，本身也是一种"假控件"）
+                <span style={{ color: '#e8a04b' }}>{nextTurnBlockedReason}</span>
+              ) : (
+                <>
+                  <i className="fa-solid fa-keyboard" style={{ fontSize: '9px' }}></i>空格 / A
+                </>
+              )}
             </div>
           </button>
+
+          {/* 操作被前端拦下时的原因提示（如断网点按钮）。
+              静默失败会让用户以为"点了没反应"，所以必须给出可见反馈。 */}
+          {actionBlockedReason && (
+            <div style={styles.blockedNotice} role="alert">
+              <i className="fa-solid fa-circle-exclamation" style={{ marginRight: '6px' }}></i>
+              {actionBlockedReason}
+            </div>
+          )}
 
           {auto && (
             <div style={styles.autoIndicator}>
@@ -315,6 +344,23 @@ const styles: Record<string, React.CSSProperties> = {
     backdropFilter: 'blur(12px)',
     display: 'flex',
     alignItems: 'center',
+  },
+  /** [A5] 操作被拦下的原因提示：置于「下一回合」按钮正上方，不遮挡地图主体 */
+  blockedNotice: {
+    position: 'absolute',
+    bottom: '68px',
+    right: PANEL_W + GAP_PANEL,
+    width: NEXT_BTN_W,
+    padding: '7px 10px',
+    background: 'rgba(200, 80, 70, 0.92)',
+    border: '1px solid rgba(200, 80, 70, 0.6)',
+    borderRadius: '8px',
+    color: '#f0d5d0',
+    fontSize: '11px',
+    lineHeight: 1.45,
+    zIndex: 11,
+    boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+    backdropFilter: 'blur(12px)',
   },
   /** 自动推进的「停止」按钮（此前只能按 A 键，界面无入口） */
   stopBtn: {

@@ -392,9 +392,17 @@ EXPLORE_BASE_CHANCE: float = 0.20
 EXPLORE_MORALE_FACTOR: float = 0.002
 """每点民心增加0.2%探索概率"""
 
-# ⚠️ 尚未接入任何逻辑（v4.0.1 核实：全仓 0 引用），保留待实现
 EXPLORE_COOLDOWN_TURNS: int = 3
-"""探索冷却回合数"""
+"""探索冷却回合数。
+
+[A3 v4.1.3] 已接入 `GameEngine._execute_explore`：同一城池距上次探索
+不足本值个回合时拒绝探索。基准取引擎自己的 `self.turn`（不取 `cmd.turn`，
+否则调用方自称一个超大 turn 号即可永久绕过冷却）。
+
+历史：本常量 2026-06 写下后一直「⚠️ 尚未接入任何逻辑」，全仓 0 引用 ——
+探索无冷却 + 人才池环形复用（见 `general_system.POTENTIAL_GENERALS`）
+共同构成「同一局无限白嫖武将」的漏洞。
+"""
 
 # --- 忠诚度阈值 ---
 LOYALTY_DEVOTED_THRESHOLD: int = 90
