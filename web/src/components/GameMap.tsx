@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js'
 import type { GameState, HexCoord } from '../types'
-import { FACTION_COLORS, TERRAIN_PARCHMENT, hexToNumber } from '../theme'
+import { FACTION_COLORS, TERRAIN_PARCHMENT, hexToNumber, LW, OP, FS } from '../theme'
 import { HEX_SIZE, axialToPixel, hexNeighbors, hexPoints } from '../utils/hex'
 import { CityMarker } from './map/CityMarker'
 import { ArmyMarker } from './map/ArmyMarker'
@@ -42,6 +42,9 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
   // [性能 2026-10-03] 记录已渲染的 hex_map 版本。后端只在「占领变城」时改版本，
   // 版本未变则复用整层 Pixi 图形 —— 不再每 0.8s 重画 24000 格（卡顿根因）。
   const renderedHexVersionRef = useRef<string | null>(null)
+  // [D3 2026-10-04] zoom 档位门控：格网/地形的可见性按 0.30 / 0.55 两档切换，
+  // 跨档才重建该层（档内不重建），线宽随 zoom 换算才能屏幕恒定。
+  const renderedZoomBucketRef = useRef<number>(-1)
 
   // [美术 2026-10-01] 改为"古地图"风格：不再散布贴图装饰（读起来像噪点），
   // 地形改用线描山脉表现（见渲染层）。
@@ -109,7 +112,9 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
     // 无地图数据（缓存缺失的异常态）时不动，避免把已有画布清空。
     if (!state.hex_map) return
     const hexVersion = state.hex_map_version ?? 'legacy'
-    if (hexVersion === renderedHexVersionRef.current) return
+    // [D3] 版本 + zoom 档位双门控：任一变化才重建（档内缩放不重建，避免每滚一格重画）
+    const bucketNow = zoomBucket(cameraRef.current.zoom)
+    if (hexVersion === renderedHexVersionRef.current && bucketNow === renderedZoomBucketRef.current) return
 
     const camera = pixiCameraRef.current
     camera.removeChildren()
@@ -168,7 +173,17 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
     // 平行四边形（逐行右移半格），其外缘/雾层呈斜边。改为把画布底色 = 海色，使版图
     // 之外自然融为海面，斜边随之消失。着色仍用 province_id 判定。
 
-    // 1. 地块（势力色为主，地形微调）
+    // [D3] 屏幕 px → 世界 px（线宽在屏幕上恒定：世界px = 屏幕px / zoom）
+    const zoom = cameraRef.current.zoom
+    const w = (screenPx: number) => lw(screenPx, zoom)
+    const nBucket = zoomBucket(zoom)
+
+    // 交战国对（L4 交战前线用）：后端下发 [[a,b], ...]
+    const atWar = new Set<string>(
+      (state.at_war_pairs || []).map(([a, b]) => [a, b].sort().join('|')),
+    )
+
+    // 1. 地块底色（羊皮纸陆地 + 深色海）
     const tilesGraphics = new Graphics()
     coords.forEach((key) => {
       const [q, r] = key.split(',').map(Number)
@@ -177,14 +192,26 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
       const terrain = tile?.terrain || 'plain'
       const { x, y } = axialToPixel(coord, HEX_SIZE)
       const points = hexPoints(x, y, HEX_SIZE)
-
-      // === 渲染逻辑：古地图风（羊皮纸陆地 + 深色海） ===
       const isWater = terrain === 'water' || terrain === 'deep_water'
       tilesGraphics.poly(points).fill(isWater ? SEA_COLOR : parchmentTint(terrain))
     })
     camera.addChild(tilesGraphics)
 
-    // 势力领地：半透明色块叠在羊皮纸上（参考三国志：纯色填充 + 深色边界）
+    // 2. 地形符号（§4.3 LOD）：<0.30 不画（纸色）；≥0.30 画符号
+    if (nBucket >= 1) {
+      const terrainGraphics = new Graphics()
+      coords.forEach((key) => {
+        const tile = tileMap.get(key)
+        if (!tile?.province_id) return
+        if (!TERRAIN_SYMBOL.has(tile.terrain)) return
+        const [q, r] = key.split(',').map(Number)
+        const { x, y } = axialToPixel({ q, r }, HEX_SIZE)
+        drawTerrainSymbol(terrainGraphics, tile.terrain, x, y, zoom, q, r)
+      })
+      camera.addChild(terrainGraphics)
+    }
+
+    // 3. 势力领地：alpha 0.30（§4.1，让地形透出来；归属靠边界线承担）
     const factionGraphics = new Graphics()
     coords.forEach((key) => {
       const [q, r] = key.split(',').map(Number)
@@ -194,11 +221,26 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
       if (!fac || fac === 'neutral') return
       const { x, y } = axialToPixel(coord, HEX_SIZE)
       factionGraphics.poly(hexPoints(x, y, HEX_SIZE))
-        .fill({ color: hexToNumber(FACTION_COLORS[fac] || '#666666'), alpha: 0.42 })
+        .fill({ color: hexToNumber(FACTION_COLORS[fac] || '#666666'), alpha: OP.wash })
     })
     camera.addChild(factionGraphics)
 
-    // 河流（黄河/长江）：真实走向的经纬度折线 → 格坐标 → 像素
+    // 4. ★格网（H2）：地块仅 fill 时读不出棋盘结构 —— 给陆地格描一道细发线格网。
+    //    线宽屏幕恒定（÷zoom），全图视角（<0.30）不画（LOD）。
+    if (nBucket >= 1) {
+      const gridGraphics = new Graphics()
+      coords.forEach((key) => {
+        const tile = tileMap.get(key)
+        if (!tile?.province_id) return
+        const [q, r] = key.split(',').map(Number)
+        const { x, y } = axialToPixel({ q, r }, HEX_SIZE)
+        gridGraphics.poly(hexPoints(x, y, HEX_SIZE))
+          .stroke({ color: GRID_COLOR, width: w(LW.hair), alpha: 0.20 })
+      })
+      camera.addChild(gridGraphics)
+    }
+
+    // 5. 水系（黄河/长江）：真实走向折线（主干 10 世界px，§4.3）
     const riverGraphics = new Graphics()
     RIVERS.forEach((pts) => {
       const px = pts.map(([lon, lat]) => {
@@ -218,14 +260,40 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
       dense.push(px[px.length - 1])
       riverGraphics.moveTo(dense[0].x, dense[0].y)
       for (let i = 1; i < dense.length; i++) riverGraphics.lineTo(dense[i].x, dense[i].y)
-      riverGraphics.stroke({ color: 0x3f6d86, width: 13, alpha: 0.92 })
+      riverGraphics.stroke({ color: 0x3f6d86, width: 10, alpha: 0.92 })
     })
     camera.addChild(riverGraphics)
 
-    // [美术 2026-10-01] 线描山脉在"整图缩放"下会糊成噪点，暂不绘制；
-    // 保持"平铺羊皮纸 + 墨线省界 + 半透明势力色"的干净古地图风（参考三国志12）。
+    // 6. 州郡界 L2（§4.2）：1.8 屏幕px 实线 INK，alpha 0.72
+    const provinceGraphics = new Graphics()
+    const provinceHexes: Record<string, HexCoord[]> = {}
+    coords.forEach((key) => {
+      const tile = tileMap.get(key)
+      if (tile?.province_id) {
+        provinceHexes[tile.province_id] = provinceHexes[tile.province_id] || []
+        const [q, r] = key.split(',').map(Number)
+        provinceHexes[tile.province_id].push({ q, r })
+      }
+    })
+    Object.values(provinceHexes).forEach((hexList) => {
+      const coordSet = new Set(hexList.map((h) => `${h.q},${h.r}`))
+      hexList.forEach((c) => {
+        const { x: cx, y: cy } = axialToPixel(c, HEX_SIZE)
+        const hPts = hexPoints(cx, cy, HEX_SIZE)
+        for (let i = 0; i < 6; i++) {
+          const nbQ = c.q + [1,1,0,-1,-1,0][i]; const nbR = c.r + [0,-1,-1,0,1,1][i]
+          if (!coordSet.has(`${nbQ},${nbR}`)) {
+            const x1 = hPts[i*2]; const y1 = hPts[i*2+1]
+            const x2 = hPts[((i+1)%6)*2]; const y2 = hPts[((i+1)%6)*2+1]
+            provinceGraphics.moveTo(x1, y1).lineTo(x2, y2)
+              .stroke({ color: INK_COLOR, width: w(LW.mid), alpha: OP.mid })
+          }
+        }
+      })
+    })
+    camera.addChild(provinceGraphics)
 
-    // 2. 势力边界（最粗，势力色）
+    // 7. 势力界 L3 / 交战前线 L4（§4.2）：3.0 屏幕px；交战对覆盖为朱红 + 外侧亮描边
     const factionBorderGraphics = new Graphics()
     const drawnFactionEdges = new Set<string>()
     coords.forEach((key) => {
@@ -249,75 +317,60 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
         const len = Math.sqrt(dx*dx+dy*dy) || 1
         const nx = (-dy/len) * HEX_SIZE * 0.55
         const ny = (dx/len) * HEX_SIZE * 0.55
-        factionBorderGraphics.moveTo(mx+nx, my+ny).lineTo(mx-nx, my-ny)
-          .stroke({ color: darken(hexToNumber(FACTION_COLORS[faction] || '#666666'), 0.55), width: 3, alpha: 0.9 })
+        const x1 = mx+nx, y1 = my+ny, x2 = mx-nx, y2 = my-ny
+        const atWarHere =
+          !!nbFaction && nbFaction !== 'neutral' &&
+          atWar.has([faction, nbFaction].sort().join('|'))
+        if (atWarHere) {
+          // L4：外侧亮描边（浅底可读）+ 朱红主线
+          factionBorderGraphics.moveTo(x1, y1).lineTo(x2, y2)
+            .stroke({ color: CORE_LIGHT, width: w(LW.bold) + w(2), alpha: 0.85 })
+          factionBorderGraphics.moveTo(x1, y1).lineTo(x2, y2)
+            .stroke({ color: WAR_COLOR, width: w(LW.bold), alpha: 1.0 })
+        } else {
+          factionBorderGraphics.moveTo(x1, y1).lineTo(x2, y2)
+            .stroke({
+              color: darken(hexToNumber(FACTION_COLORS[faction] || '#666666'), 0.45),
+              width: w(LW.bold),
+              alpha: OP.strong,
+            })
+        }
       })
     })
     camera.addChild(factionBorderGraphics)
 
-    // 3. 州郡边界（中等粗细，淡金色虚线感）
-    const provinceGraphics = new Graphics()
-    const provinceHexes: Record<string, HexCoord[]> = {}
-    coords.forEach((key) => {
-      const tile = tileMap.get(key)
-      if (tile?.province_id) {
-        provinceHexes[tile.province_id] = provinceHexes[tile.province_id] || []
-        const [q, r] = key.split(',').map(Number)
-        provinceHexes[tile.province_id].push({ q, r })
-      }
-    })
-    Object.values(provinceHexes).forEach((hexList) => {
-      const coordSet = new Set(hexList.map((h) => `${h.q},${h.r}`))
-      hexList.forEach((c) => {
-        const { x: cx, y: cy } = axialToPixel(c, HEX_SIZE)
-        const hPts = hexPoints(cx, cy, HEX_SIZE)
-        for (let i = 0; i < 6; i++) {
-          const nbQ = c.q + [1,1,0,-1,-1,0][i]; const nbR = c.r + [0,-1,-1,0,1,1][i]
-          if (!coordSet.has(`${nbQ},${nbR}`)) {
-            const x1 = hPts[i*2]; const y1 = hPts[i*2+1]
-            const x2 = hPts[((i+1)%6)*2]; const y2 = hPts[((i+1)%6)*2+1]
-            // [美术 2026-10-01] 实线墨线（原来虚线在整图缩放下变成点点、看不清）
-            provinceGraphics.moveTo(x1, y1).lineTo(x2, y2)
-              .stroke({ color: INK_COLOR, width: 1.2, alpha: 0.85 })
-          }
-        }
-      })
-    })
-    camera.addChild(provinceGraphics)
-
-    // 4. 标注层次：州名（大） > 城名（中） 
+    // 8. 标注层次：州名（大，衬线感） > 城名（中）
     Object.entries(provinceHexes).forEach(([provId, hexList]) => {
       if (hexList.length === 0) return
       const cx = hexList.reduce((s, h) => s + axialToPixel(h, HEX_SIZE).x, 0) / hexList.length
       const cy = hexList.reduce((s, h) => s + axialToPixel(h, HEX_SIZE).y, 0) / hexList.length
       const provName = state.provinces?.[provId]?.name || provId
       // 州名背景底板
-      const metric = new Text({ text: provName, style: new TextStyle({ fontSize: 20, fontFamily: 'Noto Sans SC', fontWeight: 'bold' }) })
+      const metric = new Text({ text: provName, style: new TextStyle({ fontSize: FS.title, fontWeight: 'bold' }) })
       const pw = metric.width + 16; const ph = metric.height + 16
       const bg = new Graphics()
-      bg.rect(-pw/2, -ph/2, pw, ph).fill({ color: 0x1a1a2e, alpha: 0.7 })
+      bg.rect(-pw/2, -ph/2, pw, ph).fill({ color: 0x16222b, alpha: 0.7 })
       bg.position.set(cx, cy); camera.addChild(bg)
-      // 州名文字
+      // 州名文字（用 map 标注 token 色：墨色 + 米白描边）
       const label = new Text({
         text: provName,
         style: new TextStyle({
-          fontSize: 20, fontFamily: 'Noto Sans SC, sans-serif',
-          fill: 0xffd700, stroke: { color: 0x000000, width: 4 },
+          fontSize: FS.title,
+          fill: 0x2c2c2c, stroke: { color: 0xefe6d2, width: 4 },
           fontWeight: 'bold', align: 'center',
         }),
       })
       label.anchor.set(0.5); label.position.set(cx, cy)
       camera.addChild(label)
     })
-    // 城名（带底色）
+    // 城名（去掉 🏯 emoji，M2；字号走标尺 FS.body）
     Object.values(state.cities).forEach((city) => {
       const { x, y } = axialToPixel(city.position, HEX_SIZE)
-      const cityText = `🏯 ${city.name}`
       const label = new Text({
-        text: cityText,
+        text: city.name,
         style: new TextStyle({
-          fontSize: 14, fontFamily: 'Noto Sans SC, sans-serif',
-          fill: 0xffffff, stroke: { color: 0x000000, width: 3 },
+          fontSize: FS.body,
+          fill: 0x2f2418, stroke: { color: 0xefe6d2, width: 3 },
           fontWeight: 'bold',
         }),
       })
@@ -325,10 +378,11 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
       camera.addChild(label)
     })
 
-    // 记录本次已渲染版本，供后续 state 快照跳过重建
+    // 记录本次已渲染版本 + zoom 档位，供后续 state 快照 / 档内缩放跳过重建
     renderedHexVersionRef.current = hexVersion
+    renderedZoomBucketRef.current = nBucket
 
-  }, [state, pixiReady])
+  }, [state, pixiReady, camVersion])
 
   // 地图像素边界（世界坐标）— 动态从 hex_map 读取
   const hw = state?.hex_map?.width || 180
@@ -360,6 +414,9 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
     const vw = container?.clientWidth || 1200
     const vh = container?.clientHeight || 800
     const clamped = clampCamera(next, vw, vh)
+    // [D3] zoom 跨 LOD 档位（0.30/0.55）时触发一次重渲染，让格网/地形层按新档重建；
+    // 档内缩放不重建（避免每滚一格重画整层）。
+    const prevBucket = zoomBucket(cameraRef.current.zoom)
     cameraRef.current = clamped
     if (pixiCameraRef.current) {
       pixiCameraRef.current.position.set(clamped.x, clamped.y)
@@ -368,6 +425,7 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
     if (overlayRef.current) {
       overlayRef.current.style.transform = `translate(${clamped.x}px, ${clamped.y}px) scale(${clamped.zoom})`
     }
+    if (zoomBucket(clamped.zoom) !== prevBucket) setCamVersion((v) => v + 1)
   }
 
   // 鼠标/滚轮事件
@@ -482,8 +540,18 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
     ? Object.values(state.armies)
         .filter((a) => a.soldiers > 0 && a.current_hex)
         .map((army) => {
-          const pos = axialToPixel(army.current_hex!, HEX_SIZE)
-          return { army, pos }
+          const hex = army.current_hex!
+          const base = axialToPixel(hex, HEX_SIZE)
+          // [D3 §4.5④] 同格有城时：军队标记偏移到格右下角（沿 hex 30° 方向）。
+          const coCity = Object.values(state.cities).find(
+            (c) => c.position.q === hex.q && c.position.r === hex.r,
+          )
+          const pos = coCity
+            ? { x: base.x + HEX_SIZE * 0.45 * Math.cos(Math.PI / 6), y: base.y + HEX_SIZE * 0.45 * Math.sin(Math.PI / 6) }
+            : base
+          const toCity = army.to_city ? state.cities[army.to_city] : undefined
+          const toPos = toCity ? axialToPixel(toCity.position, HEX_SIZE) : null
+          return { army, pos, cityLevel: coCity?.level, toPos }
         })
     : []
 
@@ -578,7 +646,7 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
             onClick={() => onSelectCity(city.id)}
           />
         ))}
-        {armyMarkers.map(({ army, pos }) => (
+        {armyMarkers.map(({ army, pos, cityLevel, toPos }) => (
           <ArmyMarker
             key={army.id}
             army={army}
@@ -590,6 +658,8 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
             generalName={state?.generals[army.general_id]?.name}
             fromName={army.from_city ? state?.cities[army.from_city]?.name : undefined}
             toName={army.to_city ? state?.cities[army.to_city]?.name : undefined}
+            cityLevel={cityLevel}
+            toPos={toPos}
           />
         ))}
         {/* 战斗回放层（箭头 + 回放标签），与城市/军队同一世界坐标 transform */}
@@ -673,6 +743,92 @@ function darken(color: number, factor: number): number {  const r = Math.min(255
 /** 古地图配色：深色海 + 墨线 */
 const SEA_COLOR = 0x1b3a4b
 const INK_COLOR = 0x4a3a28
+/** [D3] 格网线（H2）、交战前线朱红（L4）、箭头亮芯 */
+const GRID_COLOR = 0x6b5a44
+const WAR_COLOR = 0xc0392b
+const CORE_LIGHT = 0xfbf6ea
+
+/** [D3] 缩放 LOD 档位：<0.30 全图（只纸色）/ 0.30–0.55 中景 / ≥0.55 近景 */
+function zoomBucket(z: number): 0 | 1 | 2 {
+  if (z < 0.30) return 0
+  if (z < 0.55) return 1
+  return 2
+}
+
+/** [D3] 屏幕 px → 世界 px（线宽屏幕恒定：世界px = 屏幕px / zoom） */
+function lw(screenPx: number, zoom: number): number {
+  return screenPx / Math.max(zoom, 0.02)
+}
+
+/** [D3] 由格坐标生成稳定伪随机 [0,1)，用于地形符号的确定性散布 */
+function hexHash(q: number, r: number, salt: number): number {
+  const n = Math.sin((q * 127.1 + r * 311.7 + salt * 74.7)) * 43758.5453
+  return n - Math.floor(n)
+}
+
+/** 需要绘制地形符号的地形集合（§4.3） */
+const TERRAIN_SYMBOL = new Set([
+  'mountain', 'peak', 'forest', 'dense_forest', 'hill', 'desert', 'marsh',
+])
+
+/**
+ * [D3] 绘制单个格的地形符号（古法制图符号，§4.3）：
+ * 山「人」字∧ + 单侧阴影排线 / 林锥形簇 / 丘缓浪 / 沙漠点阵 / 沼泽短横。
+ * 符号几何为世界 px（随 zoom 缩放），仅描边宽度按 1/zoom 换算保证屏幕可见。
+ */
+function drawTerrainSymbol(
+  g: Graphics, terrain: string, x: number, y: number, zoom: number, q: number, r: number,
+) {
+  const sw = lw(LW.hair, zoom)
+  if (terrain === 'mountain' || terrain === 'peak' || terrain === 'hill') {
+    const big = terrain !== 'hill'
+    const n = terrain === 'peak' ? 3 : (terrain === 'mountain' ? 2 : 1)
+    for (let i = 0; i < n; i++) {
+      const jitter = hexHash(q, r, i)
+      const ox = (i - (n - 1) / 2) * HEX_SIZE * 0.5 + (jitter - 0.5) * 5
+      const oy = (hexHash(r, q, i) - 0.5) * 6
+      const hh = (big ? 10 : 5) + jitter * 4
+      const halfW = hh * 0.62
+      const bx = x + ox
+      const by = y + oy + hh * 0.4
+      // 「人」字 ∧ + 单侧（右）阴影排线
+      g.moveTo(bx - halfW, by).lineTo(bx, by - hh).lineTo(bx + halfW, by)
+        .stroke({ color: 0x5a4a38, width: sw, alpha: 0.85 })
+      g.moveTo(bx, by - hh).lineTo(bx + halfW * 0.5, by - hh * 0.35)
+        .stroke({ color: 0x8a7a60, width: sw, alpha: 0.5 })
+    }
+  } else if (terrain === 'forest' || terrain === 'dense_forest') {
+    const n = terrain === 'dense_forest' ? 3 : 2
+    for (let i = 0; i < n; i++) {
+      const jitter = hexHash(q, r, 10 + i)
+      const ox = (i - (n - 1) / 2) * HEX_SIZE * 0.5
+      const oy = (hexHash(r, q, 20 + i) - 0.5) * 6
+      const hh = 7 + jitter * 3
+      const halfW = hh * 0.5
+      const bx = x + ox
+      const by = y + oy + 4
+      // 锥形（针叶）簇
+      g.moveTo(bx - halfW, by).lineTo(bx, by - hh).lineTo(bx + halfW, by).closePath()
+        .fill({ color: 0x5a7a3e, alpha: 0.35 })
+        .stroke({ color: 0x3d6832, width: sw, alpha: 0.8 })
+    }
+  } else if (terrain === 'desert') {
+    const n = 6 + Math.floor(hexHash(q, r, 30) * 5)
+    for (let i = 0; i < n; i++) {
+      const ox = (hexHash(q, r, 40 + i) - 0.5) * HEX_SIZE * 1.1
+      const oy = (hexHash(r, q, 50 + i) - 0.5) * HEX_SIZE * 0.9
+      g.circle(x + ox, y + oy, 1.2).fill({ color: 0xa8905a, alpha: 0.5 })
+    }
+  } else if (terrain === 'marsh') {
+    const n = 4 + Math.floor(hexHash(q, r, 60) * 3)
+    for (let i = 0; i < n; i++) {
+      const ox = (hexHash(q, r, 70 + i) - 0.5) * HEX_SIZE * 0.9
+      const oy = (hexHash(r, q, 80 + i) - 0.5) * HEX_SIZE * 0.8
+      g.moveTo(x + ox - 2, y + oy).lineTo(x + ox + 2, y + oy)
+        .stroke({ color: 0x4a6a2e, width: sw, alpha: 0.55 })
+    }
+  }
+}
 
 /** 三条主河的近似走向（[经度, 纬度]），用于古地图上的水系表现 */
 const RIVERS: [number, number][][] = [

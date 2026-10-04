@@ -570,6 +570,19 @@ class GameManager:
         else:
             data["faction_relations"] = []
 
+        # v4.3.0（D3）：交战国对列表 —— 供地图画「交战前线」红线（L4，学全战三国）。
+        # 只发 [a,b] 对数组（≤ C(12,2)=66 对，实际远少于此），避免随包下发整条关系对象。
+        # 🔴 若某局无外交系统 / 无交战 → []，前端据此不画红线（不臆造）。
+        if self.engine._diplomacy_relation_system is not None:
+            at_war_pairs = [
+                [r.faction_a, r.faction_b]
+                for r in self.engine._diplomacy_relation_system.get_all_relations().values()
+                if r.status.value == "war"
+            ]
+        else:
+            at_war_pairs = []
+        data["at_war_pairs"] = at_war_pairs
+
         # 外交消息
         data["messages"] = [
             {

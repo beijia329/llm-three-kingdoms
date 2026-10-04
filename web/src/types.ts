@@ -224,6 +224,8 @@ export interface GameState {
     }>
   }
   faction_relations?: FactionRelation[]
+  /** v4.3.0（D3）：交战国对列表 [[a,b], ...] —— 地图「交战前线」红线用（L4）。 */
+  at_war_pairs?: string[][]
   messages?: DiplomacyMessage[]
   turn_logs?: TurnLog[]
   /** v4.1：近 N 场战斗（用于地图上的战斗回放）。后端未落地时为空/缺省。 */

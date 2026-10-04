@@ -17,14 +17,14 @@ export const FACTION_COLORS: Record<string, string> = {
   zhangjiao: '#EFC200',       // 黄巾 — 明黄（与全天下对立）
   // 汉室联盟 — 暖色系
   han: '#CE2A18',             // 汉室 — 朱红（汉·火德尚赤）
-  caocao: '#5E3828',          // 曹操 — 深褐（汉室嫡系）
+  caocao: '#8A4B32',          // 曹操 — 中褐（D3：原 #5E3828 在纸底上发闷 → 提亮）
   liubei: '#2D7A3A',          // 刘备 — 森林绿（仁德）
   sunjian: '#8A1A2B',         // 孙坚 — 深绛（勇猛）
   yuanshao: '#DB861D',        // 袁绍 — 铜橙（盟主）
   gongsunzan: '#6E8073',      // 公孙瓒 — 北疆灰绿（原米褐几乎隐形于图上）
   mateng: '#6B3FA0',          // 马腾 — 紫（西凉）
-  // 董卓 — 近黑（未来篡逆，与联盟对立）
-  dongzhuo: '#1D1B24',
+  // 董卓 — 近黑（D3：原 #1D1B24 近黑，叠纸底像脏斑 → 提亮为「暗紫褐」，保留篡逆意象）
+  dongzhuo: '#5A4A63',
   // 中立观望
   liubiao: '#9C7A34',         // 刘表 — 金褐
   liuyan: '#A99BC4',          // 刘焉 — 浅灰紫
@@ -168,6 +168,30 @@ export const TERRAIN_PARCHMENT: Record<string, number> = {
 export const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const
 export const RADIUS = { sm: 2, md: 4, lg: 6, pill: 0 } as const
 export const FONT_SIZE = { xs: 11, sm: 12, md: 13, lg: 15, xl: 20 } as const
+
+// === 战棋标尺表（D3 · docs/art/2026-10-04-战棋视觉元素规范.md §4.7）===
+// 🔴 「比例没做好」的根因是过去无刻度：全站 fontSize 15 种、borderRadius 11 种。
+//    这里把地图/战斗层用到的四类刻度钉死，组件照抄。
+/** A. 字号刻度（屏幕 px） */
+export const FS = { micro: 9, caption: 10, body: 12, label: 14, title: 18, display: 22 } as const
+/** B. 线宽刻度（屏幕 px，恒定；绘制时 × 1/zoom 换世界 px） */
+export const LW = { hair: 1.0, thin: 1.5, mid: 2.0, bold: 3.0 } as const
+/** C. 标记尺寸刻度（屏幕 px，恒定） */
+export const MK = { xs: 12, sm: 16, md: 20, lg: 22, xl: 26 } as const
+/** D. 不透明度刻度 */
+export const OP = { wash: 0.30, soft: 0.48, mid: 0.72, strong: 0.92, glow: 0.40 } as const
+
+/** 城池等级 → 标记尺寸档（屏幕 px，恒定）：14/16/19/22/26 */
+export const CITY_MARKER_SIZE: Record<number, number> = { 1: 14, 2: 16, 3: 19, 4: 22, 5: 26 }
+/** 军队兵力 → 标记尺寸档（屏幕 px）：小队 12 / 大队 16 / 军团 20 */
+export function armyMarkerSize(soldiers: number): number {
+  if (soldiers < 3000) return MK.xs   // 12
+  if (soldiers < 10000) return MK.sm  // 16
+  return MK.md                        // 20
+}
+/** 🔴 军队标记尺寸 ≤ 同格城池标记尺寸 × 0.80（学兵棋「单位符号 ≤ 地形符号」） */
+export const ARMY_VS_CITY_RATIO = 0.80
+
 
 /**
  * 右侧常驻面板宽度（px）。
