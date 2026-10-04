@@ -226,19 +226,19 @@ export function GameMap({ state, onSelectCity, onSelectArmy, selectedArmyId, sel
     camera.addChild(factionGraphics)
 
     // 4. ★格网（H2）：地块仅 fill 时读不出棋盘结构 —— 给陆地格描一道细发线格网。
-    //    线宽屏幕恒定（÷zoom），全图视角（<0.30）不画（LOD）。
-    if (nBucket >= 1) {
-      const gridGraphics = new Graphics()
-      coords.forEach((key) => {
-        const tile = tileMap.get(key)
-        if (!tile?.province_id) return
-        const [q, r] = key.split(',').map(Number)
-        const { x, y } = axialToPixel({ q, r }, HEX_SIZE)
-        gridGraphics.poly(hexPoints(x, y, HEX_SIZE))
-          .stroke({ color: GRID_COLOR, width: w(LW.hair), alpha: 0.20 })
-      })
-      camera.addChild(gridGraphics)
-    }
+    //    🔴 全图（默认视角 zoom≈0.14）也要可见（H2 的诉求正是「全图看不到格网」），
+    //    故不随 LOD 隐藏；线宽屏幕恒定（÷zoom），全图下更淡以不喧宾夺主。
+    const gridGraphics = new Graphics()
+    const gridAlpha = nBucket === 0 ? 0.12 : 0.20
+    coords.forEach((key) => {
+      const tile = tileMap.get(key)
+      if (!tile?.province_id) return
+      const [q, r] = key.split(',').map(Number)
+      const { x, y } = axialToPixel({ q, r }, HEX_SIZE)
+      gridGraphics.poly(hexPoints(x, y, HEX_SIZE))
+        .stroke({ color: GRID_COLOR, width: w(LW.hair), alpha: gridAlpha })
+    })
+    camera.addChild(gridGraphics)
 
     // 5. 水系（黄河/长江）：真实走向折线（主干 10 世界px，§4.3）
     const riverGraphics = new Graphics()
