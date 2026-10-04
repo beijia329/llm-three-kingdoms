@@ -1,0 +1,1 @@
+seed=42 mode=infinite 192 infinite max_turns=

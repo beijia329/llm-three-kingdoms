@@ -1,0 +1,12 @@
+{
+  "turn": 48,
+  "max_turns": 48,
+  "game_over": true,
+  "winner": "sunjian",
+  "game_mode": "standard",
+  "stalemate_turns": 6,
+  "end_reason": "timeout",
+  "end_title": "孙坚 领先胜出",
+  "end_subtitle": "第 48 / 48 回合 · 时限已到，天下未定",
+  "end_icon": "siege-tower"
+}

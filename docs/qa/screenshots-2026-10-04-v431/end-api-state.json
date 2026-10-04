@@ -1,0 +1,12 @@
+{
+  "turn": 138,
+  "max_turns": 192,
+  "game_over": false,
+  "winner": null,
+  "game_mode": "standard",
+  "stalemate_turns": 6,
+  "end_reason": null,
+  "end_title": "",
+  "end_subtitle": "",
+  "end_icon": ""
+}

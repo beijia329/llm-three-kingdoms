@@ -1,0 +1,38 @@
+[
+  {
+    "width": 1920,
+    "vw": 1920,
+    "mapW": 1500,
+    "panelW": 420,
+    "ringVisible": true,
+    "cell": 26,
+    "cellCount": 132,
+    "legendBelowMatrix": true,
+    "foldBtn": true,
+    "emoji": []
+  },
+  {
+    "width": 1366,
+    "vw": 1366,
+    "mapW": 1006,
+    "panelW": 360,
+    "ringVisible": true,
+    "cell": 25,
+    "cellCount": 132,
+    "legendBelowMatrix": true,
+    "foldBtn": true,
+    "emoji": []
+  },
+  {
+    "width": 1280,
+    "vw": 1280,
+    "mapW": 920,
+    "panelW": 360,
+    "ringVisible": true,
+    "cell": 25,
+    "cellCount": 132,
+    "legendBelowMatrix": true,
+    "foldBtn": true,
+    "emoji": []
+  }
+]
