@@ -1,0 +1,1 @@
+seed=42 mode=standard max_turns=48

@@ -1,0 +1,11 @@
+{
+  "panelW": 300,
+  "cell": {
+    "w": 20,
+    "h": 20,
+    "fontPx": "10px"
+  },
+  "captionTopY": null,
+  "matrixHiddenBelowPx": 0,
+  "realScroller": null
+}

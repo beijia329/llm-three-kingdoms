@@ -1,0 +1,104 @@
+{
+  "viewport": {
+    "vw": 1920,
+    "vh": 1080
+  },
+  "panelW": 300,
+  "matrixCellDiv": {
+    "count": 132,
+    "w": 20,
+    "h": 20,
+    "fontPx": "10px"
+  },
+  "captionY": 572,
+  "matrixBlock": {
+    "top": 115,
+    "bottom": 890,
+    "h": 775,
+    "w": 251
+  },
+  "realScroller": null,
+  "ancestors": [
+    {
+      "tag": "DIV",
+      "overflowY": "visible",
+      "clientH": 775,
+      "scrollH": 775,
+      "hiddenBelow": 0,
+      "scrollTop": 0,
+      "cls": ""
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "auto",
+      "clientH": 984,
+      "scrollH": 984,
+      "hiddenBelow": 0,
+      "scrollTop": 0,
+      "cls": ""
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "auto",
+      "clientH": 1008,
+      "scrollH": 1008,
+      "hiddenBelow": 0,
+      "scrollTop": 0,
+      "cls": ""
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "visible",
+      "clientH": 1058,
+      "scrollH": 1058,
+      "hiddenBelow": 0,
+      "scrollTop": 0,
+      "cls": ""
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "visible",
+      "clientH": 1058,
+      "scrollH": 1058,
+      "hiddenBelow": 0,
+      "scrollTop": 0,
+      "cls": ""
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "visible",
+      "clientH": 1080,
+      "scrollH": 1080,
+      "hiddenBelow": 0,
+      "scrollTop": 0,
+      "cls": ""
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "visible",
+      "clientH": 1080,
+      "scrollH": 1080,
+      "hiddenBelow": 0,
+      "scrollTop": 0,
+      "cls": ""
+    },
+    {
+      "tag": "BODY",
+      "overflowY": "hidden",
+      "clientH": 1080,
+      "scrollH": 1080,
+      "hiddenBelow": 0,
+      "scrollTop": 0,
+      "cls": ""
+    },
+    {
+      "tag": "HTML",
+      "overflowY": "visible",
+      "clientH": 1080,
+      "scrollH": 1080,
+      "hiddenBelow": 0,
+      "scrollTop": 0,
+      "cls": ""
+    }
+  ]
+}

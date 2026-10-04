@@ -1,0 +1,11 @@
+{
+  "turn": 58,
+  "max_turns": 192,
+  "game_over": true,
+  "winner": "sunjian",
+  "game_mode": "infinite",
+  "stalemate_turns": 6,
+  "end_reason": "stalemate",
+  "end_title": "孙坚 领先胜出",
+  "end_subtitle": "连续 6 回合无战事 · 僵局收束，天下未定"
+}

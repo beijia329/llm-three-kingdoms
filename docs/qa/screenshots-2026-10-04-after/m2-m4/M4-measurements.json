@@ -1,0 +1,87 @@
+{
+  "viewport": {
+    "vw": 1920,
+    "vh": 1080
+  },
+  "panelW": 300,
+  "cell": {
+    "w": 20,
+    "h": 20,
+    "fontPx": "10px"
+  },
+  "nonDiagCells": 132,
+  "captionTopY": 873,
+  "realScroller": {
+    "tag": "DIV",
+    "overflowY": "auto",
+    "clientH": 984,
+    "scrollH": 1141,
+    "hiddenBelow": 157
+  },
+  "matrixHiddenBelowPx": 157,
+  "ancestors": [
+    {
+      "tag": "DIV",
+      "overflowY": "visible",
+      "clientH": 1076,
+      "scrollH": 1076,
+      "hiddenBelow": 0
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "auto",
+      "clientH": 984,
+      "scrollH": 1141,
+      "hiddenBelow": 157
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "auto",
+      "clientH": 1008,
+      "scrollH": 1008,
+      "hiddenBelow": 0
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "visible",
+      "clientH": 1058,
+      "scrollH": 1058,
+      "hiddenBelow": 0
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "visible",
+      "clientH": 1058,
+      "scrollH": 1058,
+      "hiddenBelow": 0
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "visible",
+      "clientH": 1080,
+      "scrollH": 1080,
+      "hiddenBelow": 0
+    },
+    {
+      "tag": "DIV",
+      "overflowY": "visible",
+      "clientH": 1080,
+      "scrollH": 1080,
+      "hiddenBelow": 0
+    },
+    {
+      "tag": "BODY",
+      "overflowY": "hidden",
+      "clientH": 1080,
+      "scrollH": 1080,
+      "hiddenBelow": 0
+    },
+    {
+      "tag": "HTML",
+      "overflowY": "visible",
+      "clientH": 1080,
+      "scrollH": 1080,
+      "hiddenBelow": 0
+    }
+  ]
+}

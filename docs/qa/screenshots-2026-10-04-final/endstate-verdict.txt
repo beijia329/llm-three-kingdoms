@@ -1,0 +1,81 @@
+FAIL(5)
+[
+  {
+    "tag": "A1-unification",
+    "title": "曹操 一统天下",
+    "sub": "第 30 回合 · 廓清寰宇 · 坐拥 2 城",
+    "iconAsset": null,
+    "emoji": false,
+    "expTitle": "曹操 一统天下",
+    "expSub": "第 30 回合 · 廓清寰宇",
+    "expIcon": "crown",
+    "noUnify": false,
+    "check": true,
+    "iconOk": false
+  },
+  {
+    "tag": "A2-timeout",
+    "title": "孙坚 领先胜出",
+    "sub": "第 48 / 48 回合 · 时限已到，天下未定 · 坐拥 2 城",
+    "iconAsset": null,
+    "emoji": false,
+    "expTitle": "孙坚 领先胜出",
+    "expSub": "第 48 / 48",
+    "expIcon": "siege-tower",
+    "noUnify": true,
+    "check": true,
+    "iconOk": false
+  },
+  {
+    "tag": "A3-stalemate",
+    "title": "孙坚 领先胜出",
+    "sub": "连续 6 回合无战事 · 僵局收束，天下未定 · 坐拥 2 城",
+    "iconAsset": null,
+    "emoji": false,
+    "expTitle": "孙坚 领先胜出",
+    "expSub": "连续 6 回合无战事",
+    "expIcon": "scales",
+    "noUnify": true,
+    "check": true,
+    "iconOk": false
+  },
+  {
+    "tag": "A4-draw",
+    "title": "天下未定 · 并列",
+    "sub": "第 48 / 48 回合 · 时限已到，天下未定",
+    "iconAsset": null,
+    "emoji": false,
+    "expTitle": "天下未定 · 并列",
+    "expSub": "第 48 / 48",
+    "expIcon": "shaking-hands",
+    "noUnify": true,
+    "check": true,
+    "iconOk": false
+  },
+  {
+    "tag": "A5-sentinel-verbatim",
+    "title": "【哨兵】标题应逐字渲染",
+    "sub": "【哨兵】副行应逐字渲染 · 坐拥 2 城",
+    "iconAsset": null,
+    "emoji": false,
+    "expTitle": "【哨兵】标题应逐字渲染",
+    "expSub": "【哨兵】副行应逐字渲染",
+    "expIcon": "scales",
+    "noUnify": true,
+    "check": true,
+    "iconOk": false
+  },
+  {
+    "tag": "A6-sentinel-unknown-icon",
+    "title": "孙坚 领先胜出",
+    "sub": "第 40 / 48 回合 · 时限已到，天下未定 · 坐拥 2 城",
+    "iconAsset": null,
+    "emoji": false,
+    "expTitle": "孙坚 领先胜出",
+    "expSub": "第 40 / 48",
+    "expIcon": null,
+    "noUnify": true,
+    "check": true,
+    "iconOk": true
+  }
+]
