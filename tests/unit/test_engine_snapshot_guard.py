@@ -73,10 +73,14 @@ def test_snapshot_format_lacks_both_map_and_diplomacy(engine: GameEngine):
     将来谁扩了 `GameState`，这条会红，提醒他同步重新评估
     `load_state_snapshot` 是否可以做完整恢复了。
 
-    实测（2026-10-03）快照**只有 11 个字段**：
+    实测（2026-10-03）快照**只有 11 个字段**；v4.3.0 增至 **12 个**
+    （新增 `end_reason`，D1 三层结束语义，用于回放复现终局文案）：
 
-        turn / max_turns / year / seed / game_over / winner /
+        turn / max_turns / year / seed / game_over / winner / end_reason /
         cities / armies / generals / messages / turn_logs
+
+    🔴 新增的 `end_reason` **不是**地图字段、也**不是**外交字段 —— 因此它
+    **不改变** `load_state_snapshot` 的可行性判断（仍缺 hex_map 与外交）。
 
     两样关键东西**都没有**：
 
@@ -107,9 +111,14 @@ def test_snapshot_format_lacks_both_map_and_diplomacy(engine: GameEngine):
     rels = engine._diplomacy_relation_system.get_all_relations()  # noqa: SLF001
     assert len(rels) > 0, "前置失败：引擎内部本身就没有外交关系"
 
-    # 明确记录字段是 11 个：将来扩展格式时这条会红，提醒改这里的判断
-    assert len(data) == 11, (
-        f"GameState 字段数从 11 变成了 {len(data)}：{sorted(data)} —— "
+    # v4.3.0 新增字段：end_reason（D1）—— 记录在案，且它不解除上面的两个缺口
+    assert "end_reason" in data, (
+        "GameState 缺少 end_reason —— D1 三层结束语义要求它进快照以复现终局文案"
+    )
+
+    # 明确记录字段是 12 个（v4.3.0）：将来扩展格式时这条会红，提醒改这里的判断
+    assert len(data) == 12, (
+        f"GameState 字段数从 12 变成了 {len(data)}：{sorted(data)} —— "
         "快照格式有变动，请重新评估 load_state_snapshot 的可行性"
     )
 
