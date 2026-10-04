@@ -118,9 +118,9 @@ class MapRenderer:
             if self.engine.winner:
                 from game.constants import FACTIONS
                 winner_name = FACTIONS.get(self.engine.winner, self.engine.winner)
-                turn_text = f"🏆 {winner_name} 获胜！共{self.engine.turn}回合"
+                turn_text = f"{winner_name} 获胜！共{self.engine.turn}回合"
             else:
-                turn_text = "⚖️ 平局！"
+                turn_text = "平局！"
 
         text_surf = self.font_banner.render(turn_text, True, (255, 215, 0))
         text_rect = text_surf.get_rect(center=(MAP_WIDTH // 2, banner_y + 14))
@@ -233,7 +233,7 @@ class MapRenderer:
 
             # 守军数量
             garrison_text = self.font.render(
-                f"🛡️{city.garrison}", True, (200, 200, 200),
+                f"{city.garrison}", True, (200, 200, 200),
             )
             garrison_rect = garrison_text.get_rect(center=(x, y + radius + 8))
             surface.blit(garrison_text, garrison_rect)

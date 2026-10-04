@@ -1374,7 +1374,7 @@ class GameEngine:
                 faction_cities = [c for c in self.cities.values() if c.faction == faction]
                 kingdom = self._kingdom_system.check_kingdom_eligibility(faction, list(self.cities.values()))
                 if kingdom:
-                    logger.info("🏰 %s 称%s！国号【%s】",
+                    logger.info("%s 称%s！国号【%s】",
                                 FACTIONS.get(faction, faction),
                                 "帝" if kingdom["type"] == "emperor" else "王",
                                 kingdom["name"])

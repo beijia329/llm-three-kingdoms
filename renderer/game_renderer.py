@@ -257,7 +257,7 @@ class GameRenderer:
         if e.game_over:
             if e.winner:
                 w = FACTIONS.get(e.winner, e.winner)
-                draw_text(self.screen, f"🏆 {w} 一统天下！", MAP_W // 2, 8, COLOR_GOLD, FONT_CJK_LG, center=True)
+                draw_text(self.screen, f"{w} 一统天下！", MAP_W // 2, 8, COLOR_GOLD, FONT_CJK_LG, center=True)
             else:
                 draw_text(self.screen, "平局", MAP_W // 2, 8, COLOR_DIM, FONT_CJK_LG, center=True)
 
@@ -703,22 +703,22 @@ class GameRenderer:
                     if result.success:
                         fname = FACTIONS.get(faction, faction)
                         if cmd.type == "attack":
-                            self.add_event(f"⚔ {fname} 从 {cmd.from_city} 出兵 {cmd.troops} → {cmd.to_city}", COLOR_RED)
+                            self.add_event(f"{fname} 从 {cmd.from_city} 出兵 {cmd.troops} → {cmd.to_city}", COLOR_RED)
                         elif cmd.type == "message":
-                            self.add_event(f"✉ {fname} → {FACTIONS.get(cmd.to, cmd.to)}: {str(cmd.content)[:30]}", COLOR_BLUE)
+                            self.add_event(f"{fname} → {FACTIONS.get(cmd.to, cmd.to)}: {str(cmd.content)[:30]}", COLOR_BLUE)
                             # 推送外交消息给目标势力
                             target_player = players.get(cmd.to)
                             if target_player:
                                 target_player.receive_message(faction, str(getattr(cmd, 'content', '')))
                         elif cmd.type == "recruit":
-                            self.add_event(f"🔧 {fname} {cmd.city} 征兵 {cmd.troops}", COLOR_GREEN)
+                            self.add_event(f"{fname} {cmd.city} 征兵 {cmd.troops}", COLOR_GREEN)
 
         result = self.engine.process_turn()
         turn = result.get("turn", 0)
         battles = result.get("battles_fought", 0)
 
         if battles > 0:
-            self.add_event(f"⚔ 第 {turn} 回合: {battles} 场战斗", COLOR_RED)
+            self.add_event(f"第 {turn} 回合: {battles} 场战斗", COLOR_RED)
 
         # 建国检测
         ks = getattr(self.engine, '_kingdom_system', None)
@@ -729,7 +729,7 @@ class GameRenderer:
                 from game.kingdom_system import KINGDOM_TYPE_LABELS
 
                 label = KINGDOM_TYPE_LABELS.get(k["type"], k["type"])
-                self.add_event(f"🏰 {FACTIONS.get(f, f)} 称{label}！国号【{k['name']}】", COLOR_GOLD)
+                self.add_event(f"{FACTIONS.get(f, f)} 称{label}！国号【{k['name']}】", COLOR_GOLD)
 
         self._turn_just_executed = True
         logger.info("第%d回合完成 (战斗:%d)", turn, battles)

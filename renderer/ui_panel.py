@@ -141,7 +141,7 @@ class UIPanel:
             if self.engine.winner:
                 winner_name = FACTIONS.get(self.engine.winner, self.engine.winner)
                 self._draw_text(
-                    surface, f"🏆 {winner_name} 胜利!",
+                    surface, f"{winner_name} 胜利!",
                     (PANEL_X, y + 40), (255, 215, 0), self.font_medium,
                 )
             else:
@@ -217,7 +217,7 @@ class UIPanel:
             ]
 
             if not cities:
-                text = f"{f_name}: ❌ 已灭亡"
+                text = f"{f_name}: 已灭亡"
                 self._draw_text(surface, text, (PANEL_X, y), (150, 50, 50), self.font_medium)
                 y += 22
                 continue
@@ -233,7 +233,7 @@ class UIPanel:
             total_gold = sum(c.gold for c in cities)
             total_food = sum(c.food for c in cities)
             total_pop = sum(c.population for c in cities)
-            detail = f"💰{total_gold} 🌾{total_food} 👥{total_pop}"
+            detail = f"{total_gold} {total_food} {total_pop}"
             self._draw_text(surface, detail, (PANEL_X + 5, y), COLOR_SUBTEXT, self.font_small)
             y += 16
 
@@ -271,18 +271,18 @@ class UIPanel:
         # 城市名+势力
         color_hex = FACTION_COLORS.get(city.faction, "#888888")
         color_rgb = self._hex_to_rgb(color_hex)
-        self._draw_text(surface, f"🏙️ {city.name}", (PANEL_X, y), color_rgb, self.font_header)
+        self._draw_text(surface, f"{city.name}", (PANEL_X, y), color_rgb, self.font_header)
         y += 28
 
         # 基本信息
         items = [
             (f"等级: {city.level}级", ""),
             (f"城墙: {city.wall_hp}/{city.wall_max_hp}", ""),
-            (f"金钱: {city.gold}", "💰"),
-            (f"粮草: {city.food}", "🌾"),
-            (f"人口: {city.population}", "👥"),
-            (f"民心: {city.morale}", "❤️"),
-            (f"守军: {city.garrison}", "🛡️"),
+            (f"金钱: {city.gold}", ""),
+            (f"粮草: {city.food}", ""),
+            (f"人口: {city.population}", ""),
+            (f"民心: {city.morale}", ""),
+            (f"守军: {city.garrison}", ""),
         ]
 
         for label, icon in items:
@@ -307,7 +307,7 @@ class UIPanel:
         if city.is_besieged:
             y += 4
             self._draw_text(
-                surface, "⚠️ 被围困中!",
+                surface, "⚠被围困中!",
                 (PANEL_X + 5, y), (200, 100, 50), self.font_small,
             )
 
@@ -349,20 +349,20 @@ class UIPanel:
 
                     if battles > 0:
                         self._draw_text(
-                            surface, f"  ⚔️ {battles}场战斗",
+                            surface, f"  {battles}场战斗",
                             (PANEL_X + 5, y), (200, 150, 100), self.font_small,
                         )
                         y += 14
                     if armies_moved > 0:
                         self._draw_text(
-                            surface, f"  🚩 {armies_moved}支军队移动",
+                            surface, f"  {armies_moved}支军队移动",
                             (PANEL_X + 5, y), (150, 150, 150), self.font_small,
                         )
                         y += 14
                     if game_over and winner:
                         winner_name = FACTIONS.get(winner, winner)
                         self._draw_text(
-                            surface, f"  🏆 {winner_name}获胜!",
+                            surface, f"  {winner_name}获胜!",
                             (PANEL_X + 5, y), (255, 215, 0), self.font_small,
                         )
                         y += 14
